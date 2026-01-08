@@ -8,9 +8,10 @@ export default function SignupScreen() {
     const router = useRouter();
     const [businessName, setBusinessName] = useState('');
     const [phone, setPhone] = useState('');
+    const [password, setPassword] = useState('');
 
     const handleSignup = () => {
-        if (businessName && phone) {
+        if (businessName && phone && password) {
             // Mock signup logic
             Alert.alert('Account Created', 'Welcome to Rice ERP!');
             router.replace('/(tabs)');
@@ -55,6 +56,17 @@ export default function SignupScreen() {
                                 value={phone}
                                 onChangeText={setPhone}
                                 keyboardType="phone-pad"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>PASSWORD</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Create a password"
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
                             />
                         </View>
 

@@ -7,22 +7,33 @@ import { Leaf, ArrowRight } from 'lucide-react-native';
 export default function LoginScreen() {
     const router = useRouter();
     const [phone, setPhone] = useState('');
-    const [otp, setOtp] = useState('');
-    const [stage, setStage] = useState<'phone' | 'otp'>('phone');
+    const [password, setPassword] = useState('');
+    // const [otp, setOtp] = useState('');
+    // const [stage, setStage] = useState<'phone' | 'otp'>('phone');
 
+    /*
     const handleSendOtp = () => {
         if (phone.length > 0) {
             setStage('otp');
             // Alert.alert('OTP Sent', 'Use 1234 to login');
         }
     };
+    */
 
     const handleLogin = () => {
+        if (phone && password) {
+           router.replace('/(tabs)');
+        } else {
+            Alert.alert('Error', 'Please enter phone and password');
+        }
+
+        /*
         if (otp === '1234') {
             router.replace('/(tabs)');
         } else {
             Alert.alert('Error', 'Invalid OTP');
         }
+        */
     };
 
     return (
@@ -45,6 +56,34 @@ export default function LoginScreen() {
                     </View>
 
                     <View style={styles.form}>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>PHONE NUMBER</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="+1 234 567 890"
+                                value={phone}
+                                onChangeText={setPhone}
+                                keyboardType="phone-pad"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>PASSWORD</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter your password"
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
+                            />
+                        </View>
+
+                        <TouchableOpacity style={styles.actionBtn} onPress={handleLogin}>
+                            <Text style={styles.actionBtnText}>Sign In</Text>
+                            <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
+                        </TouchableOpacity>
+
+                        {/* 
                         {stage === 'phone' ? (
                             <>
                                 <View style={styles.inputGroup}>
@@ -86,6 +125,7 @@ export default function LoginScreen() {
                                 </TouchableOpacity>
                             </>
                         )}
+                        */}
 
                         <View style={styles.footer}>
                             <Text style={styles.footerText}>Don't have an account? </Text>
