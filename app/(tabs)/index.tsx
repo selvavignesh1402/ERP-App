@@ -5,6 +5,7 @@ import { MetricCard } from '../../src/components/MetricCard';
 import { QuickAction } from '../../src/components/QuickAction';
 import { Box, CircleDollarSign, Clock, TrendingUp, Search, Bell, ArrowRight } from 'lucide-react-native';
 import { DashboardHeader } from '../../src/components/DashboardHeader';
+import { StaggerContainer, FadeInDown, AnimatedPressable } from '../../src/components/Anime';
 
 export default function Home() {
     const router = useRouter();
@@ -15,56 +16,68 @@ export default function Home() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
                 {/* Header Section */}
-                <DashboardHeader
-                    date="Sunday, Jan 04"
-                    greeting="Good Morning, Ali"
-                    subtext="Here's what's happening with your rice stock today."
-                />
+                <FadeInDown delay={50}>
+                    <DashboardHeader
+                        date="Sunday, Jan 04"
+                        greeting="Good Morning, Ali"
+                        subtext="Here's what's happening with your rice stock today."
+                    />
+                </FadeInDown>
 
                 {/* Metrics Grid */}
                 <View style={styles.metricsGrid}>
-                    <MetricCard
-                        title="Stock Available"
-                        value="1,250 kg"
-                        icon={Box}
-                        iconBgColor={Colors.accent}
-                        iconColor={Colors.primary}
-                    />
-                    <MetricCard
-                        title="Rice Sold Today"
-                        value="320 kg"
-                        icon={TrendingUp}
-                        iconBgColor={Colors.accent}
-                        iconColor={Colors.primary}
-                    />
-                    <MetricCard
-                        title="Total Revenue"
-                        value="₹4,280"
-                        icon={CircleDollarSign}
-                        trend={{ value: '+8%', positive: true }}
-                        iconBgColor={Colors.accent}
-                        iconColor={Colors.primary}
-                    />
-                    <MetricCard
-                        title="Pending"
-                        value="₹1,150"
-                        icon={Clock}
-                        trend={{ value: '-2%', positive: false }}
-                        iconBgColor='#F4EBE8'
-                        iconColor='#8D7B75'
-                    />
+                    <StaggerContainer stagger={80} delay={120}>
+                        <MetricCard
+                            title="Stock Available"
+                            value="1,250 kg"
+                            icon={Box}
+                            iconBgColor={Colors.accent}
+                            iconColor={Colors.primary}
+                            onPress={() => router.push('/stock')}
+                        />
+                        <MetricCard
+                            title="Rice Sold Today"
+                            value="320 kg"
+                            icon={TrendingUp}
+                            iconBgColor={Colors.accent}
+                            iconColor={Colors.primary}
+                            onPress={() => router.push('/sales')}
+                        />
+                        <MetricCard
+                            title="Total Revenue"
+                            value="₹4,280"
+                            icon={CircleDollarSign}
+                            trend={{ value: '+8%', positive: true }}
+                            iconBgColor={Colors.accent}
+                            iconColor={Colors.primary}
+                        />
+                        <MetricCard
+                            title="Pending"
+                            value="₹1,150"
+                            icon={Clock}
+                            trend={{ value: '-2%', positive: false }}
+                            iconBgColor='#F4EBE8'
+                            iconColor='#8D7B75'
+                        />
+                    </StaggerContainer>
                 </View>
 
                 {/* Recent Sales Section */}
-                <View style={styles.section}>
+                <FadeInDown delay={350} style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Recent Sales</Text>
-                        <View style={styles.seeAll}>
+                        <AnimatedPressable
+                            onPress={() => router.push('/sales')}
+                            style={styles.seeAll}
+                        >
                             <Text style={styles.seeAllText}>View All</Text>
                             <ArrowRight size={16} color={Colors.textSecondary} />
-                        </View>
+                        </AnimatedPressable>
                     </View>
-                    <View style={styles.salesRow}>
+                    <AnimatedPressable
+                        onPress={() => router.push('/sales')}
+                        style={styles.salesRow}
+                    >
                         <View style={[styles.avatar, { backgroundColor: '#E8F5E9' }]}>
                             <Text style={[styles.avatarText, { color: Colors.success }]}>BM</Text>
                         </View>
@@ -76,32 +89,33 @@ export default function Home() {
                             <Text style={styles.amountText}>₹120.00</Text>
                             <Text style={styles.statusText}>Paid</Text>
                         </View>
-                    </View>
-                </View>
+                    </AnimatedPressable>
+                </FadeInDown>
 
                 {/* Quick Actions */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { marginBottom: 16 }]}>Quick Actions</Text>
                     <View style={styles.actionsRow}>
-                        <QuickAction
-                            title="New Sale"
-                            icon={CircleDollarSign}
-                            variant="primary"
-                            onPress={() => router.push('/sales')}
-                        />
-                        <View style={{ width: 16 }} />
-                        <QuickAction
-                            title="Add Stock"
-                            icon={Box}
-                            variant="secondary"
-                            // Note: router.push('/stock') works even if it's a tab, expo-router handles it
-                            onPress={() => router.push('/stock')}
-                        />
+                        <StaggerContainer stagger={100} delay={450}>
+                            <QuickAction
+                                title="New Sale"
+                                icon={CircleDollarSign}
+                                variant="primary"
+                                onPress={() => router.push('/sales')}
+                            />
+                            <View style={{ width: 16 }} />
+                            <QuickAction
+                                title="Add Stock"
+                                icon={Box}
+                                variant="secondary"
+                                onPress={() => router.push('/stock')}
+                            />
+                        </StaggerContainer>
                     </View>
                 </View>
 
                 {/* Low Stock Alert */}
-                <View style={styles.section}>
+                <FadeInDown delay={550} style={styles.section}>
                     <Text style={[styles.sectionTitle, { marginBottom: 16 }]}>Low Stock Alert</Text>
                     <View style={styles.alertCard}>
                         <View style={styles.alertRow}>
@@ -116,11 +130,14 @@ export default function Home() {
                                 <Text style={styles.alertBadgeText}>Only 8 left</Text>
                             </View>
                         </View>
-                        <View style={styles.checkInventoryBtn}>
+                        <AnimatedPressable
+                            style={styles.checkInventoryBtn}
+                            onPress={() => router.push('/inventory')}
+                        >
                             <Text style={styles.checkInventoryText}>Check Inventory</Text>
-                        </View>
+                        </AnimatedPressable>
                     </View>
-                </View>
+                </FadeInDown>
 
             </ScrollView>
         </SafeAreaView>

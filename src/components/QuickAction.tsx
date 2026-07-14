@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Colors } from '../theme/colors';
 import { LucideIcon } from 'lucide-react-native';
+import { useAnimePress } from './Anime';
 
 interface QuickActionProps {
     title: string;
@@ -17,32 +18,38 @@ export const QuickAction: React.FC<QuickActionProps> = ({
     variant = 'secondary'
 }) => {
     const isPrimary = variant === 'primary';
+    const { pressHandlers, animatedStyle } = useAnimePress(0.96);
 
     return (
-        <TouchableOpacity
-            style={[
-                styles.container,
-                isPrimary ? styles.primaryBg : styles.secondaryBg
-            ]}
+        <Pressable
             onPress={onPress}
-            activeOpacity={0.8}
+            {...pressHandlers}
+            style={{ flex: 1 }}
         >
-            <View style={[
-                styles.iconContainer,
-                isPrimary ? styles.iconPrimary : styles.iconSecondary
-            ]}>
-                <Icon
-                    size={24}
-                    color={isPrimary ? Colors.card : Colors.primary}
-                />
-            </View>
-            <Text style={[
-                styles.title,
-                isPrimary ? styles.textPrimary : styles.textSecondary
-            ]}>
-                {title}
-            </Text>
-        </TouchableOpacity>
+            <Animated.View
+                style={[
+                    styles.container,
+                    isPrimary ? styles.primaryBg : styles.secondaryBg,
+                    animatedStyle
+                ]}
+            >
+                <View style={[
+                    styles.iconContainer,
+                    isPrimary ? styles.iconPrimary : styles.iconSecondary
+                ]}>
+                    <Icon
+                        size={24}
+                        color={isPrimary ? Colors.card : Colors.primary}
+                    />
+                </View>
+                <Text style={[
+                    styles.title,
+                    isPrimary ? styles.textPrimary : styles.textSecondary
+                ]}>
+                    {title}
+                </Text>
+            </Animated.View>
+        </Pressable>
     );
 };
 

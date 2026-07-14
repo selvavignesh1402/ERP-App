@@ -1,20 +1,40 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Alert, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Alert, ImageBackground, ActivityIndicator } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import { Leaf, ArrowRight } from 'lucide-react-native';
+import api from '../../src/services/api';
 
 export default function SignupScreen() {
     const router = useRouter();
     const [businessName, setBusinessName] = useState('');
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleSignup = () => {
-        if (businessName && phone && password) {
-            // Mock signup logic
-            Alert.alert('Account Created', 'Welcome to Rice ERP!');
-            router.replace('/(tabs)');
+    const handleSignup = async () => {
+        if (!businessName || !phone || !password) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await api.post('/auth/signup-password', {
+                name: businessName,
+                phoneNumber: phone,
+                password: password,
+            });
+
+            Alert.alert('Account Created', 'Registration successful! Please log in with your credentials.', [
+                { text: 'OK', onPress: () => router.push('/(auth)/login') }
+            ]);
+        } catch (error: any) {
+            console.error('Signup error:', error);
+            const errMsg = error.response?.data?.message || 'Failed to register account. Please try again.';
+            Alert.alert('Signup Failed', errMsg);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -70,9 +90,15 @@ export default function SignupScreen() {
                             />
                         </View>
 
-                        <TouchableOpacity style={styles.createBtn} onPress={handleSignup}>
-                            <Text style={styles.createBtnText}>Create Account</Text>
-                            <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
+                        <TouchableOpacity style={styles.createBtn} onPress={handleSignup} disabled={loading}>
+                            {loading ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <>
+                                    <Text style={styles.createBtnText}>Create Account</Text>
+                                    <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
+                                </>
+                            )}
                         </TouchableOpacity>
 
                         <View style={styles.footer}>

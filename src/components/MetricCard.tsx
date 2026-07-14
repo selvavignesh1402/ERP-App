@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Colors } from '../theme/colors';
 import { LucideIcon } from 'lucide-react-native';
+import { useAnimePress, FadeInDown } from './Anime';
 
 interface MetricCardProps {
     title: string;
@@ -13,6 +14,9 @@ interface MetricCardProps {
     };
     iconColor?: string;
     iconBgColor?: string;
+    onPress?: () => void;
+    animateEntrance?: boolean;
+    delay?: number;
 }
 
 export const MetricCard: React.FC<MetricCardProps> = ({
@@ -21,10 +25,15 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     icon: Icon,
     trend,
     iconColor = Colors.primary,
-    iconBgColor = Colors.accent
+    iconBgColor = Colors.accent,
+    onPress,
+    animateEntrance = false,
+    delay = 0
 }) => {
-    return (
-        <View style={styles.card}>
+    const { pressHandlers, animatedStyle } = useAnimePress(0.97);
+
+    const renderCardBody = () => (
+        <View style={styles.cardContainer}>
             <View style={styles.header}>
                 <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
                     <Icon size={20} color={iconColor} />
@@ -43,15 +52,41 @@ export const MetricCard: React.FC<MetricCardProps> = ({
             </View>
         </View>
     );
+
+    const content = onPress ? (
+        <Pressable onPress={onPress} {...pressHandlers}>
+            <Animated.View style={animatedStyle}>
+                {renderCardBody()}
+            </Animated.View>
+        </Pressable>
+    ) : (
+        renderCardBody()
+    );
+
+    if (animateEntrance) {
+        return (
+            <FadeInDown delay={delay} style={styles.wrapper}>
+                {content}
+            </FadeInDown>
+        );
+    }
+
+    return (
+        <View style={styles.wrapper}>
+            {content}
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
-    card: {
+    wrapper: {
+        width: '48%',
+        marginBottom: 16,
+    },
+    cardContainer: {
         backgroundColor: Colors.card,
         borderRadius: 16,
         padding: 16,
-        width: '48%', // Approx half width for grid
-        marginBottom: 16,
         // Shadow for iOS
         shadowColor: "#000",
         shadowOffset: {

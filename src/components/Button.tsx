@@ -1,7 +1,8 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
+import { Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, Animated } from 'react-native';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
+import { useAnimePress } from './Anime';
 
 interface ButtonProps {
     title: string;
@@ -31,37 +32,43 @@ export const Button: React.FC<ButtonProps> = ({
 
     const getTextColor = () => {
         switch (variant) {
-            case 'primary': return Colors.text.white;
-            case 'secondary': return Colors.text.primary;
+            case 'primary': return '#FFFFFF';
+            case 'secondary': return Colors.text;
             case 'outline': return Colors.primary;
-            default: return Colors.text.white;
+            default: return '#FFFFFF';
         }
     };
 
+    const { pressHandlers, animatedStyle } = useAnimePress(0.96);
+
     return (
-        <TouchableOpacity
-            style={[
-                styles.button,
-                { backgroundColor: getBackgroundColor() },
-                variant === 'outline' && styles.outline,
-                style
-            ]}
+        <Pressable
             onPress={onPress}
             disabled={loading}
-            activeOpacity={0.8}
+            {...pressHandlers}
         >
-            {loading ? (
-                <ActivityIndicator color={getTextColor()} />
-            ) : (
-                <Text style={[
-                    styles.text,
-                    { color: getTextColor() },
-                    textStyle
-                ]}>
-                    {title}
-                </Text>
-            )}
-        </TouchableOpacity>
+            <Animated.View
+                style={[
+                    styles.button,
+                    { backgroundColor: getBackgroundColor() },
+                    variant === 'outline' && styles.outline,
+                    style,
+                    animatedStyle
+                ]}
+            >
+                {loading ? (
+                    <ActivityIndicator color={getTextColor()} />
+                ) : (
+                    <Text style={[
+                        styles.text,
+                        { color: getTextColor() },
+                        textStyle
+                    ]}>
+                        {title}
+                    </Text>
+                )}
+            </Animated.View>
+        </Pressable>
     );
 };
 

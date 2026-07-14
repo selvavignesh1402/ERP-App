@@ -1,15 +1,28 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, Pressable, Animated } from 'react-native';
 import { Colors } from '../theme/colors';
+import { useAnimePress, FadeInDown } from './Anime';
 
 interface CardProps {
     children: React.ReactNode;
-    style?: ViewStyle;
+    style?: ViewStyle | ViewStyle[];
     variant?: 'elevated' | 'flat' | 'outlined';
+    onPress?: () => void;
+    animateEntrance?: boolean;
+    delay?: number;
 }
 
-export const Card: React.FC<CardProps> = ({ children, style, variant = 'elevated' }) => {
-    return (
+export const Card: React.FC<CardProps> = ({
+    children,
+    style,
+    variant = 'elevated',
+    onPress,
+    animateEntrance = false,
+    delay = 0
+}) => {
+    const { pressHandlers, animatedStyle } = useAnimePress(0.98);
+
+    const cardContent = (
         <View style={[
             styles.card,
             variant === 'elevated' && styles.elevated,
@@ -19,11 +32,31 @@ export const Card: React.FC<CardProps> = ({ children, style, variant = 'elevated
             {children}
         </View>
     );
+
+    let mainElement = onPress ? (
+        <Pressable onPress={onPress} {...pressHandlers}>
+            <Animated.View style={animatedStyle}>
+                {cardContent}
+            </Animated.View>
+        </Pressable>
+    ) : (
+        cardContent
+    );
+
+    if (animateEntrance) {
+        return (
+            <FadeInDown delay={delay}>
+                {mainElement}
+            </FadeInDown>
+        );
+    }
+
+    return mainElement;
 };
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.text.white,
+        backgroundColor: Colors.card,
         borderRadius: 16,
         padding: 16,
     },

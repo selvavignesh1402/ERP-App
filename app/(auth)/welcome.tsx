@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Image, ImageBackground } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import { Leaf } from 'lucide-react-native';
+import { StaggerContainer, ScaleIn, FadeInDown, AnimatedPressable } from '../../src/components/Anime';
 
 export default function WelcomeScreen() {
     const router = useRouter();
@@ -18,40 +19,51 @@ export default function WelcomeScreen() {
                 <Stack.Screen options={{ headerShown: false }} />
 
                 <View style={styles.content}>
-                    <View style={styles.logoContainer}>
-                        <View style={styles.logoBox}>
-                            <Leaf size={32} color={Colors.primary} />
+                    <StaggerContainer stagger={120} delay={100}>
+                        <ScaleIn style={styles.logoContainer}>
+                            <View style={styles.logoBox}>
+                                <Leaf size={32} color={Colors.primary} />
+                            </View>
+                        </ScaleIn>
+
+                        <FadeInDown>
+                            <Text style={styles.title}>Welcome</Text>
+                        </FadeInDown>
+
+                        <FadeInDown>
+                            <Text style={styles.subtitle}>
+                                Experience the calmest ERP for your rice business.
+                            </Text>
+                        </FadeInDown>
+
+                        <FadeInDown style={styles.illustrationContainer}>
+                            <Image
+                                source={require('../../assets/welcome.png')}
+                                style={styles.illustration}
+                                resizeMode="contain"
+                            />
+                        </FadeInDown>
+
+                        <View style={styles.footer}>
+                            <FadeInDown style={{ width: '100%' }}>
+                                <AnimatedPressable
+                                    style={styles.loginBtn}
+                                    onPress={() => router.push('/(auth)/login')}
+                                >
+                                    <Text style={styles.loginBtnText}>Log In</Text>
+                                </AnimatedPressable>
+                            </FadeInDown>
+
+                            <FadeInDown style={{ width: '100%' }}>
+                                <AnimatedPressable
+                                    style={styles.signupBtn}
+                                    onPress={() => router.push('/(auth)/signup')}
+                                >
+                                    <Text style={styles.signupBtnText}>Sign Up</Text>
+                                </AnimatedPressable>
+                            </FadeInDown>
                         </View>
-                    </View>
-
-                    <Text style={styles.title}>Welcome</Text>
-                    <Text style={styles.subtitle}>
-                        Experience the calmest ERP for your rice business.
-                    </Text>
-
-                    <View style={styles.illustrationContainer}>
-                        <Image
-                            source={require('../../assets/welcome.png')}
-                            style={styles.illustration}
-                            resizeMode="contain"
-                        />
-                    </View>
-
-                    <View style={styles.footer}>
-                        <TouchableOpacity
-                            style={styles.loginBtn}
-                            onPress={() => router.push('/(auth)/login')}
-                        >
-                            <Text style={styles.loginBtnText}>Log In</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.signupBtn}
-                            onPress={() => router.push('/(auth)/signup')}
-                        >
-                            <Text style={styles.signupBtnText}>Sign Up</Text>
-                        </TouchableOpacity>
-                    </View>
+                    </StaggerContainer>
                 </View>
             </SafeAreaView>
         </ImageBackground>

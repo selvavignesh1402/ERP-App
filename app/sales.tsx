@@ -1,110 +1,358 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, FlatList, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TextInput, FlatList, TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
 import { Colors } from '../src/theme/colors';
-import { Search, Filter, Calendar, Download, Plus } from 'lucide-react-native';
+import { Typography } from '../src/theme/typography';
+import { Card } from '../src/components/Card';
+import { Plus, Search, ShoppingBag, X, ReceiptText, Coins, Percent } from 'lucide-react-native';
+import api from '../src/services/api';
 
-// Mock Data
-const SALES_DATA = [
-    { id: 'INV-001', customer: 'Ali Market', date: 'Jan 04, 2024', summary: 'Basmati Rice (500kg)', amount: '$1,250.00', status: 'Paid' },
-    { id: 'INV-002', customer: 'Fresh Foods', date: 'Jan 04, 2024', summary: 'Jasmine Rice (200kg)', amount: '$480.00', status: 'Pending' },
-    { id: 'INV-003', customer: 'City Restaurant', date: 'Jan 03, 2024', summary: 'Brown Rice (50kg)', amount: '$150.00', status: 'Paid' },
-    { id: 'INV-004', customer: 'Local Shop', date: 'Jan 03, 2024', summary: 'Sticky Rice (100kg)', amount: '$300.00', status: 'Paid' },
-    { id: 'INV-005', customer: 'Wedding Hall', date: 'Jan 02, 2024', summary: 'Basmati Premium (1000kg)', amount: '$2,800.00', status: 'Overdue' },
-];
+const PAYMENT_MODES = ['CASH', 'UPI', 'CARD', 'CREDIT'];
 
 export default function SalesScreen() {
+    const [products, setProducts] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Form Checkout state
+    const [customerName, setCustomerName] = useState('Cash Customer');
+    const [paymentMode, setPaymentMode] = useState('CASH');
+    const [discountStr, setDiscountStr] = useState('0');
+    const [cartItems, setCartItems] = useState<any[]>([]);
+
+    // Cart row selectors
+    const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+    const [selectedProductName, setSelectedProductName] = useState('');
+    const [selectedProductStock, setSelectedProductStock] = useState(0);
+    const [selectedProductPrice, setSelectedProductPrice] = useState(0);
+    const [itemQty, setItemQty] = useState('');
+    const [itemPrice, setItemPrice] = useState('');
+
+    // UI Visuals Toggle
+    const [productDropdownVisible, setProductDropdownVisible] = useState(false);
+
+    const fetchProducts = async () => {
+        setLoading(true);
+        try {
+            const response = await api.get('/products');
+            setProducts(response.data || []);
+        } catch (error) {
+            console.error('Error fetching inventory products:', error);
+            Alert.alert('Error', 'Failed to load stock list in POS.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchProducts();
+    }, []);
+
+    const handleAddToCart = () => {
+        if (!selectedProductId || !itemQty || !itemPrice) {
+            Alert.alert('Missing Info', 'Select a rice brand/type, quantity, and rate.');
+            return;
+        }
+
+        const qtyVal = parseFloat(itemQty);
+        const priceVal = parseFloat(itemPrice);
+
+        if (isNaN(qtyVal) || qtyVal <= 0 || isNaN(priceVal) || priceVal <= 0) {
+            Alert.alert('Invalid values', 'Quantity and Selling Price must be greater than zero.');
+            return;
+        }
+
+        // Real-time frontend stock precaution check
+        if (qtyVal > selectedProductStock) {
+            Alert.alert('Insufficient Stock', `Only ${selectedProductStock} bags available in shop inventory.`);
+            return;
+        }
+
+        const existingItemIndex = cartItems.findIndex(i => i.productId === selectedProductId);
+        if (existingItemIndex > -1) {
+            const updated = [...cartItems];
+            const newQty = updated[existingItemIndex].quantity + qtyVal;
+            if (newQty > selectedProductStock) {
+                Alert.alert('Insufficient Stock', `Adding this quantity exceeds available stock (${selectedProductStock} bags).`);
+                return;
+            }
+            updated[existingItemIndex].quantity = newQty;
+            updated[existingItemIndex].price = priceVal;
+            setCartItems(updated);
+        } else {
+            setCartItems([
+                ...cartItems,
+                {
+                    productId: selectedProductId,
+                    productName: selectedProductName,
+                    quantity: qtyVal,
+                    price: priceVal
+                }
+            ]);
+        }
+
+        // Clear row state
+        setSelectedProductId(null);
+        setSelectedProductName('');
+        setSelectedProductStock(0);
+        setSelectedProductPrice(0);
+        setItemQty('');
+        setItemPrice('');
+    };
+
+    const handleRemoveFromCart = (index: number) => {
+        const updated = [...cartItems];
+        updated.splice(index, 1);
+        setCartItems(updated);
+    };
+
+    // Calculate billing taxes & totals
+    const getSubtotal = () => {
+        return cartItems.reduce((acc, curr) => acc + (curr.quantity * curr.price), 0);
+    };
+
+    const getDiscount = () => {
+        const disc = parseFloat(discountStr);
+        return isNaN(disc) || disc < 0 ? 0 : disc;
+    };
+
+    const getNetTotal = () => {
+        const sub = getSubtotal();
+        const disc = getDiscount();
+        const net = sub - disc;
+        return net < 0 ? 0 : net;
+    };
+
+    const getCGST = () => getNetTotal() * 0.025; // 2.5% CGST
+    const getSGST = () => getNetTotal() * 0.025; // 2.5% SGST
+    const getGrandTotal = () => getNetTotal() + getCGST() + getSGST();
+
+    const handlePlaceOrder = async () => {
+        if (cartItems.length === 0) {
+            Alert.alert('Empty Cart', 'Please add at least one item to proceed.');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const payload = {
+                customerName: customerName || 'Cash Customer',
+                paymentMode: paymentMode,
+                discount: getDiscount(),
+                items: cartItems.map(item => ({
+                    productId: item.productId,
+                    quantity: item.quantity,
+                    price: item.price
+                }))
+            };
+
+            const response = await api.post('/sales', payload);
+            Alert.alert('Sale Confirmed', `Invoice ${response.data.billNumber} created successfully! Stock updated.`);
+
+            // Clean cart & refresh products inventory stock counts
+            setCartItems([]);
+            setCustomerName('Cash Customer');
+            setPaymentMode('CASH');
+            setDiscountStr('0');
+            fetchProducts();
+        } catch (error: any) {
+            console.error('Checkout error:', error);
+            const msg = error.response?.data?.message || 'Failed to place order';
+            Alert.alert('Checkout Failed', msg);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
             <View style={styles.header}>
-                <View>
-                    <Text style={styles.title}>Sales & Billing</Text>
-                    <Text style={styles.subtitle}>Track your daily sales and manage invoices.</Text>
+                <ReceiptText size={28} color={Colors.primary} />
+                <View style={{ marginLeft: 12 }}>
+                    <Text style={styles.title}>POS Billing Terminal</Text>
+                    <Text style={styles.subtitle}>Process dynamic customer sales bills</Text>
                 </View>
             </View>
 
             <View style={styles.content}>
-                {/* Actions Row */}
-                <View style={styles.actionsRow}>
-                    <TouchableOpacity style={styles.exportBtn}>
-                        <Download size={20} color={Colors.textSecondary} />
-                        <Text style={styles.exportText}>Export</Text>
-                    </TouchableOpacity>
+                <ScrollView contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
 
-                    <TouchableOpacity style={styles.newInvoiceBtn}>
-                        <Plus size={20} color={Colors.card} />
-                        <Text style={styles.newInvoiceText}>New Invoice</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Search & Filter */}
-                <View style={styles.searchContainer}>
-                    <Search size={20} color={Colors.textSecondary} style={styles.searchIcon} />
-                    <TextInput
-                        placeholder="Search invoices..."
-                        placeholderTextColor={Colors.textSecondary}
-                        style={styles.searchInput}
-                    />
-                </View>
-
-                <View style={styles.filtersRow}>
-                    <TouchableOpacity style={styles.filterChip}>
-                        <Calendar size={16} color={Colors.textSecondary} />
-                        <Text style={styles.filterText}>Date Range</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.filterChip}>
-                        <Filter size={16} color={Colors.textSecondary} />
-                        <Text style={styles.filterText}>Status</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Sales List Header */}
-                <View style={styles.tableHeader}>
-                    <Text style={[styles.headerText, { width: 60 }]}>INV ID</Text>
-                    <Text style={[styles.headerText, { flex: 1 }]}>Customer</Text>
-                    <Text style={[styles.headerText, { width: 80, textAlign: 'right' }]}>Amount</Text>
-                    <Text style={[styles.headerText, { width: 70, textAlign: 'center' }]}>Status</Text>
-                </View>
-
-                {/* Sales List */}
-                <FlatList
-                    data={SALES_DATA}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <View style={styles.row}>
-                            <View style={{ width: 60 }}>
-                                <Text style={styles.invId}>{item.id}</Text>
-                                <Text style={styles.date}>{item.date}</Text>
-                            </View>
-                            <View style={{ flex: 1, paddingHorizontal: 4 }}>
-                                <Text style={styles.customer}>{item.customer}</Text>
-                                <Text style={styles.summary} numberOfLines={1}>{item.summary}</Text>
-                            </View>
-                            <Text style={[styles.amount, { width: 80 }]}>{item.amount}</Text>
-                            <View style={[styles.statusBadge, { width: 70, backgroundColor: getStatusColor(item.status).bg }]}>
-                                <Text style={[styles.statusText, { color: getStatusColor(item.status).text }]}>
-                                    {item.status}
-                                </Text>
-                            </View>
+                    {/* Customer & Payment Mode Configuration */}
+                    <Card style={styles.configCard}>
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>CUSTOMER NAME</Text>
+                            <TextInput
+                                placeholder="e.g. John Doe"
+                                style={styles.input}
+                                value={customerName}
+                                onChangeText={setCustomerName}
+                            />
                         </View>
+
+                        <Text style={styles.label}>PAYMENT MODE</Text>
+                        <View style={styles.chipRow}>
+                            {PAYMENT_MODES.map(mode => (
+                                <TouchableOpacity
+                                    key={mode}
+                                    style={[
+                                        styles.paymentChip,
+                                        paymentMode === mode && styles.paymentChipActive
+                                    ]}
+                                    onPress={() => setPaymentMode(mode)}
+                                >
+                                    <Text style={[
+                                        styles.chipText,
+                                        paymentMode === mode && styles.chipTextActive
+                                    ]}>
+                                        {mode}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </Card>
+
+                    {/* Cart Builder Terminal */}
+                    <View style={styles.cartTitleRow}>
+                        <ShoppingBag size={18} color={Colors.primary} />
+                        <Text style={styles.cartTitle}>Sales Cart</Text>
+                    </View>
+
+                    <View style={styles.cartBuilderBox}>
+                        <Text style={styles.label}>SELECT RICE BAG STOCK</Text>
+                        {/* Custom Dropdown Trigger */}
+                        <TouchableOpacity
+                            style={[styles.input, styles.dropdownTrigger]}
+                            onPress={() => setProductDropdownVisible(!productDropdownVisible)}
+                        >
+                            <Text style={{ color: selectedProductId ? Colors.text : Colors.textSecondary }}>
+                                {selectedProductName ? `${selectedProductName} [Stock: ${selectedProductStock} bags]` : 'Choose grain type'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {productDropdownVisible && (
+                            <View style={styles.dropdownMenu}>
+                                <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
+                                    {products.map(p => (
+                                        <TouchableOpacity
+                                            key={p.id}
+                                            style={styles.dropdownOption}
+                                            onPress={() => {
+                                                setSelectedProductId(p.id);
+                                                setSelectedProductName(`${p.brand ? p.brand + ' ' : ''}${p.productName}`);
+                                                setSelectedProductStock(p.stock);
+                                                setSelectedProductPrice(p.sellingPrice);
+                                                setItemQty('1'); // Default qty
+                                                setItemPrice(p.sellingPrice.toString()); // Default rate
+                                                setProductDropdownVisible(false);
+                                            }}
+                                        >
+                                            <Text style={styles.optionText}>
+                                                {p.brand} {p.productName} (Qty: {p.stock} • ₹{p.sellingPrice}/bag)
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                    {products.length === 0 && (
+                                        <Text style={styles.noOptionText}>No stock found in database</Text>
+                                    )}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        <View style={styles.qtyPriceRow}>
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                                <Text style={styles.inputLabel}>QTY (BAGS)</Text>
+                                <TextInput
+                                    placeholder="Qty"
+                                    style={styles.input}
+                                    keyboardType="numeric"
+                                    value={itemQty}
+                                    onChangeText={setItemQty}
+                                />
+                            </View>
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                                <Text style={styles.inputLabel}>RATE (₹)</Text>
+                                <TextInput
+                                    placeholder="Rate/Bag"
+                                    style={styles.input}
+                                    keyboardType="numeric"
+                                    value={itemPrice}
+                                    onChangeText={setItemPrice}
+                                />
+                            </View>
+                            <TouchableOpacity style={styles.innerAddBtn} onPress={handleAddToCart}>
+                                <Text style={styles.innerAddBtnText}>Add</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Cart Items List */}
+                    {cartItems.map((item, idx) => (
+                        <View key={idx} style={styles.cartItemRow}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.cartProdName}>{item.productName}</Text>
+                                <Text style={styles.cartProdMeta}>{item.quantity} bags • ₹{item.price}/bag</Text>
+                            </View>
+                            <Text style={styles.cartSubtotal}>₹{item.quantity * item.price}</Text>
+                            <TouchableOpacity onPress={() => handleRemoveFromCart(idx)} style={styles.cartDelete}>
+                                <X size={16} color={Colors.error} />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+
+                    {/* Taxes, Discounts & Checklist Summary */}
+                    {cartItems.length > 0 && (
+                        <Card style={styles.summaryCard}>
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Subtotal</Text>
+                                <Text style={styles.summaryValue}>₹ {getSubtotal()}</Text>
+                            </View>
+
+                            <View style={styles.discountRow}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Percent size={14} color={Colors.textSecondary} />
+                                    <Text style={[styles.summaryLabel, { marginLeft: 4 }]}>Discount (₹)</Text>
+                                </View>
+                                <TextInput
+                                    style={styles.discInput}
+                                    keyboardType="numeric"
+                                    value={discountStr}
+                                    onChangeText={setDiscountStr}
+                                />
+                            </View>
+
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>CGST (2.5%)</Text>
+                                <Text style={styles.summaryValue}>₹ {getCGST().toFixed(2)}</Text>
+                            </View>
+
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>SGST (2.5%)</Text>
+                                <Text style={styles.summaryValue}>₹ {getSGST().toFixed(2)}</Text>
+                            </View>
+
+                            <View style={styles.totalDivider} />
+
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.grandLabel}>Grand Total</Text>
+                                <Text style={styles.grandValue}>₹ {getGrandTotal().toFixed(2)}</Text>
+                            </View>
+
+                            {submitting ? (
+                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginTop: 20 }} />
+                            ) : (
+                                <TouchableOpacity style={styles.checkoutBtn} onPress={handlePlaceOrder}>
+                                    <Coins size={18} color="white" />
+                                    <Text style={styles.checkoutText}>Confirm checkout bill</Text>
+                                </TouchableOpacity>
+                            )}
+                        </Card>
                     )}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                />
+                </ScrollView>
             </View>
         </SafeAreaView>
     );
-}
-
-const getStatusColor = (status: string) => {
-    switch (status) {
-        case 'Paid': return { bg: '#E8F5E9', text: Colors.success };
-        case 'Pending': return { bg: '#FFF8E1', text: '#FFA000' }; // Amber
-        case 'Overdue': return { bg: '#FFEBEE', text: Colors.danger };
-        default: return { bg: Colors.background, text: Colors.textSecondary };
-    }
 }
 
 const styles = StyleSheet.create({
@@ -113,158 +361,253 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background,
     },
     header: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 20,
         paddingTop: 10,
         paddingBottom: 20,
     },
     title: {
-        fontSize: 28,
+        fontSize: 22,
         fontFamily: 'Urbanist_700Bold',
         color: Colors.text,
-        marginBottom: 8,
     },
     subtitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontFamily: 'Urbanist_400Regular',
         color: Colors.textSecondary,
+        marginTop: 2,
     },
     content: {
         flex: 1,
         paddingHorizontal: 20,
     },
-    actionsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 20,
-    },
-    exportBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        backgroundColor: Colors.card,
-    },
-    exportText: {
-        marginLeft: 8,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: Colors.textSecondary,
-    },
-    newInvoiceBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-        backgroundColor: Colors.primary,
-    },
-    newInvoiceText: {
-        marginLeft: 8,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: Colors.card,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.card,
-        borderRadius: 16,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+    configCard: {
+        padding: 16,
         marginBottom: 16,
+    },
+    formGroup: {
+        marginBottom: 12,
+    },
+    label: {
+        fontSize: 11,
+        fontFamily: 'Urbanist_700Bold',
+        color: Colors.textSecondary,
+        marginBottom: 6,
+        letterSpacing: 0.5,
+    },
+    inputLabel: {
+        fontSize: 9,
+        fontFamily: 'Urbanist_700Bold',
+        color: Colors.textSecondary,
+        marginBottom: 4,
+    },
+    input: {
         borderWidth: 1,
         borderColor: Colors.border,
-    },
-    searchIcon: {
-        marginRight: 12,
-    },
-    searchInput: {
-        flex: 1,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
         fontFamily: 'Urbanist_500Medium',
-        fontSize: 14,
+        fontSize: 15,
+        backgroundColor: '#FAFAFA',
         color: Colors.text,
     },
-    filtersRow: {
+    chipRow: {
         flexDirection: 'row',
-        marginBottom: 20,
-        gap: 12,
+        flexWrap: 'wrap',
+        gap: 8,
     },
-    filterChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    paymentChip: {
+        borderWidth: 1,
+        borderColor: Colors.border,
         paddingHorizontal: 14,
         paddingVertical: 8,
-        borderRadius: 12,
-        backgroundColor: Colors.card,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        gap: 6,
+        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
     },
-    filterText: {
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.textSecondary,
-        fontSize: 13,
+    paymentChipActive: {
+        borderColor: Colors.primary,
+        backgroundColor: '#E8F5E9',
     },
-    tableHeader: {
-        flexDirection: 'row',
-        paddingVertical: 12,
-        marginBottom: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    headerText: {
+    chipText: {
         fontSize: 12,
         fontFamily: 'Urbanist_600SemiBold',
         color: Colors.textSecondary,
     },
-    listContent: {
-        paddingBottom: 20,
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.card,
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 8,
-    },
-    invId: {
-        fontSize: 13,
-        fontFamily: 'Urbanist_600SemiBold',
+    chipTextActive: {
         color: Colors.primary,
     },
-    date: {
-        fontSize: 11,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.textSecondary,
-        marginTop: 2,
-    },
-    customer: {
-        fontSize: 14,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: Colors.text,
-    },
-    summary: {
-        fontSize: 12,
-        fontFamily: 'Urbanist_400Regular',
-        color: Colors.textSecondary,
-        marginTop: 2,
-    },
-    amount: {
-        fontSize: 14,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
-        textAlign: 'right',
-    },
-    statusBadge: {
-        paddingVertical: 4,
-        borderRadius: 8,
+    cartTitleRow: {
+        flexDirection: 'row',
         alignItems: 'center',
+        marginVertical: 12,
+        paddingHorizontal: 4,
+    },
+    cartTitle: {
+        fontFamily: 'Urbanist_700Bold',
+        fontSize: 16,
+        color: Colors.text,
         marginLeft: 8,
     },
-    statusText: {
-        fontSize: 10,
+    cartBuilderBox: {
+        backgroundColor: '#F5F8F6',
+        borderRadius: 18,
+        padding: 14,
+        marginBottom: 12,
+        position: 'relative',
+    },
+    dropdownTrigger: {
+        justifyContent: 'center',
+        minHeight: 45,
+        marginBottom: 8,
+    },
+    dropdownMenu: {
+        borderWidth: 1,
+        borderColor: Colors.border,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        marginTop: -4,
+        marginBottom: 8,
+        padding: 4,
+        maxHeight: 160,
+        zIndex: 50,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    dropdownOption: {
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F5F5',
+    },
+    optionText: {
+        fontFamily: 'Urbanist_500Medium',
+        fontSize: 13,
+        color: Colors.text,
+    },
+    noOptionText: {
+        fontFamily: 'Urbanist_400Regular',
+        fontSize: 12,
+        color: Colors.error,
+        padding: 10,
+    },
+    qtyPriceRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+    },
+    innerAddBtn: {
+        backgroundColor: Colors.primary,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: 44,
+    },
+    innerAddBtnText: {
+        color: Colors.card,
         fontFamily: 'Urbanist_700Bold',
+        fontSize: 14,
+    },
+    cartItemRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 4,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    cartProdName: {
+        fontFamily: 'Urbanist_700Bold',
+        fontSize: 14,
+        color: Colors.text,
+    },
+    cartProdMeta: {
+        fontFamily: 'Urbanist_500Medium',
+        fontSize: 12,
+        color: Colors.textSecondary,
+        marginTop: 2,
+    },
+    cartSubtotal: {
+        fontFamily: 'Urbanist_700Bold',
+        fontSize: 14,
+        color: Colors.text,
+        marginRight: 10,
+    },
+    cartDelete: {
+        padding: 4,
+    },
+    summaryCard: {
+        marginVertical: 20,
+        padding: 16,
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginVertical: 4,
+    },
+    discountRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginVertical: 4,
+    },
+    discInput: {
+        borderWidth: 1,
+        borderColor: Colors.border,
+        backgroundColor: '#FFF',
+        width: 80,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        textAlign: 'right',
+        fontFamily: 'Urbanist_600SemiBold',
+        fontSize: 14,
+        color: Colors.text,
+    },
+    summaryLabel: {
+        fontFamily: 'Urbanist_500Medium',
+        fontSize: 13,
+        color: Colors.textSecondary,
+    },
+    summaryValue: {
+        fontFamily: 'Urbanist_600SemiBold',
+        fontSize: 13,
+        color: Colors.text,
+    },
+    totalDivider: {
+        borderTopWidth: 1,
+        borderTopColor: Colors.border,
+        marginVertical: 8,
+    },
+    grandLabel: {
+        fontFamily: 'Urbanist_700Bold',
+        fontSize: 15,
+        color: Colors.text,
+    },
+    grandValue: {
+        fontFamily: 'Urbanist_800ExtraBold',
+        fontSize: 18,
+        color: Colors.primary,
+    },
+    checkoutBtn: {
+        backgroundColor: Colors.primary,
+        borderRadius: 24,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 14,
+        marginTop: 16,
+    },
+    checkoutText: {
+        color: 'white',
+        fontFamily: 'Urbanist_700Bold',
+        fontSize: 15,
+        marginLeft: 8,
     },
 });

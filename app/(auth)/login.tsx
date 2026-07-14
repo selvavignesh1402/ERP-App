@@ -1,39 +1,42 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Alert, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Alert, ImageBackground, ActivityIndicator } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import { Leaf, ArrowRight } from 'lucide-react-native';
+import api, { setToken } from '../../src/services/api';
 
 export default function LoginScreen() {
     const router = useRouter();
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
-    // const [otp, setOtp] = useState('');
-    // const [stage, setStage] = useState<'phone' | 'otp'>('phone');
+    const [loading, setLoading] = useState(false);
 
-    /*
-    const handleSendOtp = () => {
-        if (phone.length > 0) {
-            setStage('otp');
-            // Alert.alert('OTP Sent', 'Use 1234 to login');
-        }
-    };
-    */
-
-    const handleLogin = () => {
-        if (phone && password) {
-           router.replace('/(tabs)');
-        } else {
+    const handleLogin = async () => {
+        if (!phone || !password) {
             Alert.alert('Error', 'Please enter phone and password');
+            return;
         }
 
-        /*
-        if (otp === '1234') {
-            router.replace('/(tabs)');
-        } else {
-            Alert.alert('Error', 'Invalid OTP');
+        setLoading(true);
+        try {
+            const response = await api.post('/auth/login-password', {
+                phoneNumber: phone,
+                password: password,
+            });
+
+            if (response.data && response.data.token) {
+                setToken(response.data.token);
+                router.replace('/(tabs)');
+            } else {
+                Alert.alert('Error', 'Invalid login response');
+            }
+        } catch (error: any) {
+            console.error('Login error:', error);
+            const errMsg = error.response?.data?.message || 'Failed to authenticate. Please check your credentials.';
+            Alert.alert('Login Failed', errMsg);
+        } finally {
+            setLoading(false);
         }
-        */
     };
 
     return (
@@ -78,9 +81,15 @@ export default function LoginScreen() {
                             />
                         </View>
 
-                        <TouchableOpacity style={styles.actionBtn} onPress={handleLogin}>
-                            <Text style={styles.actionBtnText}>Sign In</Text>
-                            <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
+                        <TouchableOpacity style={styles.actionBtn} onPress={handleLogin} disabled={loading}>
+                            {loading ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <>
+                                    <Text style={styles.actionBtnText}>Sign In</Text>
+                                    <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
+                                </>
+                            )}
                         </TouchableOpacity>
 
                         {/* 

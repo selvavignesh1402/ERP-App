@@ -1,24 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput, TouchableOpacity, FlatList, Modal, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput, TouchableOpacity, FlatList, Modal, Alert, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import { InventoryCard } from '../../src/components/InventoryCard';
 import { Plus, Search, Filter, Box, ScanLine as Barcode } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import api from '../../src/services/api';
 
 const CATEGORIES = ['All Stock', 'Basmati', 'Jasmine', 'Brown', 'Sticky'];
 
-// Mock data
-const INVENTORY_DATA = [
-    { id: '1', name: 'Royal Basmati Premium', supplier: 'Organic Farms Ltd.', price: 45, stock: 140 },
-    { id: '2', name: 'Jasmine Rice Grade A', supplier: 'Asia Import Co.', price: 32, stock: 85 },
-    { id: '3', name: 'Organic Brown Rice', supplier: 'Eco Grain Co.', price: 28, stock: 45 },
-    { id: '4', name: 'Sushi Rice Short Grain', supplier: 'Tokyo Rice Traders', price: 38, stock: 12 },
-];
-
 export default function StockScreen() {
-    const [items, setItems] = useState(INVENTORY_DATA);
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('All Stock');
+    const [searchQuery, setSearchQuery] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     const [scannerVisible, setScannerVisible] = useState(false);
     const [scanned, setScanned] = useState(false);
@@ -33,22 +28,67 @@ export default function StockScreen() {
 
     const [sortOption, setSortOption] = useState<'name' | 'stockAsc' | 'stockDesc'>('name');
 
-    const handleAddItem = () => {
+    const fetchProducts = async () => {
+        setLoading(true);
+        try {
+            const response = await api.get('/products');
+            const data = response.data || [];
+            const mapped = data.map((p: any) => ({
+                id: p.id.toString(),
+                name: `${p.brand ? p.brand + ' ' : ''}${p.productName}`,
+                brand: p.brand,
+                productName: p.productName,
+                category: p.category,
+                supplier: 'Local Supplier',
+                price: p.sellingPrice,
+                stock: p.stock,
+                unit: p.unit
+            }));
+            setItems(mapped);
+        } catch (error) {
+            console.error('Error fetching products:', error);
+            Alert.alert('Error', 'Failed to fetch inventory products');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchProducts();
+    }, []);
+
+    const handleAddItem = async () => {
         if (newItemName && newItemBrand && newItemStock && newItemPrice) {
-            const newItem = {
-                id: Math.random().toString(),
-                name: `${newItemBrand} ${newItemName}`,
-                supplier: 'Local Supply', // could be a field later
-                price: parseFloat(newItemPrice),
-                stock: parseInt(newItemStock),
-            };
-            setItems([...items, newItem]);
-            setModalVisible(false);
-            setNewItemName('');
-            setNewItemBrand('');
-            setNewItemWeight('');
-            setNewItemStock('');
-            setNewItemPrice('');
+            setLoading(true);
+            try {
+                const payload = {
+                    productName: newItemName,
+                    brand: newItemBrand,
+                    category: selectedCategory === 'All Stock' ? 'Basmati' : selectedCategory,
+                    unit: `${newItemWeight || '25'}kg`,
+                    purchasePrice: parseFloat(newItemPrice) * 0.8,
+                    sellingPrice: parseFloat(newItemPrice),
+                    stock: parseInt(newItemStock),
+                    minimumStock: 10,
+                    gstRate: 5,
+                    hsnCode: '1006'
+                };
+                await api.post('/products', payload);
+                Alert.alert('Success', 'Product added successfully');
+                setModalVisible(false);
+                setNewItemName('');
+                setNewItemBrand('');
+                setNewItemWeight('');
+                setNewItemStock('');
+                setNewItemPrice('');
+                fetchProducts();
+            } catch (error: any) {
+                console.error('Error adding product:', error);
+                const msg = error.response?.data?.message || 'Failed to add product';
+                Alert.alert('Error', msg);
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
@@ -83,10 +123,15 @@ export default function StockScreen() {
     const getSortedItems = () => {
         let filtered = items;
         if (selectedCategory !== 'All Stock') {
-            // In a real app we would filter by category
+            filtered = filtered.filter((item: any) => item.category === selectedCategory);
+        }
+        if (searchQuery) {
+            filtered = filtered.filter((item: any) =>
+                item.name.toLowerCase().includes(searchQuery.toLowerCase())
+            );
         }
 
-        return [...filtered].sort((a, b) => {
+        return [...filtered].sort((a: any, b: any) => {
             if (sortOption === 'name') return a.name.localeCompare(b.name);
             if (sortOption === 'stockAsc') return a.stock - b.stock;
             if (sortOption === 'stockDesc') return b.stock - a.stock;
@@ -159,23 +204,30 @@ export default function StockScreen() {
                         placeholder="Search inventory by name..."
                         placeholderTextColor={Colors.textSecondary}
                         style={styles.searchInput}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
                     />
                 </View>
 
-                <FlatList
-                    data={getSortedItems()}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <InventoryCard
-                            name={item.name}
-                            supplier={item.supplier}
-                            price={item.price} // InventoryCard handles currency symbol or we update component
-                            stock={item.stock}
-                        />
-                    )}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                />
+                {loading && items.length === 0 ? (
+                    <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 40 }} />
+                ) : (
+
+                    <FlatList
+                        data={getSortedItems()}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <InventoryCard
+                                name={item.name}
+                                supplier={item.supplier}
+                                price={item.price} // InventoryCard handles currency symbol or we update component
+                                stock={item.stock}
+                            />
+                        )}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                    />
+                )}
             </View>
 
             {modalVisible && (

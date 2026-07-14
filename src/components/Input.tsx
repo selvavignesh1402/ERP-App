@@ -25,7 +25,7 @@ export const Input: React.FC<InputProps> = ({
                     error ? styles.inputError : null,
                     style
                 ]}
-                placeholderTextColor={Colors.text.secondary}
+                placeholderTextColor={Colors.textSecondary}
                 {...props}
             />
             {error && <Text style={styles.errorText}>{error}</Text>}
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     label: {
         fontFamily: Typography.fontFamily.medium,
         fontSize: Typography.size.body,
-        color: Colors.text.primary,
+        color: Colors.text,
         marginBottom: 8,
     },
     input: {
@@ -51,8 +51,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         fontFamily: Typography.fontFamily.regular,
         fontSize: Typography.size.body,
-        color: Colors.text.primary,
-        backgroundColor: Colors.text.white,
+        color: Colors.text,
+        backgroundColor: Colors.card,
     },
     inputError: {
         borderColor: Colors.error,
