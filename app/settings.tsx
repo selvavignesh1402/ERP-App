@@ -1,19 +1,46 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, TextInput, Switch, Image } from 'react-native';
-import { Stack } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, TextInput, Switch, Alert, ActivityIndicator } from 'react-native';
+import { Stack, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../src/theme/colors';
 import { Camera, BadgeCheck, Globe, LogOut, Bell, Shield, User, Building2, ChevronRight, Briefcase } from 'lucide-react-native';
+import api, { me } from '../src/services/api';
 
 type TabType = 'profile' | 'business' | 'notifications';
 
+const NOTIF_KEYS = {
+    lowStock: 'notif_lowStock',
+    dailySales: 'notif_dailySales',
+    security: 'notif_security',
+    ledger: 'notif_ledger',
+} as const;
+
+const roleLabel = (role: string | undefined) => {
+    switch (role) {
+        case 'ADMIN': return 'Administrator';
+        case 'MANAGER': return 'Manager';
+        case 'ACCOUNTANT': return 'Accountant';
+        case 'SALES': return 'Sales Staff';
+        case 'WAREHOUSE': return 'Warehouse Staff';
+        default: return role ?? 'User';
+    }
+};
+
 export default function SettingsScreen() {
     const [activeTab, setActiveTab] = useState<TabType>('profile');
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    // Form State (Mock)
-    const [name, setName] = useState('Ali Ahmed');
-    const [email, setEmail] = useState('ali@rice-erp.com');
-    const [phone, setPhone] = useState('+1 (555) 000-1234');
-    const [location, setLocation] = useState('Downtown Market, City');
+    const [userId, setUserId] = useState<number | null>(null);
+    const [role, setRole] = useState<string>('User');
+
+    // Form State
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
+    const [location, setLocation] = useState('');
+    const [registerNumber, setRegisterNumber] = useState('');
+    const [gstNo, setGstNo] = useState('');
 
     // Toggles
     const [toggles, setToggles] = useState({
@@ -23,8 +50,85 @@ export default function SettingsScreen() {
         ledger: false,
     });
 
+    const loadProfile = useCallback(async () => {
+        setLoading(true);
+        try {
+            const meRes = await me();
+            const user = meRes.data;
+            if (user?.id) setUserId(user.id);
+            if (user?.name) setName(user.name);
+            if (user?.phoneNumber) setPhone(user.phoneNumber);
+            if (user?.role) setRole(roleLabel(user.role));
+
+            if (user?.id) {
+                const profileRes = await api.get(`/profile/${user.id}`);
+                const profile = profileRes.data;
+                if (profile) {
+                    setEmail(profile.email || '');
+                    setLocation(profile.location || '');
+                    setRegisterNumber(profile.registerNumber || '');
+                    setGstNo(profile.gstNo || '');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading profile:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const loadToggles = useCallback(async () => {
+        try {
+            const entries = await AsyncStorage.multiGet(Object.values(NOTIF_KEYS));
+            const next = { ...toggles };
+            entries.forEach(([key, value]) => {
+                const toggleKey = (Object.keys(NOTIF_KEYS) as Array<keyof typeof NOTIF_KEYS>)
+                    .find(k => NOTIF_KEYS[k] === key);
+                if (toggleKey && value !== null) {
+                    next[toggleKey] = value === 'true';
+                }
+            });
+            setToggles(next);
+        } catch (error) {
+            console.error('Error loading notification prefs:', error);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadProfile();
+            loadToggles();
+        }, [loadProfile, loadToggles])
+    );
+
     const toggleSwitch = (key: keyof typeof toggles) => {
-        setToggles(prev => ({ ...prev, [key]: !prev[key] }));
+        setToggles(prev => {
+            const next = { ...prev, [key]: !prev[key] };
+            AsyncStorage.setItem(NOTIF_KEYS[key], String(next[key])).catch(err =>
+                console.error('Error saving notification pref:', err)
+            );
+            return next;
+        });
+    };
+
+    const saveProfile = async () => {
+        if (userId == null) return;
+        setSaving(true);
+        try {
+            await api.put(`/profile/${userId}`, {
+                email,
+                location,
+                registerNumber,
+                gstNo,
+            });
+            Alert.alert('Saved', 'Profile updated successfully');
+        } catch (error) {
+            console.error('Error saving profile:', error);
+            Alert.alert('Save failed', 'Could not update profile. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const renderTabs = () => (
@@ -46,51 +150,51 @@ export default function SettingsScreen() {
     const renderProfile = () => (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <View style={styles.profileCard}>
-                <View style={styles.avatarSection}>
-                    <View style={styles.avatarPlaceholder}>
-                        <Text style={styles.avatarInitials}>A</Text>
-                        <View style={styles.cameraBtn}>
-                            <Camera size={14} color="#fff" />
+<View style={styles.avatarSection}>
+                        <View style={styles.avatarPlaceholder}>
+                            <Text style={styles.avatarInitials}>{(name || 'U').trim().charAt(0).toUpperCase()}</Text>
+                            <View style={styles.cameraBtn}>
+                                <Camera size={14} color="#fff" />
+                            </View>
+                        </View>
+                        <View style={styles.nameRow}>
+                            <Text style={styles.profileName}>{name || 'User'}</Text>
+                            <BadgeCheck size={18} color={Colors.primary} style={{ marginLeft: 4 }} />
+                        </View>
+                        <Text style={styles.profileRole}>{role}</Text>
+                    </View>
+
+                    <View style={styles.formSection}>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>FULL NAME</Text>
+                            <TextInput style={styles.input} value={name} onChangeText={setName} editable={false} />
+                        </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>EMAIL ADDRESS</Text>
+                            <TextInput style={styles.input} value={email} onChangeText={setEmail} />
+                        </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>PHONE NUMBER</Text>
+                            <TextInput style={styles.input} value={phone} onChangeText={setPhone} editable={false} />
+                        </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>LOCATION</Text>
+                            <TextInput style={styles.input} value={location} onChangeText={setLocation} />
+                        </View>
+
+                        <View style={styles.actionRow}>
+                            <TouchableOpacity style={styles.cancelBtn} onPress={loadProfile}>
+                                <Text style={styles.cancelBtnText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.saveBtn} onPress={saveProfile} disabled={saving || userId == null}>
+                                {saving ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.saveBtnText}>Save Changes</Text>
+                                )}
+                            </TouchableOpacity>
                         </View>
                     </View>
-                    <View style={styles.nameRow}>
-                        <Text style={styles.profileName}>Ali Ahmed</Text>
-                        <BadgeCheck size={18} color={Colors.primary} style={{ marginLeft: 4 }} />
-                    </View>
-                    <Text style={styles.profileRole}>Main Administrator · Since Jan 2024</Text>
-                    <View style={styles.badgesRow}>
-                        <View style={styles.badge}><Text style={styles.badgeText}>Owner</Text></View>
-                        <View style={styles.badge}><Text style={styles.badgeText}>Verified</Text></View>
-                    </View>
-                </View>
-
-                <View style={styles.formSection}>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>FULL NAME</Text>
-                        <TextInput style={styles.input} value={name} onChangeText={setName} />
-                    </View>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>EMAIL ADDRESS</Text>
-                        <TextInput style={styles.input} value={email} onChangeText={setEmail} />
-                    </View>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>PHONE NUMBER</Text>
-                        <TextInput style={styles.input} value={phone} onChangeText={setPhone} />
-                    </View>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>LOCATION</Text>
-                        <TextInput style={styles.input} value={location} onChangeText={setLocation} />
-                    </View>
-
-                    <View style={styles.actionRow}>
-                        <TouchableOpacity style={styles.cancelBtn}>
-                            <Text style={styles.cancelBtnText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.saveBtn}>
-                            <Text style={styles.saveBtnText}>Save Changes</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
             </View>
 
             <View style={styles.sectionCard}>
@@ -138,27 +242,24 @@ export default function SettingsScreen() {
                 <View style={styles.formSection}>
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>REGISTRATION NUMBER</Text>
-                        <TextInput style={styles.input} value="REG-2024-X89" editable={false} />
+                        <TextInput style={styles.input} value={registerNumber} onChangeText={setRegisterNumber} />
                     </View>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>TAX ID</Text>
-                        <TextInput style={styles.input} value="TX-990-112" editable={false} />
+                        <Text style={styles.label}>GST NUMBER</Text>
+                        <TextInput style={styles.input} value={gstNo} onChangeText={setGstNo} />
                     </View>
                 </View>
 
-                <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statLabel}>Active Sales</Text>
-                        <Text style={styles.statValue}>1,240</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statLabel}>Monthly Revenue</Text>
-                        <Text style={[styles.statValue, { color: Colors.primary }]}>$42,800</Text>
-                    </View>
-                </View>
-
-                <TouchableOpacity style={[styles.saveBtn, { width: '100%', marginTop: 24 }]}>
-                    <Text style={styles.saveBtnText}>Upgrade Workspace</Text>
+                <TouchableOpacity
+                    style={[styles.saveBtn, { width: '100%', marginTop: 24 }]}
+                    onPress={saveProfile}
+                    disabled={saving || userId == null}
+                >
+                    {saving ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <Text style={styles.saveBtnText}>Save Changes</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </ScrollView>
@@ -244,9 +345,17 @@ export default function SettingsScreen() {
             {renderTabs()}
 
             <View style={styles.content}>
-                {activeTab === 'profile' && renderProfile()}
-                {activeTab === 'business' && renderBusiness()}
-                {activeTab === 'notifications' && renderNotifications()}
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color={Colors.primary} />
+                    </View>
+                ) : (
+                    <>
+                        {activeTab === 'profile' && renderProfile()}
+                        {activeTab === 'business' && renderBusiness()}
+                        {activeTab === 'notifications' && renderNotifications()}
+                    </>
+                )}
             </View>
         </SafeAreaView>
     );
@@ -301,6 +410,11 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     scrollContent: {
         padding: 20,

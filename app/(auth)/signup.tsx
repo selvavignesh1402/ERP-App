@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Alert, ImageBackground, ActivityIndicator } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
-import { Leaf, ArrowRight } from 'lucide-react-native';
+import { Leaf, ArrowRight, Eye, EyeOff } from 'lucide-react-native';
 import api from '../../src/services/api';
 
 export default function SignupScreen() {
@@ -11,6 +11,7 @@ export default function SignupScreen() {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSignup = async () => {
         if (!businessName || !phone || !password) {
@@ -81,13 +82,18 @@ export default function SignupScreen() {
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>PASSWORD</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Create a password"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                            />
+                            <View style={styles.passwordContainer}>
+                                <TextInput
+                                    style={styles.passwordInput}
+                                    placeholder="Create a password"
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!showPassword}
+                                />
+                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                                    {showPassword ? <EyeOff size={20} color={Colors.textSecondary} /> : <Eye size={20} color={Colors.textSecondary} />}
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         <TouchableOpacity style={styles.createBtn} onPress={handleSignup} disabled={loading}>
@@ -224,5 +230,25 @@ const styles = StyleSheet.create({
     linkText: {
         color: '#769F83',
         fontFamily: 'Urbanist_700Bold',
+    },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FAFAFA',
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+        borderRadius: 12,
+        paddingRight: 14,
+    },
+    passwordInput: {
+        flex: 1,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 16,
+        fontFamily: 'Urbanist_500Medium',
+        color: Colors.text,
+    },
+    eyeBtn: {
+        padding: 4,
     }
 });

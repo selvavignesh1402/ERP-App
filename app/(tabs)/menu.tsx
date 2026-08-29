@@ -1,79 +1,186 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Colors } from '../../src/theme/colors';
-import { Users, Settings, FileText, ChevronRight, HelpCircle, Info, LogOut, BadgeCheck } from 'lucide-react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
+import {
+    MapPin, Box, RefreshCw, Users, BookOpen, Truck,
+    UserCheck, BarChart2, ChevronRight
+} from 'lucide-react-native';
+import { IndianRupee } from '../../src/components/IndianRupee';
+import { StaggerContainer, FadeInDown } from '../../src/components/Anime';
+import { useCurrentRole } from '../../src/hooks/useCurrentRole';
 
-const MENU_ITEMS = [
-    { id: 'suppliers', title: 'Suppliers', subtitle: 'Manage your partners', icon: Users, route: '/suppliers', color: '#E8F5E9', iconColor: Colors.primary },
-    { id: 'reports', title: 'Reports & Analytics', subtitle: 'Sales & stock insights', icon: FileText, route: '/reports', color: '#E3F2FD', iconColor: '#1E88E5' },
-    { id: 'settings', title: 'Settings', subtitle: 'App preferences', icon: Settings, route: '/settings', color: '#FFF3E0', iconColor: '#FB8C00' },
-    { id: 'help', title: 'Help & Support', subtitle: 'FAQs and contact', icon: HelpCircle, route: '/help', color: '#F3E5F5', iconColor: '#8E24AA' }, // Placeholder route
-    { id: 'about', title: 'About App', subtitle: 'Version 1.0.0', icon: Info, route: '/about', color: '#ECEFF1', iconColor: '#546E7A' }, // Placeholder route
+const MODULES = [
+    {
+        id: 'field-sales',
+        title: 'Field Sales',
+        subtitle: 'Beat route plans & visits',
+        icon: MapPin,
+        bgColor: '#E8F5E9',
+        iconColor: '#36B37E',
+        route: '/field-sales',
+        roles: ['ADMIN', 'MANAGER', 'SALES']
+    },
+    {
+        id: 'purchase',
+        title: 'Purchase',
+        subtitle: 'Orders, bills & GRN',
+        icon: Box,
+        bgColor: '#FEF4E6',
+        iconColor: '#F5A34C',
+        route: '/purchases',
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE']
+    },
+    {
+        id: 'returns',
+        title: 'Returns',
+        subtitle: 'Sales & purchase returns',
+        icon: RefreshCw,
+        bgColor: '#FBE8F0',
+        iconColor: '#F06A8C',
+        route: '/invoices',
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT']
+    },
+    {
+        id: 'customers',
+        title: 'Customers',
+        subtitle: 'Directory & balances',
+        icon: Users,
+        bgColor: '#EAF2FF',
+        iconColor: '#5B8DEF',
+        route: '/customers',
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT']
+    },
+    {
+        id: 'accounts',
+        title: 'Accounts',
+        subtitle: 'Ledgers, cash & vouchers',
+        icon: BookOpen,
+        bgColor: '#F0ECFA',
+        iconColor: '#7B6FE0',
+        route: '/(tabs)/ledger',
+        roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+    },
+    {
+        id: 'suppliers',
+        title: 'Suppliers',
+        subtitle: 'Vendor directory & payables',
+        icon: Truck,
+        bgColor: '#FBE1DE',
+        iconColor: '#F0574E',
+        route: '/suppliers',
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE']
+    },
+    {
+        id: 'employees',
+        title: 'Employees',
+        subtitle: 'Staff profiles & RBAC access',
+        icon: UserCheck,
+        bgColor: '#F3E5F5',
+        iconColor: '#9B6FE0',
+        route: '/users',
+        roles: ['ADMIN', 'MANAGER']
+    },
+    {
+        id: 'expenses',
+        title: 'Expenses',
+        subtitle: 'Track operational costs',
+        icon: IndianRupee,
+        bgColor: '#EDE7F6',
+        iconColor: '#8B5FD6',
+        route: '/settings',
+        roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+    },
+    {
+        id: 'reports',
+        title: 'Reports',
+        subtitle: 'Analytics & P&L insights',
+        icon: BarChart2,
+        bgColor: '#E3F2FD',
+        iconColor: '#4C8CE0',
+        route: '/reports',
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT']
+    }
 ];
 
 export default function MenuScreen() {
     const router = useRouter();
+    const { role, ready } = useCurrentRole();
 
-    const handleLogout = () => {
-        // Clear any auth state here if needed
-        router.replace('/(auth)/login');
+    const handleModulePress = (route: string) => {
+        router.push(route as any);
     };
+
+    const visibleModules = ready ? MODULES.filter(item => item.roles.includes(role ?? '')) : MODULES;
 
     return (
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Menu</Text>
+            {/* Background Organic Pastel Blob Illustration per DESIGN.md (Olive / Sage Green theme) */}
+            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
+                    <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
+                    {/* Sage Green / Olive Top Header Blob */}
+                    <Path
+                        d="M-40 -40 C100 -20, 250 -50, 320 40 C390 130, 340 180, 260 160 C180 140, 70 210, -20 160 C-110 110, -180 -10, -40 -40 Z"
+                        fill="#A9AD6E"
+                        opacity={0.22}
+                    />
+                    <Circle cx="340" cy="90" r="60" fill="#DCE6DB" opacity={0.35} />
+                    <Circle cx="30" cy="500" r="70" fill="#F7E6B8" opacity={0.25} />
+                    <Circle cx="340" cy="620" r="80" fill="#E2D4F5" opacity={0.25} />
+                </Svg>
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Profile Section */}
-                
-                <View style={styles.profileCard}>
-                    <View style={styles.profileInfo}>
-                        <View style={styles.avatarContainer}>
-                            <Text style={styles.avatarText}>A</Text>
-                        </View>
-                        <View>
-                            <View style={styles.nameRow}>
-                                <Text style={styles.userName}>Ali Ahmed</Text>
-                                <BadgeCheck size={16} color={Colors.primary} style={{ marginLeft: 4 }} />
-                            </View>
-                            <Text style={styles.userRole}>Main Administrator</Text>
-                        </View>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
+                {/* Clean Header */}
+                <FadeInDown delay={30}>
+                    <View style={styles.headerTextContainer}>
+                        <Text style={styles.headerTitle}>Modules</Text>
+                        <Text style={styles.headerSubtitle}>Manage your business operations</Text>
                     </View>
-                </View>
+                </FadeInDown>
 
-                {/* Menu Items */}
-                <Text style={styles.sectionLabel}>GENERAL</Text>
-                <View style={styles.menuList}>
-                    {MENU_ITEMS.map((item) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            style={styles.menuItem}
-                            onPress={() => item.route !== '/help' && item.route !== '/about' ? router.push(item.route as any) : null}
-                        >
-                            <View style={[styles.menuIconBox, { backgroundColor: item.color }]}>
-                                <item.icon size={22} color={item.iconColor} />
-                            </View>
-                            <View style={styles.menuTexts}>
-                                <Text style={styles.menuTitle}>{item.title}</Text>
-                                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-                            </View>
-                            <ChevronRight size={20} color={Colors.textSecondary} />
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                {/* 2-Column Grid of Modules */}
+                <FadeInDown delay={70} style={styles.section}>
+                    <StaggerContainer stagger={35} delay={100}>
+                        <View style={styles.modulesGrid}>
+                            {visibleModules.map((item) => {
+                                const IconComponent = item.icon;
+                                return (
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        style={styles.moduleTileCard}
+                                        onPress={() => handleModulePress(item.route)}
+                                        activeOpacity={0.75}
+                                    >
+                                        {/* Top Row: Icon + Chevron */}
+                                        <View style={styles.tileHeaderRow}>
+                                            <View style={[styles.moduleIconBox, { backgroundColor: item.bgColor }]}>
+                                                <IconComponent size={20} color={item.iconColor} />
+                                            </View>
+                                            <ChevronRight size={18} color="#B0B0B0" />
+                                        </View>
 
-                {/* Logout Button */}
-                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                    <LogOut size={20} color={Colors.error} style={{ marginRight: 8 }} />
-                    <Text style={styles.logoutText}>Log Out</Text>
-                </TouchableOpacity>
-
-                {/* <Text style={styles.versionText}>Rice ERP v1.0.0</Text> */}
+                                        {/* Bottom Row: Title + Subtitle */}
+                                        <View style={styles.tileTextContainer}>
+                                            <Text style={styles.tileTitle} numberOfLines={1} ellipsizeMode="tail">
+                                                {item.title}
+                                            </Text>
+                                            <Text style={styles.tileSubtitle} numberOfLines={2} ellipsizeMode="tail">
+                                                {item.subtitle}
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </StaggerContainer>
+                </FadeInDown>
             </ScrollView>
         </SafeAreaView>
     );
@@ -82,153 +189,82 @@ export default function MenuScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FAFAFA',
+        backgroundColor: '#FAF7F2',
     },
-    header: {
-        paddingHorizontal: 20,
+    scrollContent: {
+        paddingHorizontal: 16,
         paddingTop: 10,
-        paddingBottom: 10,
-        backgroundColor: '#FAFAFA',
+        paddingBottom: 95, // Adequate space above the bottom dock
+    },
+    headerTextContainer: {
+        marginBottom: 16,
+        paddingHorizontal: 4,
+        paddingTop: 4,
     },
     headerTitle: {
-        fontSize: 28,
+        fontSize: 26,
         fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
+        color: '#1A1A1A',
+        marginBottom: 3,
     },
-    content: {
-        flex: 1,
-        paddingHorizontal: 20,
-    },
-    // Profile Card
-    profileCard: {
-        backgroundColor: Colors.primary,
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 24,
-        marginTop: 10,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    profileInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    avatarContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    avatarText: {
-        fontSize: 20,
-        fontFamily: 'Urbanist_700Bold',
-        color: '#fff',
-    },
-    nameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    userName: {
-        fontSize: 18,
-        fontFamily: 'Urbanist_700Bold',
-        color: '#fff',
-        marginBottom: 2,
-    },
-    userRole: {
-        fontSize: 12,
+    headerSubtitle: {
+        fontSize: 13,
         fontFamily: 'Urbanist_500Medium',
-        color: 'rgba(255,255,255,0.8)',
+        color: '#7C8A7E',
     },
-    viewProfileBtn: {
+    section: {
+        marginBottom: 16,
+    },
+    modulesGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        rowGap: 12,
+    },
+    moduleTileCard: {
+        width: '48.2%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 22,
+        padding: 14,
+        height: 128,
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
+    },
+    tileHeaderRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 12,
+        width: '100%',
     },
-    viewProfileText: {
-        fontSize: 14,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: '#fff',
-    },
-    // Menu List
-    sectionLabel: {
-        fontSize: 12,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.textSecondary,
-        marginBottom: 12,
-        marginLeft: 4,
-    },
-    menuList: {
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        padding: 8,
-        marginBottom: 24,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-        borderRadius: 16,
-    },
-    menuIconBox: {
-        width: 44,
-        height: 44,
+    moduleIconBox: {
+        width: 42,
+        height: 42,
         borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
     },
-    menuTexts: {
-        flex: 1,
+    tileTextContainer: {
+        width: '100%',
+        justifyContent: 'flex-end',
     },
-    menuTitle: {
-        fontSize: 16,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: Colors.text,
-        marginBottom: 2,
-    },
-    menuSubtitle: {
-        fontSize: 12,
-        fontFamily: 'Urbanist_400Regular',
-        color: Colors.textSecondary,
-    },
-    // Logout
-    logoutBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#FFEBEE',
-        paddingVertical: 16,
-        borderRadius: 16,
-        marginBottom: 12,
-    },
-    logoutText: {
-        fontSize: 16,
+    tileTitle: {
+        fontSize: 15,
         fontFamily: 'Urbanist_700Bold',
-        color: Colors.error,
+        color: '#1A1A1A',
+        marginBottom: 2,
+        letterSpacing: -0.2,
     },
-    versionText: {
-        textAlign: 'center',
-        fontSize: 12,
+    tileSubtitle: {
+        fontSize: 11.5,
         fontFamily: 'Urbanist_500Medium',
-        color: Colors.textSecondary,
-        marginBottom: 30,
-        opacity: 0.5,
+        color: '#8A8A8A',
+        lineHeight: 15,
     },
 });

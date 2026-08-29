@@ -1,155 +1,262 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
-import { Colors } from '../theme/colors';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { AnimatedPressable } from './Anime';
+import { SlidersHorizontal } from 'lucide-react-native';
 
 interface InventoryCardProps {
+    id: string;
     name: string;
-    supplier: string;
+    brand?: string;
+    category?: string;
+    supplier?: string;
     stock: number;
+    minimumStock?: number;
     price: number;
-    image?: any; // For placeholder image
+    unit?: string;
+    hsnCode?: string;
+    image?: any;
+    onPress?: () => void;
+    onAdjustPress?: () => void;
 }
 
 export const InventoryCard: React.FC<InventoryCardProps> = ({
+    id,
     name,
+    brand,
+    category,
     supplier,
     stock,
+    minimumStock = 10,
     price,
-    image
+    unit = '25kg',
+    hsnCode,
+    image,
+    onPress,
+    onAdjustPress
 }) => {
+    const isLowStock = stock <= minimumStock;
+    const itemCode = hsnCode ? `HSN-${hsnCode}` : `RS-${id.padStart ? id.padStart(4, '0') : id}`;
+
     return (
-        <View style={styles.card}>
-            <View style={styles.imageContainer}>
-                {/* Use the rice bag image */}
-                <Image
-                    source={image || require('../../assets/rice_bag.png')}
-                    style={styles.image}
-                    resizeMode="contain"
-                />
-                <View style={styles.weightTag}>
-                    <Text style={styles.weightText}>25kg</Text>
+        <AnimatedPressable
+            style={styles.card}
+            onPress={onPress}
+        >
+            <View style={styles.cardInner}>
+                {/* 1. Leading Product Thumbnail */}
+                <View style={styles.imageBox}>
+                    <Image
+                        source={image || require('../../assets/rice_bag.png')}
+                        style={styles.thumbnailImage}
+                        resizeMode="contain"
+                    />
+                    {!!unit && (
+                        <View style={styles.unitBadge}>
+                            <Text style={styles.unitText}>{unit}</Text>
+                        </View>
+                    )}
                 </View>
-            </View>
 
-            <View style={styles.content}>
-                <View style={styles.headerRow}>
-                    <Text style={styles.name} numberOfLines={1}>{name}</Text>
-                    <Text style={styles.price}>₹{price}</Text>
-                </View>
-
-                <Text style={styles.supplier} numberOfLines={1}>{supplier}</Text>
-
-                <View style={styles.footer}>
-                    <View>
-                        <Text style={styles.label}>STOCK</Text>
-                        <Text style={styles.stock}>{stock} bags</Text>
+                {/* 2. Middle Content Information */}
+                <View style={styles.infoCol}>
+                    <View style={styles.titleRow}>
+                        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+                            {name}
+                        </Text>
                     </View>
 
-                    <Pressable style={styles.editBtn}>
-                        <Text style={styles.editBtnText}>Edit</Text>
-                    </Pressable>
+                    <Text style={styles.skuText} numberOfLines={1} ellipsizeMode="tail">
+                        {itemCode} {brand ? `· ${brand}` : ''}
+                    </Text>
+
+                    {/* Stock and Price stats row */}
+                    <View style={styles.statsRow}>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Stock</Text>
+                            <Text style={styles.statValue} numberOfLines={1}>
+                                {stock} {stock === 1 ? 'Bag' : 'Bags'}
+                            </Text>
+                        </View>
+
+                        <View style={styles.statDivider} />
+
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Price</Text>
+                            <Text style={styles.statPriceValue} numberOfLines={1}>
+                                ₹ {price.toLocaleString('en-IN')}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* 3. Trailing Column: Status Badge & Adjust Button (Identical Size & Alignment) */}
+                <View style={styles.trailingCol}>
+                    <View style={[styles.actionPill, isLowStock ? styles.badgeLowStock : styles.badgeInStock]}>
+                        <Text style={[styles.actionPillText, isLowStock ? styles.textLowStock : styles.textInStock]}>
+                            {isLowStock ? 'Low Stock' : 'In Stock'}
+                        </Text>
+                    </View>
+
+                    {onAdjustPress && (
+                        <TouchableOpacity
+                            style={[styles.actionPill, styles.adjustBtn]}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                onAdjustPress();
+                            }}
+                            activeOpacity={0.75}
+                        >
+                            <SlidersHorizontal size={12} color="#2C2C2E" />
+                            <Text style={[styles.actionPillText, styles.adjustBtnText]}>Adjust</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </View>
-        </View>
+        </AnimatedPressable>
     );
 };
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.card,
-        borderRadius: 20,
-        padding: 12,
-        marginBottom: 16,
-        shadowColor: "#000",
+        backgroundColor: '#FFFFFF',
+        borderRadius: 22,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
-        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
     },
-    imageContainer: {
-        height: 180,
-        backgroundColor: 'white',
-        borderRadius: 16,
-        marginBottom: 12,
+    cardInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+    },
+    imageBox: {
+        width: 76,
+        height: 76,
+        borderRadius: 18,
+        backgroundColor: '#F8F7F4',
         justifyContent: 'center',
         alignItems: 'center',
+        marginRight: 12,
         position: 'relative',
-    },
-    image: {
-        width: '80%',
-        height: '80%',
-    },
-    weightTag: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        backgroundColor: Colors.card,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    weightText: {
-        fontSize: 10,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
-    },
-    content: {
-        paddingHorizontal: 4,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    name: {
-        fontSize: 16,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
-        flex: 1,
-        marginRight: 8,
-    },
-    price: {
-        fontSize: 16,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.primary,
-    },
-    supplier: {
-        fontSize: 13,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.textSecondary,
-        marginBottom: 12,
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        borderTopWidth: 1,
-        borderTopColor: Colors.border,
-        paddingTop: 12,
-    },
-    label: {
-        fontSize: 10,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.textSecondary,
-        letterSpacing: 0.5,
-        marginBottom: 2,
-    },
-    stock: {
-        fontSize: 14,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
-    },
-    editBtn: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: '#EAEAE8',
     },
-    editBtnText: {
+    thumbnailImage: {
+        width: 52,
+        height: 52,
+    },
+    unitBadge: {
+        position: 'absolute',
+        bottom: -5,
+        backgroundColor: '#1A1A1A',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    unitText: {
+        fontSize: 9.5,
+        fontFamily: 'Urbanist_700Bold',
+        color: '#FFFFFF',
+    },
+    infoCol: {
+        flex: 1,
+        justifyContent: 'center',
+        paddingRight: 8,
+        minWidth: 0, // Ensures text truncate works properly in flexbox
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 3,
+    },
+    title: {
+        fontSize: 16,
+        fontFamily: 'Urbanist_700Bold',
+        color: '#1A1A1A',
+        letterSpacing: -0.2,
+    },
+    skuText: {
         fontSize: 12,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: Colors.text,
-    }
+        fontFamily: 'Urbanist_500Medium',
+        color: '#8A8A8A',
+        marginBottom: 8,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    statItem: {
+        justifyContent: 'center',
+    },
+    statDivider: {
+        width: 1,
+        height: 20,
+        backgroundColor: '#EAEAEA',
+    },
+    statLabel: {
+        fontSize: 10.5,
+        fontFamily: 'Urbanist_500Medium',
+        color: '#9E9E9E',
+        marginBottom: 1,
+    },
+    statValue: {
+        fontSize: 14.5,
+        fontFamily: 'Urbanist_700Bold',
+        color: '#1A1A1A',
+    },
+    statPriceValue: {
+        fontSize: 14.5,
+        fontFamily: 'Urbanist_700Bold',
+        color: '#1A1A1A',
+    },
+
+    /* Trailing Column & Matching Action Pills */
+    trailingCol: {
+        width: 76,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 23,
+    },
+    actionPill: {
+        width: 76,
+        height: 28,
+        borderRadius: 999,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+    },
+    actionPillText: {
+        fontSize: 11,
+        fontFamily: 'Urbanist_700Bold',
+        textAlign: 'center',
+    },
+    badgeInStock: {
+        backgroundColor: '#DFF3E3',
+    },
+    badgeLowStock: {
+        backgroundColor: '#FBE1DE',
+    },
+    textInStock: {
+        color: '#2FAE55',
+    },
+    textLowStock: {
+        color: '#E5493F',
+    },
+    adjustBtn: {
+        backgroundColor: '#F4F4F6',
+        borderWidth: 1,
+        borderColor: '#E2E2E6',
+    },
+    adjustBtnText: {
+        color: '#2C2C2E',
+    },
 });

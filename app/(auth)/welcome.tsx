@@ -4,15 +4,26 @@ import { useRouter, Stack } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import { Leaf } from 'lucide-react-native';
 import { StaggerContainer, ScaleIn, FadeInDown, AnimatedPressable } from '../../src/components/Anime';
+import { getToken } from '../../src/services/api';
 
 export default function WelcomeScreen() {
     const router = useRouter();
+
+    React.useEffect(() => {
+        getToken().then(token => {
+            if (token) {
+                router.replace('/(tabs)');
+            }
+        }).catch(err => {
+            console.error('Error checking token on welcome screen:', err);
+        });
+    }, []);
 
     return (
         <ImageBackground
             source={require('../../assets/header_bg.png')}
             style={styles.backgroundImage}
-            imageStyle={{ borderRadius: 24, opacity: 0.2}}
+            imageStyle={{ borderRadius: 24, opacity: 0.2 }}
             resizeMode="cover"
         >
             <SafeAreaView style={styles.container}>

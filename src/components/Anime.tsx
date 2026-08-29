@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ViewStyle, Pressable, PressableProps, Animated, Easing } from 'react-native';
+import { ViewStyle, Pressable, PressableProps, Animated, Easing, StyleSheet } from 'react-native';
 
 // Types
 export interface AnimProps {
@@ -311,10 +311,18 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
 }) => {
     const { pressHandlers, animatedStyle } = useAnimePress(scaleTo);
 
+    const flattenedStyle: any = StyleSheet.flatten(style) || {};
+    const innerStyle: ViewStyle = {
+        width: '100%',
+        flexDirection: flattenedStyle.flexDirection || 'row',
+        alignItems: flattenedStyle.alignItems || 'stretch',
+        justifyContent: flattenedStyle.justifyContent || 'flex-start',
+    };
+
     return (
-        <Pressable {...props} {...pressHandlers}>
+        <Pressable style={style} {...props} {...pressHandlers}>
             {({ pressed }) => (
-                <Animated.View style={[style, animatedStyle]}>
+                <Animated.View style={[innerStyle, animatedStyle]}>
                     {typeof children === 'function' ? (children as any)({ pressed }) : children}
                 </Animated.View>
             )}

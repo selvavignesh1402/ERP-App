@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, TextInput, FlatList, TouchableOpa
 import { Stack } from 'expo-router';
 import { Colors } from '../src/theme/colors';
 import { SupplierCard } from '../src/components/SupplierCard';
-import { Search, Plus } from 'lucide-react-native';
+import { Search, Plus, PackagePlus } from 'lucide-react-native';
 import api from '../src/services/api';
 
 export default function SuppliersScreen() {
@@ -11,6 +11,18 @@ export default function SuppliersScreen() {
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
+    const [editingSupplier, setEditingSupplier] = useState<any | null>(null);
+
+    // Procurement modal state
+    const [procurementVisible, setProcurementVisible] = useState(false);
+    const [procurementSupplier, setProcurementSupplier] = useState<any>(null);
+    const [products, setProducts] = useState<any[]>([]);
+    const [productPickerVisible, setProductPickerVisible] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState<any>(null);
+    const [purchasePrice, setPurchasePrice] = useState('');
+    const [leadTimeDays, setLeadTimeDays] = useState('');
+    const [minOrderQty, setMinOrderQty] = useState('');
+    const [procurementLoading, setProcurementLoading] = useState(false);
 
     // Form inputs state
     const [name, setName] = useState('');
@@ -37,6 +49,28 @@ export default function SuppliersScreen() {
         fetchSuppliers();
     }, []);
 
+    const openAddModal = () => {
+        setEditingSupplier(null);
+        setName('');
+        setPhone('');
+        setEmail('');
+        setAddress('');
+        setGst('');
+        setCategory('');
+        setModalVisible(true);
+    };
+
+    const openEditModal = (supplier: any) => {
+        setEditingSupplier(supplier);
+        setName(supplier.supplierName || '');
+        setPhone(supplier.phone || '');
+        setEmail(supplier.email || '');
+        setAddress(supplier.address || '');
+        setGst(supplier.gstNumber || '');
+        setCategory(supplier.category || '');
+        setModalVisible(true);
+    };
+
     const handleAddSupplier = async () => {
         if (!name || !phone) {
             Alert.alert('Error', 'Please enter at least a name and a phone number');
@@ -53,9 +87,15 @@ export default function SuppliersScreen() {
                 rating: 5.0,
                 category: category || 'General'
             };
-            await api.post('/suppliers', payload);
-            Alert.alert('Success', 'Supplier added successfully');
+            if (editingSupplier) {
+                await api.put(`/suppliers/${editingSupplier.id}`, payload);
+                Alert.alert('Success', 'Supplier updated successfully');
+            } else {
+                await api.post('/suppliers', payload);
+                Alert.alert('Success', 'Supplier added successfully');
+            }
             setModalVisible(false);
+            setEditingSupplier(null);
             setName('');
             setPhone('');
             setEmail('');
@@ -64,8 +104,8 @@ export default function SuppliersScreen() {
             setCategory('');
             fetchSuppliers();
         } catch (error: any) {
-            console.error('Error adding supplier:', error);
-            const msg = error.response?.data?.message || 'Failed to add supplier';
+            console.error('Error saving supplier:', error);
+            const msg = error.response?.data?.message || 'Failed to save supplier';
             Alert.alert('Error', msg);
         } finally {
             setLoading(false);
@@ -81,6 +121,51 @@ export default function SuppliersScreen() {
         );
     };
 
+    const openProcurement = async (supplier: any) => {
+        setProcurementSupplier(supplier);
+        setSelectedProduct(null);
+        setPurchasePrice('');
+        setLeadTimeDays('');
+        setMinOrderQty('');
+        setProcurementVisible(true);
+        try {
+            const res = await api.get('/products');
+            setProducts(res.data || []);
+        } catch (error) {
+            console.error('Error loading products:', error);
+            Alert.alert('Error', 'Failed to load products');
+        }
+    };
+
+    const handleAssignProduct = async () => {
+        if (!selectedProduct) {
+            Alert.alert('Error', 'Please select a product');
+            return;
+        }
+        if (!purchasePrice || parseFloat(purchasePrice) <= 0) {
+            Alert.alert('Error', 'Please enter a valid purchase price');
+            return;
+        }
+        setProcurementLoading(true);
+        try {
+            const payload = {
+                productId: selectedProduct.id,
+                purchasePrice: parseFloat(purchasePrice),
+                leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
+                minOrderQty: minOrderQty ? parseFloat(minOrderQty) : 0,
+            };
+            await api.post(`/suppliers/${procurementSupplier.id}/products`, payload);
+            Alert.alert('Success', `${selectedProduct.productName} assigned to ${procurementSupplier.supplierName}`);
+            setProcurementVisible(false);
+        } catch (error: any) {
+            console.error('Error assigning product:', error);
+            const msg = error.response?.data?.message || 'Failed to assign product';
+            Alert.alert('Error', msg);
+        } finally {
+            setProcurementLoading(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
@@ -94,7 +179,7 @@ export default function SuppliersScreen() {
 
             <View style={styles.content}>
                 {/* Add Supplier Button */}
-                <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
+                <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
                     <Plus size={20} color={Colors.card} />
                     <Text style={styles.addButtonText}>Add Supplier</Text>
                 </TouchableOpacity>
@@ -119,13 +204,20 @@ export default function SuppliersScreen() {
                         data={getFilteredSuppliers()}
                         keyExtractor={(item) => item.id.toString()}
                         renderItem={({ item }) => (
-                            <SupplierCard
-                                name={item.supplierName}
-                                rating={item.rating || 5.0}
-                                category={item.category || 'General'}
-                                totalOrders={0}
-                                status={item.status === 'INACTIVE' ? 'Inactive' : 'Active'}
-                            />
+                            <View>
+                                <SupplierCard
+                                    name={item.supplierName}
+                                    rating={item.rating || 5.0}
+                                    category={item.category || 'General'}
+                                    totalOrders={0}
+                                    status={item.status === 'INACTIVE' ? 'Inactive' : 'Active'}
+                                    onEditPress={() => openEditModal(item)}
+                                />
+                                <TouchableOpacity style={styles.procureBtn} onPress={() => openProcurement(item)}>
+                                    <PackagePlus size={14} color={Colors.primary} />
+                                    <Text style={styles.procureBtnText}>Assign Product</Text>
+                                </TouchableOpacity>
+                            </View>
                         )}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
@@ -138,7 +230,7 @@ export default function SuppliersScreen() {
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Add Supplier</Text>
+                                <Text style={styles.modalTitle}>{editingSupplier ? 'Edit Supplier' : 'Add Supplier'}</Text>
                                 <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
                                     <Text style={styles.closeText}>×</Text>
                                 </TouchableOpacity>
@@ -208,7 +300,98 @@ export default function SuppliersScreen() {
                                     <Text style={styles.cancelText}>Cancel</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={handleAddSupplier} style={styles.saveBtn}>
-                                    <Text style={styles.saveText}>Save</Text>
+                                    <Text style={styles.saveText}>{editingSupplier ? 'Update' : 'Save'}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            )}
+
+            {procurementVisible && (
+                <Modal animationType="slide" transparent={true} visible={procurementVisible}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Assign Product</Text>
+                                <TouchableOpacity onPress={() => setProcurementVisible(false)} style={styles.closeBtn}>
+                                    <Text style={styles.closeText}>×</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <Text style={styles.procureMeta}>
+                                {procurementSupplier?.supplierName}
+                            </Text>
+
+                            <ScrollView style={{ maxHeight: 350, marginVertical: 12 }}>
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.label}>PRODUCT</Text>
+                                    <TouchableOpacity
+                                        style={[styles.input, styles.dropdownTrigger]}
+                                        onPress={() => setProductPickerVisible(!productPickerVisible)}
+                                    >
+                                        <Text style={{ color: selectedProduct ? Colors.text : Colors.textSecondary }}>
+                                            {selectedProduct ? selectedProduct.productName : 'Select a product'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    {productPickerVisible && (
+                                        <View style={styles.dropdownMenu}>
+                                            {products.map(p => (
+                                                <TouchableOpacity
+                                                    key={p.id}
+                                                    style={styles.dropdownOption}
+                                                    onPress={() => {
+                                                        setSelectedProduct(p);
+                                                        setProductPickerVisible(false);
+                                                    }}
+                                                >
+                                                    <Text style={styles.optionText}>{p.productName} ({p.brand})</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    )}
+                                </View>
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.label}>PURCHASE PRICE (₹)</Text>
+                                    <TextInput
+                                        placeholder="e.g. 1750"
+                                        style={styles.input}
+                                        keyboardType="numeric"
+                                        value={purchasePrice}
+                                        onChangeText={setPurchasePrice}
+                                    />
+                                </View>
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.label}>LEAD TIME (DAYS)</Text>
+                                    <TextInput
+                                        placeholder="e.g. 5"
+                                        style={styles.input}
+                                        keyboardType="numeric"
+                                        value={leadTimeDays}
+                                        onChangeText={setLeadTimeDays}
+                                    />
+                                </View>
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.label}>MIN ORDER QTY</Text>
+                                    <TextInput
+                                        placeholder="e.g. 10"
+                                        style={styles.input}
+                                        keyboardType="numeric"
+                                        value={minOrderQty}
+                                        onChangeText={setMinOrderQty}
+                                    />
+                                </View>
+                            </ScrollView>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity onPress={() => setProcurementVisible(false)} style={styles.cancelBtn}>
+                                    <Text style={styles.cancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={handleAssignProduct} style={styles.saveBtn} disabled={procurementLoading}>
+                                    {procurementLoading ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.saveText}>Assign</Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -282,6 +465,57 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingBottom: 20,
+    },
+    procureBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        paddingVertical: 6,
+        paddingHorizontal: 14,
+        marginLeft: 4,
+        marginTop: -6,
+        marginBottom: 10,
+    },
+    procureBtnText: {
+        color: Colors.primary,
+        fontFamily: 'Urbanist_600SemiBold',
+        fontSize: 12,
+        marginLeft: 6,
+    },
+    procureMeta: {
+        fontFamily: 'Urbanist_500Medium',
+        fontSize: 13,
+        color: Colors.textSecondary,
+        marginBottom: 4,
+    },
+    dropdownTrigger: {
+        justifyContent: 'center',
+        minHeight: 48,
+    },
+    dropdownMenu: {
+        borderWidth: 1,
+        borderColor: Colors.border,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        marginTop: 4,
+        padding: 4,
+        maxHeight: 155,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    dropdownOption: {
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F5F5',
+    },
+    optionText: {
+        fontFamily: 'Urbanist_500Medium',
+        fontSize: 14,
+        color: Colors.text,
     },
     // Modal styles
     modalOverlay: {

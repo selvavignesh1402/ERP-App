@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Colors } from '../theme/colors';
-import { Truck } from 'lucide-react-native';
+import { Truck, Pencil } from 'lucide-react-native';
 
 interface SupplierCardProps {
     name: string;
@@ -9,6 +9,7 @@ interface SupplierCardProps {
     category: string;
     totalOrders: number;
     status: 'Active' | 'Inactive';
+    onEditPress?: () => void;
 }
 
 export const SupplierCard: React.FC<SupplierCardProps> = ({
@@ -16,7 +17,8 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
     rating,
     category,
     totalOrders,
-    status
+    status,
+    onEditPress
 }) => {
     return (
         <View style={styles.card}>
@@ -29,7 +31,13 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
                     <Text style={styles.subtext}>★ {rating} · {category}</Text>
                 </View>
                 {/* Placeholder for truck illustration */}
-                <View style={styles.illustration} />
+                {onEditPress ? (
+                    <Pressable onPress={onEditPress} style={styles.editBtn} hitSlop={8}>
+                        <Pencil size={16} color={Colors.primary} />
+                    </Pressable>
+                ) : (
+                    <View style={styles.illustration} />
+                )}
             </View>
 
             <View style={styles.statsRow}>
@@ -96,6 +104,14 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         // Opacity placeholder for the truck icon in the background of user design
+    },
+    editBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#E8F5E9',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     statsRow: {
         flexDirection: 'row',

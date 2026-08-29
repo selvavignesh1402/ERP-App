@@ -5,8 +5,30 @@ import { Colors } from '../src/theme/colors';
 import { Typography } from '../src/theme/typography';
 import { Card } from '../src/components/Card';
 import { Button } from '../src/components/Button';
-import { Plus, Search, Calendar, DollarSign, ShoppingBag, X } from 'lucide-react-native';
+import { Plus, Search, Calendar, ShoppingBag, X, ArrowRight, CheckCircle2, Truck } from 'lucide-react-native';
 import api from '../src/services/api';
+
+const STATUS_COLORS: Record<string, string> = {
+    DRAFT: '#FFB74D',
+    PENDING_APPROVAL: '#64B5F6',
+    APPROVED: '#81C784',
+    ORDERED: '#9575CD',
+    PARTIALLY_RECEIVED: '#4FC3F7',
+    RECEIVED: '#4CAF50',
+    COMPLETED: '#2E7D32',
+    CANCELLED: '#E57373',
+};
+
+const STATUS_ACTIONS: Record<string, { label: string; target: string } | null> = {
+    DRAFT: { label: 'Submit', target: 'submit' },
+    PENDING_APPROVAL: { label: 'Approve', target: 'approve' },
+    APPROVED: { label: 'Mark Ordered', target: 'order' },
+    ORDERED: { label: 'Receive Goods', target: 'receive' },
+    PARTIALLY_RECEIVED: { label: 'Receive Goods', target: 'receive' },
+    RECEIVED: { label: 'Complete', target: 'complete' },
+    COMPLETED: null,
+    CANCELLED: null,
+};
 
 export default function PurchasesScreen() {
     const [purchases, setPurchases] = useState<any[]>([]);
@@ -31,6 +53,13 @@ export default function PurchasesScreen() {
     // Dropdowns visibility
     const [supplierDropdownVisible, setSupplierDropdownVisible] = useState(false);
     const [productDropdownVisible, setProductDropdownVisible] = useState(false);
+
+    // Goods receiving modal state
+    const [receivingVisible, setReceivingVisible] = useState(false);
+    const [receivingPurchase, setReceivingPurchase] = useState<any>(null);
+    const [receiptNumber, setReceiptNumber] = useState('');
+    const [receiptItems, setReceiptItems] = useState<any[]>([]);
+    const [receiptLoading, setReceiptLoading] = useState(false);
 
     const fetchPurchases = async () => {
         setLoading(true);
@@ -127,7 +156,7 @@ export default function PurchasesScreen() {
             const payload = {
                 supplierId: selectedSupplierId,
                 invoiceNumber: invoiceNumber,
-                status: 'RECEIVED',
+                status: 'DRAFT',
                 items: cartItems.map(item => ({
                     productId: item.productId,
                     quantity: item.quantity,
@@ -161,6 +190,123 @@ export default function PurchasesScreen() {
             item.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             item.supplier?.supplierName?.toLowerCase().includes(searchQuery.toLowerCase())
         );
+    };
+
+    const handleStatusAction = async (item: any, target: string) => {
+        if (target === 'receive') {
+            openReceiveModal(item);
+            return;
+        }
+        setLoading(true);
+        try {
+            if (target === 'complete') {
+                await api.put(`/purchases/${item.id}/status`, { status: 'COMPLETED' });
+            } else {
+                await api.put(`/purchases/${item.id}/${target}`);
+            }
+            Alert.alert('Success', `Purchase marked as ${target.toUpperCase()}`);
+            fetchPurchases();
+        } catch (error: any) {
+            console.error('Error updating purchase status:', error);
+            const msg = error.response?.data?.message || 'Failed to update purchase status';
+            Alert.alert('Error', msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancelPurchase = async (item: any) => {
+        setLoading(true);
+        try {
+            await api.put(`/purchases/${item.id}/cancel`);
+            Alert.alert('Success', 'Purchase cancelled');
+            fetchPurchases();
+        } catch (error: any) {
+            console.error('Error cancelling purchase:', error);
+            const msg = error.response?.data?.message || 'Failed to cancel purchase';
+            Alert.alert('Error', msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const openReceiveModal = async (purchase: any) => {
+        setReceivingPurchase(purchase);
+        setReceiptNumber('');
+        setReceiptItems([]);
+        setReceivingVisible(true);
+        try {
+            const itemsRes = await api.get(`/purchases/${purchase.id}/items`);
+            const ordered = itemsRes.data || [];
+            const receivedRes = await api.get(`/purchases/${purchase.id}/receipts`);
+            const receipts = receivedRes.data || [];
+            let receivedMap: Record<number, number> = {};
+            for (const receipt of receipts) {
+                const itemsOfReceipt = await api.get(`/purchases/${purchase.id}/receipts/${receipt.id}/items`);
+                for (const it of itemsOfReceipt.data || []) {
+                    receivedMap[it.product.id] = (receivedMap[it.product.id] || 0) + it.receivedQty;
+                }
+            }
+            setReceiptItems(ordered.map((pi: any) => {
+                const remaining = Math.max(0, pi.quantity - (receivedMap[pi.product?.id] || 0));
+                return {
+                    productId: pi.product?.id,
+                    productName: pi.product?.productName,
+                    orderedQty: pi.quantity,
+                    alreadyReceived: receivedMap[pi.product?.id] || 0,
+                    remaining: remaining,
+                    receivedQty: remaining > 0 ? String(remaining) : '0',
+                    unitPrice: pi.price,
+                };
+            }));
+        } catch (error) {
+            console.error('Error loading purchase items:', error);
+            Alert.alert('Error', 'Failed to load purchase items');
+        }
+    };
+
+    const updateReceiptQty = (productId: number, value: string) => {
+        setReceiptItems(prev => prev.map(i => {
+            if (i.productId === productId) {
+                let qty = parseFloat(value) || 0;
+                if (qty > i.remaining) {
+                    Alert.alert('Over-receiving', `Only ${i.remaining} remaining to receive.`);
+                    qty = i.remaining;
+                }
+                return { ...i, receivedQty: qty > 0 ? String(qty) : '0' };
+            }
+            return i;
+        }));
+    };
+
+    const handleSaveReceipt = async () => {
+        const payloadItems = receiptItems
+            .filter(i => parseFloat(i.receivedQty) > 0)
+            .map(i => ({
+                productId: i.productId,
+                receivedQty: parseFloat(i.receivedQty),
+                unitPrice: i.unitPrice,
+            }));
+        if (payloadItems.length === 0) {
+            Alert.alert('Error', 'Enter a quantity for at least one item.');
+            return;
+        }
+        setReceiptLoading(true);
+        try {
+            await api.post(`/purchases/${receivingPurchase.id}/receipts`, {
+                receiptNumber: receiptNumber || undefined,
+                items: payloadItems,
+            });
+            Alert.alert('Success', 'Goods received and stock updated');
+            setReceivingVisible(false);
+            fetchPurchases();
+        } catch (error: any) {
+            console.error('Error creating receipt:', error);
+            const msg = error.response?.data?.message || 'Failed to save goods receipt';
+            Alert.alert('Error', msg);
+        } finally {
+            setReceiptLoading(false);
+        }
     };
 
     return (
@@ -216,10 +362,35 @@ export default function PurchasesScreen() {
                                             {item.purchaseDate ? new Date(item.purchaseDate).toLocaleDateString() : 'N/A'}
                                         </Text>
                                     </View>
-                                    <View style={[styles.statusTag, { backgroundColor: '#E8F5E9' }]}>
-                                        <Text style={styles.statusText}>{item.status}</Text>
+                                    <View style={[styles.statusTag, { backgroundColor: (STATUS_COLORS[item.status] || '#E0E0E0') + '22' }]}>
+                                        <Text style={[styles.statusText, { color: STATUS_COLORS[item.status] || Colors.textSecondary }]}>
+                                            {item.status?.replace(/_/g, ' ')}
+                                        </Text>
                                     </View>
                                 </View>
+                                {STATUS_ACTIONS[item.status] && (
+                                    <View style={styles.cardActions}>
+                                        <TouchableOpacity
+                                            style={styles.actionBtn}
+                                            onPress={() => handleStatusAction(item, STATUS_ACTIONS[item.status]!.target)}
+                                        >
+                                            {STATUS_ACTIONS[item.status]!.target === 'receive' ? (
+                                                <Truck size={14} color="#fff" />
+                                            ) : (
+                                                <ArrowRight size={14} color="#fff" />
+                                            )}
+                                            <Text style={styles.actionBtnText}>{STATUS_ACTIONS[item.status]!.label}</Text>
+                                        </TouchableOpacity>
+                                        {item.status !== 'CANCELLED' && item.status !== 'COMPLETED' && (
+                                            <TouchableOpacity
+                                                style={styles.cancelActionBtn}
+                                                onPress={() => handleCancelPurchase(item)}
+                                            >
+                                                <Text style={styles.cancelActionText}>Cancel</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                )}
                             </Card>
                         )}
                         contentContainerStyle={styles.listContent}
@@ -377,6 +548,71 @@ export default function PurchasesScreen() {
                     </View>
                 </Modal>
             )}
+
+            {receivingVisible && (
+                <Modal animationType="slide" transparent={true} visible={receivingVisible}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Receive Goods</Text>
+                                <TouchableOpacity onPress={() => setReceivingVisible(false)} style={styles.closeBtn}>
+                                    <Text style={styles.closeText}>×</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <Text style={styles.receiptMeta}>
+                                {receivingPurchase?.invoiceNumber} • {receivingPurchase?.supplier?.supplierName}
+                            </Text>
+
+                            <ScrollView style={{ maxHeight: 380, marginVertical: 12 }}>
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.label}>RECEIPT NUMBER (optional)</Text>
+                                    <TextInput
+                                        placeholder="e.g. GRN-2026-001"
+                                        style={styles.input}
+                                        value={receiptNumber}
+                                        onChangeText={setReceiptNumber}
+                                    />
+                                </View>
+
+                                {receiptItems.map((item, idx) => (
+                                    <View key={item.productId ?? idx} style={styles.receiptRow}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.cartProdName}>{item.productName}</Text>
+                                            <Text style={styles.cartProdMeta}>
+                                                Ordered {item.orderedQty} • Already received {item.alreadyReceived}
+                                            </Text>
+                                        </View>
+                                        <TextInput
+                                            placeholder="0"
+                                            style={styles.receiptQtyInput}
+                                            keyboardType="numeric"
+                                            value={item.receivedQty}
+                                            onChangeText={(v) => updateReceiptQty(item.productId, v)}
+                                        />
+                                    </View>
+                                ))}
+                            </ScrollView>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity onPress={() => setReceivingVisible(false)} style={styles.cancelBtn}>
+                                    <Text style={styles.cancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={handleSaveReceipt}
+                                    style={styles.saveBtn}
+                                    disabled={receiptLoading}
+                                >
+                                    {receiptLoading ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.saveText}>Save Receipt</Text>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            )}
         </SafeAreaView>
     );
 }
@@ -498,6 +734,65 @@ const styles = StyleSheet.create({
         fontFamily: Typography.fontFamily.bold,
         fontSize: 10,
         color: Colors.primary,
+    },
+    cardActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        marginTop: 10,
+    },
+    actionBtn: {
+        backgroundColor: Colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 20,
+    },
+    actionBtnText: {
+        color: '#fff',
+        fontFamily: 'Urbanist_700Bold',
+        fontSize: 12,
+        marginLeft: 6,
+    },
+    cancelActionBtn: {
+        marginLeft: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: Colors.error,
+    },
+    cancelActionText: {
+        color: Colors.error,
+        fontFamily: 'Urbanist_600SemiBold',
+        fontSize: 12,
+    },
+    receiptMeta: {
+        fontFamily: 'Urbanist_500Medium',
+        fontSize: 13,
+        color: Colors.textSecondary,
+        marginBottom: 4,
+    },
+    receiptRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    receiptQtyInput: {
+        width: 70,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        fontFamily: 'Urbanist_500Medium',
+        fontSize: 14,
+        textAlign: 'center',
+        backgroundColor: '#FAFAFA',
+        marginLeft: 10,
     },
     // Modal Overlay and form styling
     modalOverlay: {

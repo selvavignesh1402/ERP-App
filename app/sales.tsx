@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TextInput, FlatList, TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Colors } from '../src/theme/colors';
 import { Typography } from '../src/theme/typography';
 import { Card } from '../src/components/Card';
-import { Plus, Search, ShoppingBag, X, ReceiptText, Coins, Percent } from 'lucide-react-native';
+import { Plus, Search, ShoppingBag, X, ReceiptText, Coins, Percent, ChevronLeft } from 'lucide-react-native';
 import api from '../src/services/api';
 
 const PAYMENT_MODES = ['CASH', 'UPI', 'CARD', 'CREDIT'];
 
 export default function SalesScreen() {
+    const router = useRouter();
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     // Form Checkout state
     const [customerName, setCustomerName] = useState('Cash Customer');
+    const [customers, setCustomers] = useState<any[]>([]);
+    const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+    const [customerDropdownVisible, setCustomerDropdownVisible] = useState(false);
     const [paymentMode, setPaymentMode] = useState('CASH');
     const [discountStr, setDiscountStr] = useState('0');
     const [cartItems, setCartItems] = useState<any[]>([]);
@@ -44,8 +48,25 @@ export default function SalesScreen() {
         }
     };
 
+    const fetchCustomers = async () => {
+        try {
+            const response = await api.get('/customers');
+            // Filter active customers
+            const actives = (response.data || []).filter((c: any) => c.status === 'ACTIVE');
+            setCustomers(actives);
+        } catch (error) {
+            console.error('Error loading customers in POS:', error);
+        }
+    };
+
+    const refreshData = async () => {
+        setLoading(true);
+        await Promise.all([fetchProducts(), fetchCustomers()]);
+        setLoading(false);
+    };
+
     useEffect(() => {
-        fetchProducts();
+        refreshData();
     }, []);
 
     const handleAddToCart = () => {
@@ -133,10 +154,30 @@ export default function SalesScreen() {
             return;
         }
 
+        // Credit check validation
+        if (paymentMode === 'CREDIT') {
+            if (!selectedCustomerId) {
+                Alert.alert('Customer Required', 'Please select a registered credit customer.');
+                return;
+            }
+            const cust = customers.find(c => c.id === selectedCustomerId);
+            if (cust) {
+                const total = getGrandTotal();
+                if ((cust.creditBalance || 0) + total > cust.creditLimit) {
+                    Alert.alert(
+                        'Credit Limit Exceeded',
+                        `This sale (₹${total.toFixed(2)}) exceeds client remaining credit limit (₹${(cust.creditLimit - cust.creditBalance).toFixed(2)}).`
+                    );
+                    return;
+                }
+            }
+        }
+
         setSubmitting(true);
         try {
             const payload = {
                 customerName: customerName || 'Cash Customer',
+                customerId: selectedCustomerId,
                 paymentMode: paymentMode,
                 discount: getDiscount(),
                 items: cartItems.map(item => ({
@@ -152,9 +193,10 @@ export default function SalesScreen() {
             // Clean cart & refresh products inventory stock counts
             setCartItems([]);
             setCustomerName('Cash Customer');
+            setSelectedCustomerId(null);
             setPaymentMode('CASH');
             setDiscountStr('0');
-            fetchProducts();
+            refreshData();
         } catch (error: any) {
             console.error('Checkout error:', error);
             const msg = error.response?.data?.message || 'Failed to place order';
@@ -169,7 +211,10 @@ export default function SalesScreen() {
             <Stack.Screen options={{ headerShown: false }} />
 
             <View style={styles.header}>
-                <ReceiptText size={28} color={Colors.primary} />
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <ChevronLeft size={24} color={Colors.text} />
+                </TouchableOpacity>
+                <ReceiptText size={28} color={Colors.primary} style={{ marginLeft: 8 }} />
                 <View style={{ marginLeft: 12 }}>
                     <Text style={styles.title}>POS Billing Terminal</Text>
                     <Text style={styles.subtitle}>Process dynamic customer sales bills</Text>
@@ -182,14 +227,64 @@ export default function SalesScreen() {
                     {/* Customer & Payment Mode Configuration */}
                     <Card style={styles.configCard}>
                         <View style={styles.formGroup}>
-                            <Text style={styles.label}>CUSTOMER NAME</Text>
-                            <TextInput
-                                placeholder="e.g. John Doe"
-                                style={styles.input}
-                                value={customerName}
-                                onChangeText={setCustomerName}
-                            />
+                            <Text style={styles.label}>REGISTERED CUSTOMER (OPTIONAL)</Text>
+                            <TouchableOpacity
+                                style={[styles.input, styles.dropdownTrigger]}
+                                onPress={() => setCustomerDropdownVisible(!customerDropdownVisible)}
+                            >
+                                <Text style={{ color: selectedCustomerId ? Colors.text : Colors.textSecondary }}>
+                                    {selectedCustomerId
+                                        ? customers.find(c => c.id === selectedCustomerId)?.customerName
+                                        : 'Leave empty for walk-in guest'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {customerDropdownVisible && (
+                                <View style={styles.dropdownMenu}>
+                                    <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
+                                        <TouchableOpacity
+                                            style={styles.dropdownOption}
+                                            onPress={() => {
+                                                setSelectedCustomerId(null);
+                                                setCustomerName('Cash Customer');
+                                                setCustomerDropdownVisible(false);
+                                            }}
+                                        >
+                                            <Text style={[styles.optionText, { color: Colors.primary, fontFamily: 'Urbanist_700Bold' }]}>
+                                                -- WALK-IN GUEST --
+                                            </Text>
+                                        </TouchableOpacity>
+                                        {customers.map(c => (
+                                            <TouchableOpacity
+                                                key={c.id}
+                                                style={styles.dropdownOption}
+                                                onPress={() => {
+                                                    setSelectedCustomerId(c.id);
+                                                    setCustomerName(c.customerName);
+                                                    setCustomerDropdownVisible(false);
+                                                }}
+                                            >
+                                                <Text style={styles.optionText}>
+                                                    {c.customerName} (Credit: ₹{c.creditBalance || 0}/₹{c.creditLimit})
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </View>
+                            )}
                         </View>
+
+                        {!selectedCustomerId && (
+                            <View style={styles.formGroup}>
+                                <Text style={styles.label}>WALK-IN GUEST NAME</Text>
+                                <TextInput
+                                    placeholder="e.g. John Doe"
+                                    style={styles.input}
+                                    value={customerName}
+                                    onChangeText={setCustomerName}
+                                />
+                            </View>
+                        )}
 
                         <Text style={styles.label}>PAYMENT MODE</Text>
                         <View style={styles.chipRow}>
@@ -200,7 +295,12 @@ export default function SalesScreen() {
                                         styles.paymentChip,
                                         paymentMode === mode && styles.paymentChipActive
                                     ]}
-                                    onPress={() => setPaymentMode(mode)}
+                                    onPress={() => {
+                                        setPaymentMode(mode);
+                                        if (mode === 'CREDIT' && !selectedCustomerId) {
+                                            setCustomerDropdownVisible(true);
+                                        }
+                                    }}
                                 >
                                     <Text style={[
                                         styles.chipText,
@@ -359,6 +459,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
+    },
+    backButton: {
+        padding: 4,
+        marginRight: 4,
     },
     header: {
         flexDirection: 'row',
