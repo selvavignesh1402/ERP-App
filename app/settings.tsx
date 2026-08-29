@@ -1,9 +1,17 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, TextInput, Switch, Alert, ActivityIndicator } from 'react-native';
-import { Stack, useFocusEffect } from 'expo-router';
+import {
+    View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView,
+    TextInput, Switch, Alert, ActivityIndicator, Platform
+} from 'react-native';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
+import Svg, { Path, Circle } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '../src/theme/colors';
-import { Camera, BadgeCheck, Globe, LogOut, Bell, Shield, User, Building2, ChevronRight, Briefcase } from 'lucide-react-native';
+import {
+    Camera, BadgeCheck, Bell, Shield, User, Building2,
+    ChevronRight, Briefcase, ArrowLeft, Mail, Phone,
+    MapPin, Sparkles, IndianRupee, Save, Lock
+} from 'lucide-react-native';
+import { FadeInDown } from '../src/components/Anime';
 import api, { me } from '../src/services/api';
 
 type TabType = 'profile' | 'business' | 'notifications';
@@ -18,31 +26,33 @@ const NOTIF_KEYS = {
 const roleLabel = (role: string | undefined) => {
     switch (role) {
         case 'ADMIN': return 'Administrator';
-        case 'MANAGER': return 'Manager';
-        case 'ACCOUNTANT': return 'Accountant';
-        case 'SALES': return 'Sales Staff';
-        case 'WAREHOUSE': return 'Warehouse Staff';
-        default: return role ?? 'User';
+        case 'MANAGER': return 'Operations Manager';
+        case 'ACCOUNTANT': return 'Head Accountant';
+        case 'SALES': return 'Sales Executive';
+        case 'WAREHOUSE': return 'Warehouse Manager';
+        default: return role ?? 'ERP User';
     }
 };
 
 export default function SettingsScreen() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<TabType>('profile');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     const [userId, setUserId] = useState<number | null>(null);
-    const [role, setRole] = useState<string>('User');
+    const [role, setRole] = useState<string>('Administrator');
 
     // Form State
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [location, setLocation] = useState('');
+    const [businessName, setBusinessName] = useState('Sri Murugan Modern Rice Mill');
     const [registerNumber, setRegisterNumber] = useState('');
     const [gstNo, setGstNo] = useState('');
 
-    // Toggles
+    // Notification Toggles
     const [toggles, setToggles] = useState({
         lowStock: true,
         dailySales: true,
@@ -92,7 +102,6 @@ export default function SettingsScreen() {
         } catch (error) {
             console.error('Error loading notification prefs:', error);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useFocusEffect(
@@ -122,559 +131,582 @@ export default function SettingsScreen() {
                 registerNumber,
                 gstNo,
             });
-            Alert.alert('Saved', 'Profile updated successfully');
+            Alert.alert('Settings Updated', 'Your ERP preferences and details have been successfully saved.');
         } catch (error) {
             console.error('Error saving profile:', error);
-            Alert.alert('Save failed', 'Could not update profile. Please try again.');
+            Alert.alert('Save failed', 'Could not update settings. Please try again.');
         } finally {
             setSaving(false);
         }
     };
 
-    const renderTabs = () => (
-        <View style={styles.tabBar}>
-            {(['profile', 'business', 'notifications'] as TabType[]).map((tab) => (
-                <TouchableOpacity
-                    key={tab}
-                    style={[styles.tabItem, activeTab === tab && styles.activeTabItem]}
-                    onPress={() => setActiveTab(tab)}
-                >
-                    <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </Text>
-                </TouchableOpacity>
-            ))}
-        </View>
-    );
-
-    const renderProfile = () => (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.profileCard}>
-<View style={styles.avatarSection}>
-                        <View style={styles.avatarPlaceholder}>
-                            <Text style={styles.avatarInitials}>{(name || 'U').trim().charAt(0).toUpperCase()}</Text>
-                            <View style={styles.cameraBtn}>
-                                <Camera size={14} color="#fff" />
-                            </View>
-                        </View>
-                        <View style={styles.nameRow}>
-                            <Text style={styles.profileName}>{name || 'User'}</Text>
-                            <BadgeCheck size={18} color={Colors.primary} style={{ marginLeft: 4 }} />
-                        </View>
-                        <Text style={styles.profileRole}>{role}</Text>
-                    </View>
-
-                    <View style={styles.formSection}>
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>FULL NAME</Text>
-                            <TextInput style={styles.input} value={name} onChangeText={setName} editable={false} />
-                        </View>
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>EMAIL ADDRESS</Text>
-                            <TextInput style={styles.input} value={email} onChangeText={setEmail} />
-                        </View>
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>PHONE NUMBER</Text>
-                            <TextInput style={styles.input} value={phone} onChangeText={setPhone} editable={false} />
-                        </View>
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>LOCATION</Text>
-                            <TextInput style={styles.input} value={location} onChangeText={setLocation} />
-                        </View>
-
-                        <View style={styles.actionRow}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={loadProfile}>
-                                <Text style={styles.cancelBtnText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.saveBtn} onPress={saveProfile} disabled={saving || userId == null}>
-                                {saving ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <Text style={styles.saveBtnText}>Save Changes</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-            </View>
-
-            <View style={styles.sectionCard}>
-                <View style={styles.cardIconBox}>
-                    <Globe size={20} color={Colors.primary} />
-                </View>
-                <Text style={styles.cardTitle}>Public Profile</Text>
-                <Text style={styles.cardDesc}>
-                    Your profile is visible to all employees in the Ali Rice Merchants workspace.
-                </Text>
-                <TouchableOpacity style={styles.linkBtn}>
-                    <Text style={styles.linkBtnText}>View Public Profile</Text>
-                    <ChevronRight size={16} color={Colors.primary} />
-                </TouchableOpacity>
-            </View>
-
-            <View style={[styles.sectionCard, { backgroundColor: '#FFF5F5' }]}>
-                <View style={[styles.cardIconBox, { backgroundColor: '#FFEBEE' }]}>
-                    <LogOut size={20} color={Colors.error} />
-                </View>
-                <Text style={[styles.cardTitle, { color: Colors.error }]}>Account Control</Text>
-                <Text style={styles.cardDesc}>
-                    Permanently delete your account and all associated data.
-                </Text>
-                <TouchableOpacity style={styles.dangerBtn}>
-                    <Text style={styles.dangerBtnText}>Deactivate Account</Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
-    );
-
-    const renderBusiness = () => (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.profileCard}>
-                <View style={styles.businessHeader}>
-                    <View style={styles.businessLogo}>
-                        <Building2 size={24} color={Colors.primary} />
-                    </View>
-                    <View>
-                        <Text style={styles.profileName}>Ali Rice Merchants</Text>
-                        <Text style={styles.profileRole}>Workspace Settings & Branding</Text>
-                    </View>
-                </View>
-
-                <View style={styles.formSection}>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>REGISTRATION NUMBER</Text>
-                        <TextInput style={styles.input} value={registerNumber} onChangeText={setRegisterNumber} />
-                    </View>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>GST NUMBER</Text>
-                        <TextInput style={styles.input} value={gstNo} onChangeText={setGstNo} />
-                    </View>
-                </View>
-
-                <TouchableOpacity
-                    style={[styles.saveBtn, { width: '100%', marginTop: 24 }]}
-                    onPress={saveProfile}
-                    disabled={saving || userId == null}
-                >
-                    {saving ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <Text style={styles.saveBtnText}>Save Changes</Text>
-                    )}
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
-    );
-
-    const renderNotifications = () => (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.toggleCard}>
-                <View style={styles.toggleIcon}>
-                    <Briefcase size={20} color={Colors.text} />
-                </View>
-                <View style={styles.toggleContent}>
-                    <Text style={styles.toggleTitle}>Low Stock Alerts</Text>
-                    <Text style={styles.toggleDesc}>Notify when bags fall below 20 per unit</Text>
-                </View>
-                <Switch
-                    trackColor={{ false: "#767577", true: Colors.primary }}
-                    thumbColor={"#f4f3f4"}
-                    value={toggles.lowStock}
-                    onValueChange={() => toggleSwitch('lowStock')}
-                />
-            </View>
-
-            <View style={styles.toggleCard}>
-                <View style={styles.toggleIcon}>
-                    <Bell size={20} color={Colors.text} />
-                </View>
-                <View style={styles.toggleContent}>
-                    <Text style={styles.toggleTitle}>Daily Sales Summary</Text>
-                    <Text style={styles.toggleDesc}>Receive a recap of total sales every evening</Text>
-                </View>
-                <Switch
-                    trackColor={{ false: "#767577", true: Colors.primary }}
-                    thumbColor={"#f4f3f4"}
-                    value={toggles.dailySales}
-                    onValueChange={() => toggleSwitch('dailySales')}
-                />
-            </View>
-
-            <View style={styles.toggleCard}>
-                <View style={styles.toggleIcon}>
-                    <Shield size={20} color={Colors.text} />
-                </View>
-                <View style={styles.toggleContent}>
-                    <Text style={styles.toggleTitle}>Security Alerts</Text>
-                    <Text style={styles.toggleDesc}>Notify of new logins from unknown devices</Text>
-                </View>
-                <Switch
-                    trackColor={{ false: "#767577", true: Colors.primary }}
-                    thumbColor={"#f4f3f4"}
-                    value={toggles.security}
-                    onValueChange={() => toggleSwitch('security')}
-                />
-            </View>
-
-            <View style={styles.toggleCard}>
-                <View style={styles.toggleIcon}>
-                    <User size={20} color={Colors.text} />
-                </View>
-                <View style={styles.toggleContent}>
-                    <Text style={styles.toggleTitle}>Customer Ledger Updates</Text>
-                    <Text style={styles.toggleDesc}>Alert when a wholesaler makes a payment</Text>
-                </View>
-                <Switch
-                    trackColor={{ false: "#767577", true: Colors.primary }}
-                    thumbColor={"#f4f3f4"}
-                    value={toggles.ledger}
-                    onValueChange={() => toggleSwitch('ledger')}
-                />
-            </View>
-        </ScrollView>
-    );
-
     return (
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
-            <View style={styles.header}>
-                <Text style={styles.title}>Settings</Text>
-                <Text style={styles.subtitle}>Manage your workspace and personal preferences.</Text>
+            {/* Standard Signature Pastel Background */}
+            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
+                    <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
+                    
+                    {/* Top Right Signature Soft Pink Blob */}
+                    <Path
+                        d="M100 -50 C200 -50, 385 -40, 395 60 C410 180, 360 250, 220 230 C120 210, 40 140, 100 -50 Z"
+                        fill="#F5C6D8"
+                        opacity={0.38}
+                    />
+                    <Circle cx="340" cy="70" r="80" fill="#F06A8C" opacity={0.14} />
+
+                    {/* Left Warm Gold Accent */}
+                    <Path
+                        d="M-60 150 C20 170, 110 110, 150 230 C190 350, 70 390, -20 350 C-100 310, -130 130, -60 150 Z"
+                        fill="#F7E6B8"
+                        opacity={0.32}
+                    />
+
+                    {/* Soft Center Sage & Bottom Lavender */}
+                    <Circle cx="350" cy="420" r="75" fill="#DCE6DB" opacity={0.28} />
+                    <Circle cx="30" cy="650" r="70" fill="#E2D4F5" opacity={0.28} />
+                </Svg>
             </View>
 
-            {renderTabs()}
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
+                {/* 1. Header with Back Button */}
+                <FadeInDown delay={20} style={styles.header}>
+                    <View style={styles.headerTopRow}>
+                        <TouchableOpacity
+                            style={styles.backBtn}
+                            onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)/profile')}
+                            activeOpacity={0.7}
+                        >
+                            <ArrowLeft size={20} color="#1A1A1A" />
+                        </TouchableOpacity>
 
-            <View style={styles.content}>
+                        <View style={styles.headerTitleCol}>
+                            <Text style={styles.headerTitle}>Settings</Text>
+                            <Text style={styles.headerSubtitle}>App Preferences, Business Details & Alerts</Text>
+                        </View>
+                    </View>
+                </FadeInDown>
+
+                {/* 2. Segmented Navigation Tabs */}
+                <View style={styles.tabContainer}>
+                    {(['profile', 'business', 'notifications'] as TabType[]).map((t) => {
+                        const active = activeTab === t;
+                        const label = t === 'profile' ? 'Profile' : t === 'business' ? 'Business & Tax' : 'Alerts & Notifs';
+                        return (
+                            <TouchableOpacity
+                                key={t}
+                                style={[styles.tabItem, active && styles.tabItemActive]}
+                                onPress={() => setActiveTab(t)}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.tabItemText, active && styles.tabItemTextActive]}>
+                                    {label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+
+                {/* 3. Tab Contents */}
                 {loading ? (
                     <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={Colors.primary} />
+                        <ActivityIndicator size="large" color="#F06A8C" />
+                        <Text style={styles.loadingText}>Loading configuration...</Text>
                     </View>
                 ) : (
                     <>
-                        {activeTab === 'profile' && renderProfile()}
-                        {activeTab === 'business' && renderBusiness()}
-                        {activeTab === 'notifications' && renderNotifications()}
+                        {/* TAB 1: PROFILE */}
+                        {activeTab === 'profile' && (
+                            <FadeInDown delay={50} style={styles.tabContentWrapper}>
+                                {/* Avatar Card */}
+                                <View style={styles.avatarCard}>
+                                    <View style={styles.avatarLargeCircle}>
+                                        <Text style={styles.avatarLargeText}>
+                                            {(name || 'U').trim().charAt(0).toUpperCase()}
+                                        </Text>
+                                        <View style={styles.cameraIconBadge}>
+                                            <Camera size={13} color="#FFFFFF" />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.avatarDetails}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                            <Text style={styles.avatarName}>{name || 'Enterprise User'}</Text>
+                                            <BadgeCheck size={18} color="#2FAE55" />
+                                        </View>
+                                        <Text style={styles.avatarRole}>{role}</Text>
+                                    </View>
+                                </View>
+
+                                {/* Form Fields */}
+                                <View style={styles.formSectionCard}>
+                                    <Text style={styles.formSectionHeading}>USER CREDENTIALS</Text>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Full Name</Text>
+                                        <View style={[styles.inputField, styles.disabledInput]}>
+                                            <User size={16} color="#8A8A8A" />
+                                            <TextInput
+                                                style={styles.textInput}
+                                                value={name}
+                                                editable={false}
+                                            />
+                                            <Lock size={14} color="#A0A0A0" />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Contact Phone Number</Text>
+                                        <View style={[styles.inputField, styles.disabledInput]}>
+                                            <Phone size={16} color="#8A8A8A" />
+                                            <TextInput
+                                                style={styles.textInput}
+                                                value={phone}
+                                                editable={false}
+                                            />
+                                            <Lock size={14} color="#A0A0A0" />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Email Address</Text>
+                                        <View style={styles.inputField}>
+                                            <Mail size={16} color="#8A8A8A" />
+                                            <TextInput
+                                                placeholder="e.g. admin@riceerp.com"
+                                                placeholderTextColor="#A0A0A0"
+                                                style={styles.textInput}
+                                                keyboardType="email-address"
+                                                autoCapitalize="none"
+                                                value={email}
+                                                onChangeText={setEmail}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Branch / Plant Location</Text>
+                                        <View style={styles.inputField}>
+                                            <MapPin size={16} color="#8A8A8A" />
+                                            <TextInput
+                                                placeholder="e.g. Salem Central Mill, Yard #2"
+                                                placeholderTextColor="#A0A0A0"
+                                                style={styles.textInput}
+                                                value={location}
+                                                onChangeText={setLocation}
+                                            />
+                                        </View>
+                                    </View>
+                                </View>
+                            </FadeInDown>
+                        )}
+
+                        {/* TAB 2: BUSINESS & TAX */}
+                        {activeTab === 'business' && (
+                            <FadeInDown delay={50} style={styles.tabContentWrapper}>
+                                <View style={styles.formSectionCard}>
+                                    <Text style={styles.formSectionHeading}>ENTERPRISE IDENTITY & GST</Text>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Trade / Mill Legal Name</Text>
+                                        <View style={styles.inputField}>
+                                            <Building2 size={16} color="#8A8A8A" />
+                                            <TextInput
+                                                style={styles.textInput}
+                                                value={businessName}
+                                                onChangeText={setBusinessName}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>GSTIN / Business Tax Number</Text>
+                                        <View style={styles.inputField}>
+                                            <Briefcase size={16} color="#8A8A8A" />
+                                            <TextInput
+                                                placeholder="e.g. 33AAAAA0000A1Z5"
+                                                placeholderTextColor="#A0A0A0"
+                                                style={styles.textInput}
+                                                autoCapitalize="characters"
+                                                value={gstNo}
+                                                onChangeText={setGstNo}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Mill Registration / FSSAI License</Text>
+                                        <View style={styles.inputField}>
+                                            <Shield size={16} color="#8A8A8A" />
+                                            <TextInput
+                                                placeholder="e.g. REG-TN-2024-8890"
+                                                placeholderTextColor="#A0A0A0"
+                                                style={styles.textInput}
+                                                value={registerNumber}
+                                                onChangeText={setRegisterNumber}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Invoicing Currency</Text>
+                                        <View style={[styles.inputField, styles.disabledInput]}>
+                                            <IndianRupee size={16} color="#8A8A8A" />
+                                            <TextInput
+                                                style={styles.textInput}
+                                                value="INR (₹) - Indian Rupee"
+                                                editable={false}
+                                            />
+                                            <Lock size={14} color="#A0A0A0" />
+                                        </View>
+                                    </View>
+                                </View>
+                            </FadeInDown>
+                        )}
+
+                        {/* TAB 3: NOTIFICATIONS */}
+                        {activeTab === 'notifications' && (
+                            <FadeInDown delay={50} style={styles.tabContentWrapper}>
+                                <View style={styles.formSectionCard}>
+                                    <Text style={styles.formSectionHeading}>AUTOMATED SYSTEM ALERTS</Text>
+
+                                    {/* Low Stock */}
+                                    <View style={styles.notifRow}>
+                                        <View style={{ flex: 1, paddingRight: 10 }}>
+                                            <Text style={styles.notifTitle}>Low Inventory Alerts</Text>
+                                            <Text style={styles.notifSub}>Get notified when rice bag stock falls below minimum safety levels (&lt; 20 bags)</Text>
+                                        </View>
+                                        <Switch
+                                            value={toggles.lowStock}
+                                            onValueChange={() => toggleSwitch('lowStock')}
+                                            trackColor={{ false: '#E0E0E0', true: '#F5C6D8' }}
+                                            thumbColor={toggles.lowStock ? '#F06A8C' : '#FFFFFF'}
+                                        />
+                                    </View>
+
+                                    {/* Daily Sales */}
+                                    <View style={styles.notifRow}>
+                                        <View style={{ flex: 1, paddingRight: 10 }}>
+                                            <Text style={styles.notifTitle}>Daily Sales Summary</Text>
+                                            <Text style={styles.notifSub}>Receive a daily evening digest of total revenue, bags sold, and active invoices</Text>
+                                        </View>
+                                        <Switch
+                                            value={toggles.dailySales}
+                                            onValueChange={() => toggleSwitch('dailySales')}
+                                            trackColor={{ false: '#E0E0E0', true: '#F5C6D8' }}
+                                            thumbColor={toggles.dailySales ? '#F06A8C' : '#FFFFFF'}
+                                        />
+                                    </View>
+
+                                    {/* Security Alerts */}
+                                    <View style={styles.notifRow}>
+                                        <View style={{ flex: 1, paddingRight: 10 }}>
+                                            <Text style={styles.notifTitle}>Security & Access Monitoring</Text>
+                                            <Text style={styles.notifSub}>Instant alerts for new login sessions and password modifications</Text>
+                                        </View>
+                                        <Switch
+                                            value={toggles.security}
+                                            onValueChange={() => toggleSwitch('security')}
+                                            trackColor={{ false: '#E0E0E0', true: '#F5C6D8' }}
+                                            thumbColor={toggles.security ? '#F06A8C' : '#FFFFFF'}
+                                        />
+                                    </View>
+
+                                    {/* Customer Credit Overdue */}
+                                    <View style={[styles.notifRow, { borderBottomWidth: 0 }]}>
+                                        <View style={{ flex: 1, paddingRight: 10 }}>
+                                            <Text style={styles.notifTitle}>Customer Credit Overdue Alerts</Text>
+                                            <Text style={styles.notifSub}>Alerts when client accounts exceed 80% credit limit or 30-day payment cycle</Text>
+                                        </View>
+                                        <Switch
+                                            value={toggles.ledger}
+                                            onValueChange={() => toggleSwitch('ledger')}
+                                            trackColor={{ false: '#E0E0E0', true: '#F5C6D8' }}
+                                            thumbColor={toggles.ledger ? '#F06A8C' : '#FFFFFF'}
+                                        />
+                                    </View>
+                                </View>
+                            </FadeInDown>
+                        )}
+
+                        {/* Save Action Button */}
+                        <FadeInDown delay={80} style={styles.saveActionWrapper}>
+                            <TouchableOpacity
+                                style={styles.saveBtn}
+                                onPress={saveProfile}
+                                disabled={saving}
+                                activeOpacity={0.85}
+                            >
+                                {saving ? (
+                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                    <>
+                                        <Sparkles size={18} color="#FFFFFF" />
+                                        <Text style={styles.saveBtnText}>Save Preferences</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </FadeInDown>
                     </>
                 )}
-            </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }
 
+// ─────────────────────────────────────────────
+// STYLESHEET
+// ─────────────────────────────────────────────
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FAFAFA', // Light grey background
-    },
-    header: {
-        paddingHorizontal: 20,
-        paddingTop: 10,
-        paddingBottom: 20,
-        backgroundColor: '#fff',
-    },
-    title: {
-        fontSize: 28,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 14,
-        fontFamily: 'Urbanist_400Regular',
-        color: Colors.textSecondary,
-    },
-    tabBar: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    tabItem: {
-        marginRight: 24,
-        paddingVertical: 8,
-    },
-    activeTabItem: {
-        borderBottomWidth: 2,
-        borderBottomColor: Colors.primary,
-    },
-    tabText: {
-        fontSize: 16,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.textSecondary,
-    },
-    activeTabText: {
-        color: Colors.primary,
-        fontFamily: 'Urbanist_700Bold',
-    },
-    content: {
-        flex: 1,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: '#FAF7F2',
     },
     scrollContent: {
-        padding: 20,
+        paddingHorizontal: 16,
+        paddingTop: 48,
+        paddingBottom: 40,
     },
-    // Cards
-    profileCard: {
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        padding: 24,
-        marginBottom: 20,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
+    header: {
+        marginBottom: 14,
     },
-    sectionCard: {
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        padding: 24,
-        marginBottom: 20,
-        alignItems: 'flex-start',
-        borderWidth: 1,
-        borderColor: '#f0f0f0',
-    },
-    toggleCard: {
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 16,
+    headerTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
+        gap: 12,
+    },
+    backBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
         elevation: 1,
     },
-    // Profile Section
-    avatarSection: {
-        alignItems: 'center',
-        marginBottom: 24,
+    headerTitleCol: {
+        flex: 1,
     },
-    avatarPlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: 24,
-        backgroundColor: '#EFEBE9',
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1A1A1A',
+    },
+    headerSubtitle: {
+        fontSize: 12.5,
+        fontWeight: '500',
+        color: '#8A8A8A',
+        marginTop: 2,
+    },
+
+    // Segmented Tab Bar
+    tabContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#EAEAEA',
+        borderRadius: 999,
+        padding: 4,
+        marginBottom: 16,
+    },
+    tabItem: {
+        flex: 1,
+        paddingVertical: 9,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 999,
+    },
+    tabItemActive: {
+        backgroundColor: '#FFFFFF',
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 2,
+    },
+    tabItemText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#666',
+    },
+    tabItemTextActive: {
+        fontWeight: '700',
+        color: '#1A1A1A',
+    },
+
+    tabContentWrapper: {
+        marginBottom: 14,
+    },
+
+    // Avatar Card
+    avatarCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 22,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
+    },
+    avatarLargeCircle: {
+        width: 58,
+        height: 58,
+        borderRadius: 20,
+        backgroundColor: '#F7E6B8',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
         position: 'relative',
     },
-    avatarInitials: {
-        fontSize: 32,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text, // Dark text on light background
+    avatarLargeText: {
+        fontSize: 26,
+        fontWeight: '700',
+        color: '#8D6E63',
     },
-    cameraBtn: {
+    cameraIconBadge: {
         position: 'absolute',
-        bottom: -4,
-        right: -4,
-        backgroundColor: Colors.primary,
-        padding: 6,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: '#fff',
-    },
-    nameRow: {
-        flexDirection: 'row',
+        bottom: -2,
+        right: -2,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: '#1A1A1A',
+        justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 4,
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
     },
-    profileName: {
-        fontSize: 20,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
+    avatarDetails: {
+        flex: 1,
     },
-    profileRole: {
-        fontSize: 14,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.textSecondary,
-        marginBottom: 12,
+    avatarName: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1A1A1A',
     },
-    badgesRow: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    badge: {
-        backgroundColor: '#E8F5E9',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    badgeText: {
+    avatarRole: {
         fontSize: 12,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: Colors.primary,
+        fontWeight: '600',
+        color: '#8A8A8A',
+        marginTop: 2,
     },
-    // Form Inputs
-    formSection: {
-        marginBottom: 8,
+
+    // Form Section
+    formSectionCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 22,
+        padding: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
+    },
+    formSectionHeading: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#8A8A8A',
+        letterSpacing: 0.5,
+        marginBottom: 12,
     },
     inputGroup: {
-        marginBottom: 16,
-    },
-    label: {
-        fontSize: 10,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.textSecondary,
-        marginBottom: 6,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    input: {
-        backgroundColor: '#FAFAFA',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
-        fontSize: 14,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.text,
-    },
-    // Actions
-    actionRow: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        marginTop: 16,
-        gap: 16,
-    },
-    saveBtn: {
-        backgroundColor: Colors.primary,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    saveBtnText: {
-        color: '#fff',
-        fontFamily: 'Urbanist_700Bold',
-        fontSize: 14,
-    },
-    cancelBtn: {
-        paddingHorizontal: 16,
-    },
-    cancelBtnText: {
-        color: Colors.textSecondary,
-        fontFamily: 'Urbanist_600SemiBold',
-        fontSize: 14,
-    },
-    // Section Card Items
-    cardIconBox: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: '#E8F5E9',
-        justifyContent: 'center',
-        alignItems: 'center',
         marginBottom: 12,
     },
-    cardTitle: {
-        fontSize: 16,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
+    inputLabel: {
+        fontSize: 11.5,
+        fontWeight: '600',
+        color: '#555555',
         marginBottom: 4,
     },
-    cardDesc: {
-        fontSize: 12,
-        fontFamily: 'Urbanist_400Regular',
-        color: Colors.textSecondary,
-        marginBottom: 12,
-        lineHeight: 18,
-    },
-    linkBtn: {
+    inputField: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-    },
-    linkBtnText: {
-        fontSize: 14,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.primary,
-    },
-    dangerBtn: {
-        width: '100%',
-        paddingVertical: 12,
+        backgroundColor: '#FAF7F2',
         borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 42,
         borderWidth: 1,
-        borderColor: '#FFEBEE',
-        alignItems: 'center',
-        marginTop: 8,
+        borderColor: '#ECECEC',
+        gap: 8,
     },
-    dangerBtnText: {
-        color: Colors.error,
-        fontFamily: 'Urbanist_600SemiBold',
-        fontSize: 14,
+    disabledInput: {
+        backgroundColor: '#F0EFEA',
     },
-    // Business Tab specific
-    businessHeader: {
+    textInput: {
+        flex: 1,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#1A1A1A',
+    },
+
+    // Notifications
+    notifRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 24,
-        gap: 16,
-    },
-    businessLogo: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
-        backgroundColor: '#E8F5E9',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#C8E6C9',
-    },
-    statsRow: {
-        flexDirection: 'row',
         justifyContent: 'space-between',
-        backgroundColor: '#FAFAFA',
-        padding: 16,
-        borderRadius: 16,
-        marginTop: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F5F7',
     },
-    statItem: {
-        flex: 1,
-    },
-    statLabel: {
-        fontSize: 12,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.textSecondary,
-        marginBottom: 4,
-    },
-    statValue: {
-        fontSize: 16,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
-    },
-    // Notifications specific
-    toggleIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20, // Circular
-        backgroundColor: '#FAFAFA',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 16,
-    },
-    toggleContent: {
-        flex: 1,
-    },
-    toggleTitle: {
-        fontSize: 16,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
+    notifTitle: {
+        fontSize: 13.5,
+        fontWeight: '700',
+        color: '#1A1A1A',
         marginBottom: 2,
     },
-    toggleDesc: {
+    notifSub: {
+        fontSize: 11,
+        fontWeight: '500',
+        color: '#8A8A8A',
+        lineHeight: 15,
+    },
+
+    // Save Action
+    saveActionWrapper: {
+        marginTop: 10,
+        marginBottom: 20,
+    },
+    saveBtn: {
+        height: 48,
+        backgroundColor: '#F06A8C',
+        borderRadius: 999,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        elevation: 2,
+        shadowColor: '#F06A8C',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+    },
+    saveBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#FFFFFF',
+    },
+
+    loadingContainer: {
+        paddingVertical: 40,
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 8,
         fontSize: 12,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.textSecondary,
-        maxWidth: '90%',
+        fontWeight: '500',
+        color: '#8A8A8A',
     },
 });
