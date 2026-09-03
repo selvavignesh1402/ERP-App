@@ -12,8 +12,38 @@ web/build/
 # Expo environment variables — never commit API URLs/keys
 .env
 .env.*
+.env.local
+!.env.example
+
+# Firebase & Mobile Cloud Credentials / Secrets
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
+credentials.json
+secrets.json
+
+# Keystores & Certificate / Key files
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key
+*.cer
+*.crt
+*.der
+
+# Local Auth / Token Caches & OS Artifacts
+.npmrc
+.yarnrc
+*.local
+.DS_Store
+Thumbs.db
 
 # Test artifacts
 test_screenshots/
 playwright-report/
 test-results/
+
