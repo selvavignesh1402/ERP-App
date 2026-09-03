@@ -71,7 +71,7 @@ export default function SettingsScreen() {
             if (user?.role) setRole(roleLabel(user.role));
 
             if (user?.id) {
-                const profileRes = await api.get(`/profile/${user.id}`);
+                const profileRes = await api.get('/profile');
                 const profile = profileRes.data;
                 if (profile) {
                     setEmail(profile.email || '');
@@ -125,7 +125,7 @@ export default function SettingsScreen() {
         if (userId == null) return;
         setSaving(true);
         try {
-            await api.put(`/profile/${userId}`, {
+            await api.put('/profile', {
                 email,
                 location,
                 registerNumber,

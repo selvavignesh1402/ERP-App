@@ -11,7 +11,8 @@ import {
     KeyRound, Users, ShieldAlert, PhoneCall
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer } from '../src/components/Anime';
-import { listUsers, updateUser, me } from '../src/services/api';
+import { listUsers, updateUser, me, inviteStaff } from '../src/services/api';
+import { useCurrentRole, hasRole } from '../src/hooks/useCurrentRole';
 
 const ROLES = [
     { id: 'ADMIN', label: 'Administrator', desc: 'Full System, Financial & Admin Access', color: '#1A1A1A', bg: '#F5F5F7' },
@@ -34,6 +35,8 @@ interface UserRow {
 
 export default function UsersScreen() {
     const router = useRouter();
+    const currentRole = useCurrentRole();
+    const isAdmin = hasRole(currentRole, 'ADMIN');
     const [users, setUsers] = useState<UserRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -44,6 +47,12 @@ export default function UsersScreen() {
     const [roleModalVisible, setRoleModalVisible] = useState(false);
     const [targetUser, setTargetUser] = useState<UserRow | null>(null);
     const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+
+    // Invite Modal
+    const [inviteModalVisible, setInviteModalVisible] = useState(false);
+    const [invitePhone, setInvitePhone] = useState('');
+    const [inviteRole, setInviteRole] = useState('SALES');
+    const [inviting, setInviting] = useState(false);
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -69,8 +78,10 @@ export default function UsersScreen() {
                     console.error('Users: failed to load current user', e);
                 }
             })();
-            fetchUsers();
-        }, [fetchUsers])
+            if (isAdmin) {
+                fetchUsers();
+            }
+        }, [fetchUsers, isAdmin])
     );
 
     // ─────────────────────────────────────────────
@@ -159,6 +170,37 @@ export default function UsersScreen() {
         });
     };
 
+    const handleSendInvite = async () => {
+        if (!invitePhone || invitePhone.trim().length < 10) {
+            Alert.alert('Invalid Phone', 'Please enter a valid phone number');
+            return;
+        }
+        setInviting(true);
+        try {
+            // We pass 0 as orgId because backend will use TenantContext
+            const res = await inviteStaff(0, invitePhone, inviteRole);
+            setInviteModalVisible(false);
+            setInvitePhone('');
+            Alert.alert(
+                'Invite Created',
+                'Staff invited successfully! Would you like to share the invite link via WhatsApp?',
+                [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'Share to WhatsApp', onPress: () => {
+                        const link = res.data.inviteLink;
+                        Linking.openURL(`whatsapp://send?text=You have been invited to join our shop on Rice ERP! Click here to accept: ${link}`);
+                    }}
+                ]
+            );
+        } catch (error: any) {
+            console.error('Invite failed', error);
+            const msg = error.response?.data?.message || 'Failed to send invite';
+            Alert.alert('Error', msg);
+        } finally {
+            setInviting(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
@@ -189,6 +231,16 @@ export default function UsersScreen() {
                 </Svg>
             </View>
 
+            {/* Admin-only screen: fail closed while the role is unconfirmed or non-admin. */}
+            {!isAdmin ? (
+                <View style={styles.accessDeniedContainer}>
+                    <ShieldAlert size={40} color="#F06A8C" />
+                    <Text style={styles.accessDeniedTitle}>Access Restricted</Text>
+                    <Text style={styles.accessDeniedSubtitle}>
+                        Only administrators can manage staff accounts and role permissions.
+                    </Text>
+                </View>
+            ) : (
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
@@ -210,6 +262,17 @@ export default function UsersScreen() {
                                 {users.length} Team Members · Role Permissions & Security
                             </Text>
                         </View>
+                        
+                        {isAdmin && (
+                            <TouchableOpacity
+                                style={styles.inviteBtn}
+                                onPress={() => setInviteModalVisible(true)}
+                                activeOpacity={0.8}
+                            >
+                                <Sparkles size={16} color="#FFFFFF" />
+                                <Text style={styles.inviteBtnText}>Invite</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </FadeInDown>
 
@@ -408,6 +471,7 @@ export default function UsersScreen() {
                     )}
                 </FadeInDown>
             </ScrollView>
+            )}
 
             {/* 6. ROLE PICKER MODAL */}
             <Modal
@@ -478,6 +542,87 @@ export default function UsersScreen() {
                     </View>
                 </View>
             </Modal>
+            {/* 7. INVITE MODAL */}
+            <Modal
+                visible={inviteModalVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setInviteModalVisible(false)}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.modalCard}>
+                        <View style={styles.modalGrabHandle} />
+                        
+                        <View style={styles.modalHeader}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.modalTitle}>Invite Team Member</Text>
+                                <Text style={styles.modalSubtitle}>
+                                    Send an invitation link via WhatsApp
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.modalCloseBtn}
+                                onPress={() => setInviteModalVisible(false)}
+                                activeOpacity={0.7}
+                            >
+                                <X size={20} color="#1A1A1A" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.inviteForm}>
+                            <Text style={styles.inputLabel}>MOBILE NUMBER</Text>
+                            <TextInput
+                                style={styles.inviteInput}
+                                placeholder="e.g. 9876543210"
+                                value={invitePhone}
+                                onChangeText={setInvitePhone}
+                                keyboardType="phone-pad"
+                            />
+                            
+                            <Text style={styles.inputLabel}>SELECT ROLE</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ gap: 10, marginBottom: 24, paddingBottom: 10 }}
+                            >
+                                {ROLES.filter(r => r.id !== 'ADMIN').map((r) => {
+                                    const isSelected = inviteRole === r.id;
+                                    return (
+                                        <TouchableOpacity
+                                            key={r.id}
+                                            style={[
+                                                styles.inviteRoleChip,
+                                                isSelected && styles.inviteRoleChipSelected
+                                            ]}
+                                            onPress={() => setInviteRole(r.id)}
+                                        >
+                                            <Shield size={14} color={isSelected ? '#fff' : r.color} />
+                                            <Text style={[
+                                                styles.inviteRoleChipText,
+                                                isSelected && styles.inviteRoleChipTextSelected
+                                            ]}>{r.label}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+
+                            <TouchableOpacity 
+                                style={styles.inviteSubmitBtn}
+                                onPress={handleSendInvite}
+                                disabled={inviting}
+                            >
+                                {inviting ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <>
+                                        <Text style={styles.inviteSubmitBtnText}>Send Invitation</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -527,6 +672,20 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         color: '#8A8A8A',
         marginTop: 2,
+    },
+    inviteBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1A1A1A',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        gap: 6,
+    },
+    inviteBtnText: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: '600',
     },
 
     // KPI Grid
@@ -772,6 +931,26 @@ const styles = StyleSheet.create({
         paddingVertical: 30,
         alignItems: 'center',
     },
+    accessDeniedContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 32,
+    },
+    accessDeniedTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1A1A1A',
+        marginTop: 14,
+    },
+    accessDeniedSubtitle: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#8A8A8A',
+        textAlign: 'center',
+        marginTop: 6,
+        lineHeight: 19,
+    },
     loadingText: {
         marginTop: 8,
         fontSize: 12,
@@ -897,4 +1076,64 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#FFFFFF',
     },
+    // Invite Form Styles
+    inviteForm: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+    },
+    inputLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#8A8A8A',
+        marginBottom: 8,
+        letterSpacing: 0.5,
+    },
+    inviteInput: {
+        backgroundColor: '#F5F5F7',
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 15,
+        color: '#1A1A1A',
+        marginBottom: 20,
+    },
+    inviteRoleChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F5F5F7',
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
+        gap: 6,
+    },
+    inviteRoleChipSelected: {
+        backgroundColor: '#1A1A1A',
+        borderColor: '#1A1A1A',
+    },
+    inviteRoleChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#555555',
+    },
+    inviteRoleChipTextSelected: {
+        color: '#FFFFFF',
+    },
+    inviteSubmitBtn: {
+        backgroundColor: '#1A1A1A',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 14,
+        borderRadius: 14,
+        marginTop: 8,
+    },
+    inviteSubmitBtnText: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontWeight: '700',
+    }
 });

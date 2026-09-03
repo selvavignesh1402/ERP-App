@@ -3,24 +3,28 @@ import {
     useFonts,
     Urbanist_400Regular,
     Urbanist_500Medium,
-    Urbanist_700Bold
+    Urbanist_600SemiBold,
+    Urbanist_700Bold,
+    Urbanist_800ExtraBold
 } from '@expo-google-fonts/urbanist';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Colors } from '../src/theme/colors';
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
     const [loaded, error] = useFonts({
         Urbanist_400Regular,
         Urbanist_500Medium,
+        Urbanist_600SemiBold,
         Urbanist_700Bold,
+        Urbanist_800ExtraBold,
     });
 
     useEffect(() => {
         if (loaded || error) {
-            SplashScreen.hideAsync();
+            SplashScreen.hideAsync().catch(() => {});
         }
     }, [loaded, error]);
 

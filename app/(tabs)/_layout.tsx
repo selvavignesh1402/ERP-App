@@ -1,14 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { Tabs, useRouter, usePathname } from 'expo-router';
+import { Tabs, useRouter, Redirect } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import { LayoutGrid, Box, Plus, ShoppingCart, User } from 'lucide-react-native';
-import { onUnauthorized } from '../../src/services/api';
+import { onUnauthorized, getToken, clearToken } from '../../src/services/api';
 import { useCurrentRole } from '../../src/hooks/useCurrentRole';
 
 export default function TabLayout() {
     const router = useRouter();
-    const { role, ready } = useCurrentRole();
+    const { role, profileCompleted, ready, failed } = useCurrentRole();
+    const [authChecked, setAuthChecked] = useState(false);
+    const [hasToken, setHasToken] = useState(false);
 
     useEffect(() => {
         const off = onUnauthorized(() => {
@@ -16,6 +18,45 @@ export default function TabLayout() {
         });
         return off;
     }, [router]);
+
+    // Auth gate: this group owns the root URL, so unauthenticated users
+    // are redirected to welcome before any tab renders.
+    useEffect(() => {
+        let cancelled = false;
+        getToken().then(token => {
+            if (!cancelled) {
+                setHasToken(!!token);
+                setAuthChecked(true);
+            }
+        }).catch(() => {
+            if (!cancelled) {
+                setHasToken(false);
+                setAuthChecked(true);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    if (!authChecked) {
+        return (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+        );
+    }
+
+    if (!hasToken) {
+        return <Redirect href="/(auth)/welcome" />;
+    }
+
+    if (failed) {
+        // Token exists but backend is unreachable or returned an auth error.
+        // Clear the stale token so we don't get stuck in a redirect loop.
+        clearToken();
+        return <Redirect href="/(auth)/welcome" />;    
+    }
 
     if (!ready) {
         return (
@@ -25,7 +66,16 @@ export default function TabLayout() {
         );
     }
 
-    const canSeeSales = role !== 'WAREHOUSE';
+    if (role === 'MASTER_ADMIN') {
+        return <Redirect href="/master-admin" />;
+    }
+
+    if (!profileCompleted) {
+        return <Redirect href="/settings" />;
+    }
+
+    // Fail closed: hide the Sales tab unless the role is confirmed non-WAREHOUSE.
+    const canSeeSales = role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'SALES';
 
     return (
         <Tabs
@@ -35,7 +85,10 @@ export default function TabLayout() {
             <Tabs.Screen name="index" options={{ title: 'Home' }} />
             <Tabs.Screen name="stock" options={{ title: 'Stock' }} />
             <Tabs.Screen name="menu" options={{ title: 'Modules' }} />
-            {canSeeSales && <Tabs.Screen name="sales" options={{ title: 'Sales' }} />}
+            <Tabs.Screen
+                name="sales"
+                options={canSeeSales ? { title: 'Sales' } : { title: 'Sales', href: null }}
+            />
             <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
             <Tabs.Screen name="ledger" options={{ href: null }} />
         </Tabs>

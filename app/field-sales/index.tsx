@@ -86,7 +86,8 @@ export default function FieldSalesHub() {
     const router = useRouter();
     const { role } = useCurrentRole();
 
-    const visibleModules = SALES_MODULES.filter(m => !role || m.roles.includes(role));
+    // Fail closed: no confirmed role means no privileged modules.
+    const visibleModules = role ? SALES_MODULES.filter(m => m.roles.includes(role)) : [];
 
     return (
         <SafeAreaView style={styles.container}>

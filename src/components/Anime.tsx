@@ -314,7 +314,7 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
     const flattenedStyle: any = StyleSheet.flatten(style) || {};
     const innerStyle: ViewStyle = {
         width: '100%',
-        flexDirection: flattenedStyle.flexDirection || 'row',
+        flexDirection: flattenedStyle.flexDirection || 'column',
         alignItems: flattenedStyle.alignItems || 'stretch',
         justifyContent: flattenedStyle.justifyContent || 'flex-start',
     };

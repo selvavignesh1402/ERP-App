@@ -5,3 +5,15 @@
 expo-env.d.ts
 # @end expo-cli
 node_modules/
+.expo/
+dist/
+web/build/
+
+# Expo environment variables — never commit API URLs/keys
+.env
+.env.*
+
+# Test artifacts
+test_screenshots/
+playwright-report/
+test-results/

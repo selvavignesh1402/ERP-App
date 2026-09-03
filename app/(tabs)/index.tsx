@@ -4,7 +4,7 @@ import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Colors } from '../../src/theme/colors';
 import {
-    ShoppingBag, Box, Clock, TrendingUp, TrendingDown,
+    ShoppingBag, Box, Clock,
     Plus, BarChart2, Sparkles, MapPin, Users, Truck, Receipt, BookOpen, ChevronRight
 } from 'lucide-react-native';
 import { DashboardHeader } from '../../src/components/DashboardHeader';
@@ -22,13 +22,14 @@ export default function Home() {
         lowStockCount: 0,
         todaySalesKg: 0,
         todayRevenue: 0,
+        todayPurchase: 0,
         pendingCredit: 0,
         activeSuppliers: 0,
         recentSales: [] as any[]
     });
 
-    const isWarehouse = role === 'WAREHOUSE';
-    const canSeeSales = !isWarehouse;
+    // Fail closed: sales KPIs/actions hidden until a non-WAREHOUSE role is confirmed.
+    const canSeeSales = role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'SALES';
 
     const fetchDashboard = useCallback(async () => {
         setLoading(true);
@@ -61,6 +62,13 @@ export default function Home() {
 
     const formatCurrency = (amount: number) => {
         return `₹ ${amount.toLocaleString('en-IN')}`;
+    };
+
+    const greeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 17) return 'Good Afternoon';
+        return 'Good Evening';
     };
 
     return (
@@ -107,7 +115,7 @@ export default function Home() {
                 <FadeInDown delay={40}>
                     <DashboardHeader
                         date={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: '2-digit' })}
-                        greeting={`Good Morning, ${userName} 👋`}
+                        greeting={`${greeting()}, ${userName} 👋`}
                         subtext="Here's what's happening with your rice stock today."
                         onSearch={(txt) => {}}
                     />
@@ -215,14 +223,10 @@ export default function Home() {
                                                     <View style={[styles.tileIconCircle, { backgroundColor: '#DFF3E3' }]}>
                                                         <ShoppingBag size={16} color="#2FAE55" />
                                                     </View>
-                                                    <View style={styles.badgeSuccess}>
-                                                        <TrendingUp size={10} color="#2FAE55" />
-                                                        <Text style={styles.badgeSuccessText}>12.5%</Text>
-                                                    </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Total Sales</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayRevenue || 54320)}</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>Today's Sales</Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayRevenue)}</Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -234,17 +238,13 @@ export default function Home() {
                                     >
                                         <View style={styles.overviewTileInner}>
                                             <View style={styles.tileHeaderRow}>
-                                                <View style={[styles.tileIconCircle, { backgroundColor: '#FBE1DE' }]}>
-                                                    <Box size={16} color="#E5493F" />
+                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#FBE1DE' }]}>
+                                                        <Box size={16} color="#E5493F" />
+                                                    </View>
                                                 </View>
-                                                <View style={styles.badgeDanger}>
-                                                    <TrendingDown size={10} color="#E5493F" />
-                                                    <Text style={styles.badgeDangerText}>5.4%</Text>
-                                                </View>
-                                            </View>
                                             <View>
-                                                <Text style={styles.tileLabel} numberOfLines={1}>Total Purchase</Text>
-                                                <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(28760)}</Text>
+                                                <Text style={styles.tileLabel} numberOfLines={1}>Today's Purchase</Text>
+                                                <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayPurchase)}</Text>
                                             </View>
                                         </View>
                                     </AnimatedPressable>
@@ -265,7 +265,7 @@ export default function Home() {
                                                 </View>
                                                 <View>
                                                     <Text style={styles.tileLabel} numberOfLines={1}>Pending Credit</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.pendingCredit || 16200)}</Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.pendingCredit)}</Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -340,6 +340,34 @@ export default function Home() {
                                         <View style={styles.moduleTextFlex}>
                                             <Text style={styles.moduleTitle}>Invoices</Text>
                                             <Text style={styles.moduleSub}>Billing & Receipts</Text>
+                                        </View>
+                                        <ChevronRight size={18} color="#B0B0B0" />
+                                    </AnimatedPressable>
+
+                                    <AnimatedPressable
+                                        style={styles.moduleListItem}
+                                        onPress={() => router.push('/field-sales')}
+                                    >
+                                        <View style={[styles.moduleIconBox, { backgroundColor: '#FBE8F0' }]}>
+                                            <MapPin size={18} color="#F06A8C" />
+                                        </View>
+                                        <View style={styles.moduleTextFlex}>
+                                            <Text style={styles.moduleTitle}>Field Sales & Route</Text>
+                                            <Text style={styles.moduleSub}>GPS Check-In & Spot Orders</Text>
+                                        </View>
+                                        <ChevronRight size={18} color="#B0B0B0" />
+                                    </AnimatedPressable>
+
+                                    <AnimatedPressable
+                                        style={styles.moduleListItem}
+                                        onPress={() => router.push('/team-management')}
+                                    >
+                                        <View style={[styles.moduleIconBox, { backgroundColor: '#EDE7F6' }]}>
+                                            <Users size={18} color="#7C3AED" />
+                                        </View>
+                                        <View style={styles.moduleTextFlex}>
+                                            <Text style={styles.moduleTitle}>Team & Staff</Text>
+                                            <Text style={styles.moduleSub}>Roles, Access & WhatsApp Invites</Text>
                                         </View>
                                         <ChevronRight size={18} color="#B0B0B0" />
                                     </AnimatedPressable>

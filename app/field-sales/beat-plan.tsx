@@ -185,7 +185,9 @@ export default function BeatPlanScreen() {
     const handleGenerateWeek = async () => {
         const today = new Date();
         const monday = new Date(today);
-        monday.setDate(today.getDate() - today.getDay() + 1);
+        // (getDay() + 6) % 7 maps Sunday(0) → 6, Monday(1) → 0, so we always
+        // land on THIS week's Monday, including when today is a Sunday.
+        monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
         const weekStart = monday.toISOString().split('T')[0];
 
         Alert.alert('Generate Week Schedules', `Generate visit schedules for the week of ${weekStart}?`, [

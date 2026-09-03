@@ -8,11 +8,11 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import {
     User, Settings, Shield, HelpCircle, Info, LogOut,
     BadgeCheck, ChevronRight, Phone, Mail, Sparkles,
-    Lock, Bell, Building2, KeyRound
+    Lock, Bell, Building2, KeyRound, Users, MapPin
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../../src/components/Anime';
 import { me, clearToken } from '../../src/services/api';
-import { useCurrentRole } from '../../src/hooks/useCurrentRole';
+import { useCurrentRole, hasRole } from '../../src/hooks/useCurrentRole';
 
 const roleLabel = (role: string | undefined) => {
     switch (role) {
@@ -27,12 +27,13 @@ const roleLabel = (role: string | undefined) => {
 
 export default function ProfileScreen() {
     const router = useRouter();
-    const { role } = useCurrentRole();
+    const currentRole = useCurrentRole();
+    const isAdmin = hasRole(currentRole, 'ADMIN');
     const [userName, setUserName] = useState<string>('Enterprise User');
     const [userEmail, setUserEmail] = useState<string>('');
     const [userPhone, setUserPhone] = useState<string>('');
-    const [userRole, setUserRole] = useState<string>('Administrator');
-    const [rawRole, setRawRole] = useState<string>('ADMIN');
+    const [userRole, setUserRole] = useState<string>('ERP User');
+    const [rawRole, setRawRole] = useState<string>('');
     const [userInitial, setUserInitial] = useState<string>('A');
 
     const loadUser = useCallback(async () => {
@@ -82,7 +83,8 @@ export default function ProfileScreen() {
         );
     };
 
-    const isAdmin = rawRole === 'ADMIN' || rawRole === 'MANAGER';
+    // Fail-closed: only a confirmed ADMIN sees user-management entry points.
+    // (Buttons stay hidden while the role loads or if the lookup fails.)
 
     return (
         <SafeAreaView style={styles.container}>
@@ -238,6 +240,40 @@ export default function ProfileScreen() {
                             <ChevronRight size={18} color="#B0B0B0" />
                         </TouchableOpacity>
 
+                        {/* Team & Staff Management */}
+                        {isAdmin && (
+                            <TouchableOpacity
+                                style={styles.optionItem}
+                                onPress={() => router.push('/team-management')}
+                                activeOpacity={0.7}
+                            >
+                                <View style={[styles.optionIconBox, { backgroundColor: '#EDE7F6' }]}>
+                                    <Users size={18} color="#7E57C2" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.optionTitle}>Team & Staff Directory</Text>
+                                    <Text style={styles.optionSubtitle}>Roles, permissions & WhatsApp invite links</Text>
+                                </View>
+                                <ChevronRight size={18} color="#B0B0B0" />
+                            </TouchableOpacity>
+                        )}
+
+                        {/* Field Sales & Route */}
+                        <TouchableOpacity
+                            style={styles.optionItem}
+                            onPress={() => router.push('/field-sales')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={[styles.optionIconBox, { backgroundColor: '#FBE8F0' }]}>
+                                <MapPin size={18} color="#F06A8C" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.optionTitle}>Field Sales & Route Planning</Text>
+                                <Text style={styles.optionSubtitle}>Store check-in, visit logs & spot bookings</Text>
+                            </View>
+                            <ChevronRight size={18} color="#B0B0B0" />
+                        </TouchableOpacity>
+
                         {/* User Management */}
                         {isAdmin && (
                             <TouchableOpacity
@@ -245,7 +281,7 @@ export default function ProfileScreen() {
                                 onPress={() => router.push('/users')}
                                 activeOpacity={0.7}
                             >
-                                <View style={[styles.optionIconBox, { backgroundColor: '#EDE7F6' }]}>
+                                <View style={[styles.optionIconBox, { backgroundColor: '#F0ECFA' }]}>
                                     <Shield size={18} color="#7E57C2" />
                                 </View>
                                 <View style={{ flex: 1 }}>

@@ -4,7 +4,7 @@ import {
     TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView,
     Platform, Linking
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
     Search, Plus, ArrowLeft, User, Phone, Mail, MapPin,
@@ -17,6 +17,7 @@ import api from '../src/services/api';
 
 export default function CustomersScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{ searchCustomer?: string; search?: string }>();
     const [customers, setCustomers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -51,9 +52,12 @@ export default function CustomersScreen() {
         }
     }, []);
 
-    useEffect(() => {
+    useFocusEffect(useCallback(() => {
         fetchCustomers();
-    }, [fetchCustomers]);
+        if (params.searchCustomer || params.search) {
+            setSearchQuery(params.searchCustomer || params.search || '');
+        }
+    }, [fetchCustomers, params.searchCustomer, params.search]));
 
     // ─────────────────────────────────────────────
     // COMPUTED METRICS

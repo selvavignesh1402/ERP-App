@@ -69,20 +69,32 @@ export const getToken = async (): Promise<string | null> => {
 };
 
 const getBaseUrl = () => {
+    if (Platform.OS === 'web') {
+        // Explicitly use 127.0.0.1 on web to avoid IPv6 localhost resolution issues
+        return 'http://127.0.0.1:8083';
+    }
+
+    // 1. Dynamic LAN IP extraction from Expo Metro host connection (Always matches current Wi-Fi)
+    const hostUri = Constants.expoConfig?.hostUri ||
+                    (Constants as any)?.manifest2?.extra?.expoClient?.hostUri ||
+                    (Constants as any)?.manifest?.debuggerHost ||
+                    (Constants as any)?.experienceUrl ||
+                    Constants.linkingUri;
+
+    if (hostUri) {
+        const cleanHost = String(hostUri).replace(/^[a-zA-Z]+:\/\//, '').split('/')[0];
+        const ip = cleanHost.split(':')[0];
+        if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+            return `http://${ip}:8083`;
+        }
+    }
+
+    // 2. Explicit environment variable override if defined
     if (process.env.EXPO_PUBLIC_API_URL) {
         return process.env.EXPO_PUBLIC_API_URL;
     }
-    // Dynamic LAN IP fallback for Expo local development
-    const debuggerHost = Constants.expoConfig?.hostUri;
-    if (debuggerHost) {
-        const ip = debuggerHost.split(':')[0];
-        return `http://${ip}:8083`;
-    }
-    console.warn(
-        'EXPO_PUBLIC_API_URL not set and no Expo host detected; defaulting to http://localhost:8083. ' +
-        'Set EXPO_PUBLIC_API_URL in your .env or update api.ts.'
-    );
-    return 'http://localhost:8083';
+
+    return 'http://10.15.155.25:8083';
 };
 
 const api = axios.create({
@@ -95,6 +107,9 @@ const api = axios.create({
 
 api.interceptors.request.use(
     async (config) => {
+        // Dynamically resolve base URL on each request to match current network IP
+        config.baseURL = getBaseUrl();
+
         const isAuthEndpoint = config.url?.startsWith('/auth/login') ||
                                 config.url?.startsWith('/auth/signup') ||
                                 config.url?.startsWith('/auth/verify-otp') ||
@@ -126,10 +141,38 @@ api.interceptors.response.use(
 
 export const me = () => api.get('/auth/me');
 
+export const firebaseLogin = (token: string, name?: string) =>
+    api.post('/auth/firebase-login', { token, name });
+
+export const sendBackendOtp = (phoneNumber: string) =>
+    api.post('/auth/send-otp', { phoneNumber });
+
+export const verifyBackendOtp = (phoneNumber: string, otp: string, name?: string) =>
+    api.post('/auth/verify-otp', { phoneNumber, otp, name });
+
 export const listUsers = () => api.get('/users');
 
 export const updateUser = (id: number | string, payload: { role?: string; active?: boolean }) =>
     api.put(`/users/${id}`, payload);
+
+// --- Organizations APIs ---
+
+export const getMyOrganizations = () => api.get('/api/organizations/my');
+
+export const selectOrganization = (organizationId: number) => 
+    api.post(`/api/organizations/select?organizationId=${organizationId}`);
+
+export const createOrganization = (name: string) => 
+    api.post('/api/organizations', { name });
+
+export const getInviteDetails = (token: string) => 
+    api.get(`/api/organizations/invite-details?token=${token}`);
+
+export const acceptInvite = (token: string) => 
+    api.post(`/api/organizations/accept-invite?token=${token}`);
+
+export const inviteStaff = (organizationId: number, phoneNumber: string, role: string) => 
+    api.post('/api/organizations/invite', { organizationId: String(organizationId), phoneNumber, role });
 
 export default api;
 

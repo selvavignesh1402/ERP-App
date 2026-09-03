@@ -3,10 +3,9 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } fr
 import { Stack, useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    MapPin, Box, RefreshCw, Users, BookOpen, Truck,
+    MapPin, Box, Users, BookOpen, Truck,
     UserCheck, BarChart2, ChevronRight
 } from 'lucide-react-native';
-import { IndianRupee } from '../../src/components/IndianRupee';
 import { StaggerContainer, FadeInDown } from '../../src/components/Anime';
 import { useCurrentRole } from '../../src/hooks/useCurrentRole';
 
@@ -30,16 +29,6 @@ const MODULES = [
         iconColor: '#F5A34C',
         route: '/purchases',
         roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE']
-    },
-    {
-        id: 'returns',
-        title: 'Returns',
-        subtitle: 'Sales & purchase returns',
-        icon: RefreshCw,
-        bgColor: '#FBE8F0',
-        iconColor: '#F06A8C',
-        route: '/invoices',
-        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT']
     },
     {
         id: 'customers',
@@ -79,17 +68,7 @@ const MODULES = [
         bgColor: '#F3E5F5',
         iconColor: '#9B6FE0',
         route: '/users',
-        roles: ['ADMIN', 'MANAGER']
-    },
-    {
-        id: 'expenses',
-        title: 'Expenses',
-        subtitle: 'Track operational costs',
-        icon: IndianRupee,
-        bgColor: '#EDE7F6',
-        iconColor: '#8B5FD6',
-        route: '/settings',
-        roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+        roles: ['ADMIN']
     },
     {
         id: 'reports',
@@ -111,7 +90,8 @@ export default function MenuScreen() {
         router.push(route as any);
     };
 
-    const visibleModules = ready ? MODULES.filter(item => item.roles.includes(role ?? '')) : MODULES;
+    // Fail closed: show no privileged modules until the role is confirmed by the backend.
+    const visibleModules = ready && role ? MODULES.filter(item => item.roles.includes(role)) : [];
 
     return (
         <SafeAreaView style={styles.container}>
