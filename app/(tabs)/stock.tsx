@@ -1122,6 +1122,9 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 16,
         paddingTop: 8,
+        maxWidth: 1200,
+        width: '100%',
+        alignSelf: 'center',
     },
     header: {
         flexDirection: 'row',
@@ -1402,8 +1405,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.45)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     adjustModalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
@@ -1706,6 +1712,8 @@ const styles = StyleSheet.create({
     /* ADD PRODUCT & DETAILS MODAL STYLES                                       */
     /* ========================================================================= */
     modalContent: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,

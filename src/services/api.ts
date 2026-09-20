@@ -21,6 +21,16 @@ const notifyUnauthorized = () => {
     });
 };
 
+// Token changed listeners
+const tokenChangedListeners: Array<(token: string | null) => void> = [];
+export const onTokenChanged = (cb: (token: string | null) => void) => {
+    tokenChangedListeners.push(cb);
+    return () => {
+        const idx = tokenChangedListeners.indexOf(cb);
+        if (idx >= 0) tokenChangedListeners.splice(idx, 1);
+    };
+};
+
 export const setToken = (token: string | null) => {
     authToken = token;
     if (Platform.OS === 'web') {
@@ -42,30 +52,36 @@ export const setToken = (token: string | null) => {
             });
         }
     }
+
+    tokenChangedListeners.forEach(cb => {
+        try { cb(token); } catch (e) { console.error('onTokenChanged listener error:', e); }
+    });
 };
 
 export const clearToken = () => setToken(null);
 
 export const getToken = async (): Promise<string | null> => {
-    if (Platform.OS === 'web') {
-        if (typeof window !== 'undefined') {
-            return window.localStorage.getItem('auth_token');
-        }
-        return null;
-    }
     if (authToken) {
         return authToken;
+    }
+    if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+            const stored = window.localStorage.getItem('auth_token');
+            if (stored) authToken = stored;
+            return stored;
+        }
+        return null;
     }
     try {
         const storedToken = await SecureStore.getItemAsync('auth_token');
         if (storedToken) {
             authToken = storedToken;
+            return storedToken;
         }
-        return storedToken;
-    } catch (e) {
-        console.error('Error reading secure token:', e);
-        return null;
+    } catch (err) {
+        console.error('Error reading token from SecureStore:', err);
     }
+    return null;
 };
 
 const getBaseUrl = () => {
@@ -94,7 +110,11 @@ const getBaseUrl = () => {
         return process.env.EXPO_PUBLIC_API_URL;
     }
 
-    return 'http://10.15.155.25:8083';
+    if (Platform.OS === 'android') {
+        return 'http://10.0.2.2:8083';
+    }
+
+    return 'http://127.0.0.1:8083';
 };
 
 const api = axios.create({
@@ -131,7 +151,12 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        if (error?.response?.status === 401) {
+        const url = error?.config?.url || '';
+        const isAuthEndpoint = url.startsWith('/auth/login') ||
+                                url.startsWith('/auth/signup') ||
+                                url.startsWith('/auth/verify-otp') ||
+                                url.startsWith('/auth/send-otp');
+        if (error?.response?.status === 401 && !isAuthEndpoint) {
             clearToken();
             notifyUnauthorized();
         }

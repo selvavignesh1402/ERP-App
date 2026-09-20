@@ -69,7 +69,7 @@ export default function MasterAdminScreen() {
     const [newShopName, setNewShopName] = useState('');
     const [adminName, setAdminName] = useState('');
     const [adminPhone, setAdminPhone] = useState('');
-    const [adminPassword, setAdminPassword] = useState('admin123');
+    const [adminPassword, setAdminPassword] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Wholesale Mart');
     const [creatingShop, setCreatingShop] = useState(false);
 
@@ -136,17 +136,17 @@ export default function MasterAdminScreen() {
                 name: fullName,
                 adminName: adminName.trim() || `${fullName} Admin`,
                 adminPhone: adminPhone.trim(),
-                adminPassword: adminPassword.trim() || 'admin123',
+                adminPassword,
             });
 
             Alert.alert(
                 'Shop & Admin Created!',
-                `"${fullName}" has been onboarded with Admin "${res.data.adminName || adminName}" (Phone: ${adminPhone}).\nDefault Password: ${adminPassword || 'admin123'}`
+                `"${fullName}" has been onboarded with Admin "${res.data.adminName || adminName}" (Phone: ${adminPhone}).`
             );
             setNewShopName('');
             setAdminName('');
             setAdminPhone('');
-            setAdminPassword('admin123');
+            setAdminPassword('');
             setShowAddModal(false);
             fetchData();
         } catch (err: any) {
@@ -677,20 +677,24 @@ export default function MasterAdminScreen() {
                             />
                         </View>
 
-                        {/* Admin Default Password */}
-                        <Text style={styles.modalInputLabel}>DEFAULT PASSWORD</Text>
+                        {/* New account password; existing accounts retain their credentials. */}
+                        <Text style={styles.modalInputLabel}>PASSWORD FOR NEW ACCOUNT</Text>
                         <View style={styles.inputBox}>
                             <ShieldAlert size={18} color="#7C3AED" />
                             <TextInput
                                 style={styles.textInput}
-                                placeholder="admin123"
+                                placeholder="New accounts: at least 12 characters"
                                 placeholderTextColor="#888888"
                                 value={adminPassword}
                                 onChangeText={setAdminPassword}
+                                secureTextEntry
+                                autoCapitalize="none"
+                                autoCorrect={false}
                             />
                         </View>
 
                         {/* Create CTA Button */}
+                        <Text style={styles.modalInputLabel}>Existing accounts keep their current password.</Text>
                         <TouchableOpacity
                             style={[styles.createShopBtn, (!newShopName.trim() || !adminPhone.trim()) && styles.createShopBtnDisabled]}
                             onPress={handleCreateShop}
@@ -1347,8 +1351,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     modalSheet: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,

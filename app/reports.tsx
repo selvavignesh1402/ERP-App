@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { Colors } from '../src/theme/colors';
 import { Card } from '../src/components/Card';
 import { AlertTriangle, BarChart3, Activity, RefreshCw } from 'lucide-react-native';
+import { RoleGate } from '../src/components/RoleGate';
 import api from '../src/services/api';
 
 export default function ReportsScreen() {
@@ -80,6 +81,7 @@ export default function ReportsScreen() {
     const movementColor = (qty: number) => (qty >= 0 ? Colors.success : Colors.error);
 
     return (
+        <RoleGate permission="inventory:view">
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
             <View style={styles.header}>
@@ -239,6 +241,7 @@ export default function ReportsScreen() {
                 </Modal>
             )}
         </SafeAreaView>
+        </RoleGate>
     );
 }
 
@@ -272,7 +275,7 @@ const styles = StyleSheet.create({
     historyCard: { padding: 18, marginBottom: 12 },
     historyTitle: { fontFamily: 'Urbanist_700Bold', fontSize: 17, color: Colors.text, marginBottom: 10 },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    modalContent: { backgroundColor: '#fff', width: '100%', padding: 24, borderRadius: 24 },
+    modalContent: { backgroundColor: '#fff', width: '100%', maxWidth: 540, padding: 24, borderRadius: 24 },
     modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
     modalTitle: { fontSize: 18, fontFamily: 'Urbanist_700Bold', color: Colors.text },
     closeBtn: { padding: 4 },

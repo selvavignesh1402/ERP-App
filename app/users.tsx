@@ -13,6 +13,8 @@ import {
 import { FadeInDown, StaggerContainer } from '../src/components/Anime';
 import { listUsers, updateUser, me, inviteStaff } from '../src/services/api';
 import { useCurrentRole, hasRole } from '../src/hooks/useCurrentRole';
+import { AccessDeniedScreen } from '../src/components/AccessDeniedScreen';
+import { useRoleContext } from '../src/contexts/RoleContext';
 
 const ROLES = [
     { id: 'ADMIN', label: 'Administrator', desc: 'Full System, Financial & Admin Access', color: '#1A1A1A', bg: '#F5F5F7' },
@@ -36,7 +38,15 @@ interface UserRow {
 export default function UsersScreen() {
     const router = useRouter();
     const currentRole = useCurrentRole();
+    const { platformRole, ready } = useRoleContext();
     const isAdmin = hasRole(currentRole, 'ADMIN');
+
+    useEffect(() => {
+        if (ready && platformRole !== 'MASTER_ADMIN') {
+            router.replace('/team-management');
+        }
+    }, [ready, platformRole]);
+
     const [users, setUsers] = useState<UserRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +65,7 @@ export default function UsersScreen() {
     const [inviting, setInviting] = useState(false);
 
     const fetchUsers = useCallback(async () => {
+        if (platformRole !== 'MASTER_ADMIN') return;
         try {
             setLoading(true);
             const res = await listUsers();
@@ -233,15 +244,12 @@ export default function UsersScreen() {
 
             {/* Admin-only screen: fail closed while the role is unconfirmed or non-admin. */}
             {!isAdmin ? (
-                <View style={styles.accessDeniedContainer}>
-                    <ShieldAlert size={40} color="#F06A8C" />
-                    <Text style={styles.accessDeniedTitle}>Access Restricted</Text>
-                    <Text style={styles.accessDeniedSubtitle}>
-                        Only administrators can manage staff accounts and role permissions.
-                    </Text>
-                </View>
+                <AccessDeniedScreen
+                    requiredPermission="users:manage"
+                    customMessage="Only administrators can manage staff accounts and role permissions."
+                />
             ) : (
-            <ScrollView
+                <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
@@ -985,8 +993,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     modalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FAF7F2',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,

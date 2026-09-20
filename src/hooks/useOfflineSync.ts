@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import { syncService, OfflineSale } from '../services/syncService';
-import { useCurrentRole } from './useCurrentRole';
+import { useRoleContext } from '../contexts/RoleContext';
 
 export function useOfflineSync() {
-    const { role } = useCurrentRole();
+    const { orgId: contextOrgId } = useRoleContext();
     const [isOnline, setIsOnline] = useState<boolean>(true);
     const [pendingCount, setPendingCount] = useState<number>(0);
     const [isSyncing, setIsSyncing] = useState<boolean>(false);
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
     // Active Org ID fallback
-    const orgId = 1; // Or tenant context
+    const orgId = contextOrgId || 1;
 
     const refreshPendingCount = useCallback(async () => {
         const queue = await syncService.getPendingQueue(orgId);

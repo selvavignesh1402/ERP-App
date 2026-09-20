@@ -6,6 +6,7 @@ import { Typography } from '../src/theme/typography';
 import { Card } from '../src/components/Card';
 import { Button } from '../src/components/Button';
 import { Plus, Search, Calendar, ShoppingBag, X, ArrowRight, CheckCircle2, Truck } from 'lucide-react-native';
+import { RoleGate } from '../src/components/RoleGate';
 import api from '../src/services/api';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -82,8 +83,13 @@ export default function PurchasesScreen() {
             ]);
             setSuppliers(suppliersRes.data || []);
             setProducts(productsRes.data || []);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error loading form list data:', error);
+            setSuppliers([]);
+            setProducts([]);
+            if (error?.response?.status === 403) {
+                Alert.alert('Access Restricted', 'You do not have permission to view suppliers or products.');
+            }
         }
     };
 
@@ -310,6 +316,7 @@ export default function PurchasesScreen() {
     };
 
     return (
+        <RoleGate permission="purchase:view">
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
@@ -614,6 +621,7 @@ export default function PurchasesScreen() {
                 </Modal>
             )}
         </SafeAreaView>
+        </RoleGate>
     );
 }
 
@@ -626,6 +634,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 10,
         paddingBottom: 20,
+        maxWidth: 1200,
+        width: '100%',
+        alignSelf: 'center',
     },
     title: {
         fontSize: 24,
@@ -641,6 +652,9 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: 20,
+        maxWidth: 1200,
+        width: '100%',
+        alignSelf: 'center',
     },
     addButton: {
         backgroundColor: Colors.primary,
@@ -805,6 +819,7 @@ const styles = StyleSheet.create({
     modalContent: {
         backgroundColor: '#fff',
         width: '100%',
+        maxWidth: 540,
         padding: 24,
         borderRadius: 24,
         shadowColor: "#000",

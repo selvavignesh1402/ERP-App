@@ -13,6 +13,7 @@ import {
     IndianRupee
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../src/components/Anime';
+import { RoleGate } from '../src/components/RoleGate';
 import api from '../src/services/api';
 
 export default function CustomersScreen() {
@@ -189,6 +190,7 @@ export default function CustomersScreen() {
     };
 
     return (
+        <RoleGate permission="customer:view">
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
@@ -676,6 +678,7 @@ export default function CustomersScreen() {
                 </View>
             </Modal>
         </SafeAreaView>
+        </RoleGate>
     );
 }
 
@@ -1098,8 +1101,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     modalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FAF7F2',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,

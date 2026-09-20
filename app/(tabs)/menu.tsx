@@ -7,7 +7,7 @@ import {
     UserCheck, BarChart2, ChevronRight
 } from 'lucide-react-native';
 import { StaggerContainer, FadeInDown } from '../../src/components/Anime';
-import { useCurrentRole } from '../../src/hooks/useCurrentRole';
+import { usePermission } from '../../src/hooks/usePermission';
 
 const MODULES = [
     {
@@ -18,6 +18,7 @@ const MODULES = [
         bgColor: '#E8F5E9',
         iconColor: '#36B37E',
         route: '/field-sales',
+        permission: 'sales:create',
         roles: ['ADMIN', 'MANAGER', 'SALES']
     },
     {
@@ -28,6 +29,7 @@ const MODULES = [
         bgColor: '#FEF4E6',
         iconColor: '#F5A34C',
         route: '/purchases',
+        permission: 'purchase:view',
         roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE']
     },
     {
@@ -38,6 +40,7 @@ const MODULES = [
         bgColor: '#EAF2FF',
         iconColor: '#5B8DEF',
         route: '/customers',
+        permission: 'customer:view',
         roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT']
     },
     {
@@ -48,6 +51,7 @@ const MODULES = [
         bgColor: '#F0ECFA',
         iconColor: '#7B6FE0',
         route: '/(tabs)/ledger',
+        permission: 'ledger:view',
         roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
     },
     {
@@ -58,6 +62,7 @@ const MODULES = [
         bgColor: '#FBE1DE',
         iconColor: '#F0574E',
         route: '/suppliers',
+        permission: 'supplier:view',
         roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE']
     },
     {
@@ -67,7 +72,8 @@ const MODULES = [
         icon: UserCheck,
         bgColor: '#F3E5F5',
         iconColor: '#9B6FE0',
-        route: '/users',
+        route: '/team-management',
+        permission: 'member:manage',
         roles: ['ADMIN']
     },
     {
@@ -78,20 +84,27 @@ const MODULES = [
         bgColor: '#E3F2FD',
         iconColor: '#4C8CE0',
         route: '/reports',
+        permission: 'report:view',
         roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT']
     }
 ];
 
 export default function MenuScreen() {
     const router = useRouter();
-    const { role, ready } = useCurrentRole();
+    const { role, can, ready } = usePermission();
 
     const handleModulePress = (route: string) => {
         router.push(route as any);
     };
 
-    // Fail closed: show no privileged modules until the role is confirmed by the backend.
-    const visibleModules = ready && role ? MODULES.filter(item => item.roles.includes(role)) : [];
+    // Filter modules based on granted permissions or role membership
+    const visibleModules = ready && role
+        ? MODULES.filter(item => {
+            if (role === 'MASTER_ADMIN' || role === 'ADMIN') return true;
+            if (item.permission && can(item.permission)) return true;
+            return item.roles.includes(role);
+        })
+        : [];
 
     return (
         <SafeAreaView style={styles.container}>

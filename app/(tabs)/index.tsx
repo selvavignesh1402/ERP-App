@@ -116,7 +116,12 @@ export default function Home() {
                     <DashboardHeader
                         date={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: '2-digit' })}
                         greeting={`${greeting()}, ${userName} 👋`}
-                        subtext="Here's what's happening with your rice stock today."
+                        subtext={
+                            role === 'SALES' ? "Here's your beat route & sales performance today." :
+                            role === 'WAREHOUSE' ? "Here's your warehouse stock & inward deliveries today." :
+                            role === 'ACCOUNTANT' ? "Here's your financial ledgers & cashflow status today." :
+                            "Here's what's happening with your rice stock today."
+                        }
                         onSearch={(txt) => {}}
                     />
                 </FadeInDown>
@@ -125,75 +130,273 @@ export default function Home() {
                 <FadeInDown delay={90} style={styles.section}>
                     <Text style={styles.sectionTitleHeader}>Primary Actions</Text>
                     
-                    {/* Grid Row 1 */}
-                    <View style={styles.gridRow}>
-                        {canSeeSales && (
-                            <AnimatedPressable
-                                style={[styles.gridActionCard, { backgroundColor: '#FBE8F0' }]}
-                                onPress={() => router.push('/sales')}
-                            >
-                                <View style={styles.centeredCardContent}>
-                                    <View style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}>
-                                        <Plus size={18} color="#FFFFFF" />
+                    {role === 'SALES' ? (
+                        <>
+                            <View style={styles.gridRow}>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#FBE8F0' }]}
+                                    onPress={() => router.push('/sales')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}>
+                                            <Plus size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>New Sale</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Create POS Bill</Text>
+                                        </View>
                                     </View>
-                                    <View style={styles.actionTextFlex}>
-                                        <Text style={styles.actionTitle} numberOfLines={1}>New Sale</Text>
-                                        <Text style={styles.actionSub} numberOfLines={1}>Create POS Bill</Text>
-                                    </View>
-                                </View>
-                            </AnimatedPressable>
-                        )}
+                                </AnimatedPressable>
 
-                        <AnimatedPressable
-                            style={[styles.gridActionCard, { backgroundColor: '#FEF4E6' }]}
-                            onPress={() => router.push('/stock')}
-                        >
-                            <View style={styles.centeredCardContent}>
-                                <View style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}>
-                                    <Box size={18} color="#FFFFFF" />
-                                </View>
-                                <View style={styles.actionTextFlex}>
-                                    <Text style={styles.actionTitle} numberOfLines={1}>Add Stock</Text>
-                                    <Text style={styles.actionSub} numberOfLines={1}>Inventory</Text>
-                                </View>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#EAF2FF' }]}
+                                    onPress={() => router.push('/field-sales')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
+                                            <MapPin size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Field Route</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Beat Check-In</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
                             </View>
-                        </AnimatedPressable>
-                    </View>
 
-                    {/* Grid Row 2 */}
-                    <View style={styles.gridRow}>
-                        <AnimatedPressable
-                            style={[styles.gridActionCard, { backgroundColor: '#EAF2FF' }]}
-                            onPress={() => router.push('/field-sales')}
-                        >
-                            <View style={styles.centeredCardContent}>
-                                <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
-                                    <MapPin size={18} color="#FFFFFF" />
-                                </View>
-                                <View style={styles.actionTextFlex}>
-                                    <Text style={styles.actionTitle} numberOfLines={1}>Field Sales</Text>
-                                    <Text style={styles.actionSub} numberOfLines={1}>Beat Route</Text>
-                                </View>
+                            <View style={styles.gridRow}>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#E8F5E9' }]}
+                                    onPress={() => router.push('/customers')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#36B37E' }]}>
+                                            <Users size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Customers</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Store Directory</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#F0ECFA' }]}
+                                    onPress={() => router.push('/invoices')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}>
+                                            <Receipt size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Invoices</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Billing History</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
                             </View>
-                        </AnimatedPressable>
+                        </>
+                    ) : role === 'WAREHOUSE' ? (
+                        <>
+                            <View style={styles.gridRow}>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#FEF4E6' }]}
+                                    onPress={() => router.push('/stock')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}>
+                                            <Box size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Add Stock</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Inventory Counts</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
 
-                        {canSeeSales && (
-                            <AnimatedPressable
-                                style={[styles.gridActionCard, { backgroundColor: '#F0ECFA' }]}
-                                onPress={() => router.push('/reports')}
-                            >
-                                <View style={styles.centeredCardContent}>
-                                    <View style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}>
-                                        <BarChart2 size={18} color="#FFFFFF" />
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#FBE1DE' }]}
+                                    onPress={() => router.push('/purchases')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F0574E' }]}>
+                                            <Truck size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Purchases</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Goods Receipt</Text>
+                                        </View>
                                     </View>
-                                    <View style={styles.actionTextFlex}>
-                                        <Text style={styles.actionTitle} numberOfLines={1}>Reports</Text>
-                                        <Text style={styles.actionSub} numberOfLines={1}>Insights</Text>
+                                </AnimatedPressable>
+                            </View>
+
+                            <View style={styles.gridRow}>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#EAF2FF' }]}
+                                    onPress={() => router.push('/suppliers')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
+                                            <Users size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Suppliers</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Vendor Directory</Text>
+                                        </View>
                                     </View>
-                                </View>
-                            </AnimatedPressable>
-                        )}
-                    </View>
+                                </AnimatedPressable>
+
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#E8F5E9' }]}
+                                    onPress={() => router.push('/stock')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5BC27A' }]}>
+                                            <Box size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Stock Audit</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Shortage Check</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+                            </View>
+                        </>
+                    ) : role === 'ACCOUNTANT' ? (
+                        <>
+                            <View style={styles.gridRow}>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#F0ECFA' }]}
+                                    onPress={() => router.push('/(tabs)/ledger')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}>
+                                            <BookOpen size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Ledgers</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Accounts & Cash</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#FBE8F0' }]}
+                                    onPress={() => router.push('/invoices')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}>
+                                            <Receipt size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Invoices</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Customer Billing</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+                            </View>
+
+                            <View style={styles.gridRow}>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#FEF4E6' }]}
+                                    onPress={() => router.push('/purchases')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}>
+                                            <Box size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Purchases</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Supplier Bills</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#EAF2FF' }]}
+                                    onPress={() => router.push('/customers')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
+                                            <Users size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Customers</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Balances & Ledgers</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+                            </View>
+                        </>
+                    ) : (
+                        <>
+                            {/* Grid Row 1 for ADMIN / MANAGER */}
+                            <View style={styles.gridRow}>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#FBE8F0' }]}
+                                    onPress={() => router.push('/sales')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}>
+                                            <Plus size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>New Sale</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Create POS Bill</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#FEF4E6' }]}
+                                    onPress={() => router.push('/stock')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}>
+                                            <Box size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Add Stock</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Inventory</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+                            </View>
+
+                            {/* Grid Row 2 for ADMIN / MANAGER */}
+                            <View style={styles.gridRow}>
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#EAF2FF' }]}
+                                    onPress={() => router.push('/field-sales')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
+                                            <MapPin size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Field Sales</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Beat Route</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+
+                                <AnimatedPressable
+                                    style={[styles.gridActionCard, { backgroundColor: '#F0ECFA' }]}
+                                    onPress={() => router.push('/reports')}
+                                >
+                                    <View style={styles.centeredCardContent}>
+                                        <View style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}>
+                                            <BarChart2 size={18} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.actionTextFlex}>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>Reports</Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>Insights</Text>
+                                        </View>
+                                    </View>
+                                </AnimatedPressable>
+                            </View>
+                        </>
+                    )}
                 </FadeInDown>
 
                 {loading && metrics.totalStock === 0 ? (
@@ -206,14 +409,36 @@ export default function Home() {
                                 <View style={styles.overviewHeaderRow}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                         <Sparkles size={16} color="#2D3E32" />
-                                        <Text style={styles.overviewTitle}>Business Overview</Text>
+                                        <Text style={styles.overviewTitle}>
+                                            {role === 'SALES' ? 'Field Sales Overview' :
+                                             role === 'WAREHOUSE' ? 'Warehouse Overview' :
+                                             role === 'ACCOUNTANT' ? 'Financial Overview' :
+                                             'Business Overview'}
+                                        </Text>
                                     </View>
                                     <Text style={styles.overviewDots}>•••</Text>
                                 </View>
 
                                 {/* Overview Row 1 */}
                                 <View style={styles.gridRow}>
-                                    {canSeeSales && (
+                                    {role === 'WAREHOUSE' ? (
+                                        <AnimatedPressable
+                                            style={styles.overviewTileCard}
+                                            onPress={() => router.push('/stock')}
+                                        >
+                                            <View style={styles.overviewTileInner}>
+                                                <View style={styles.tileHeaderRow}>
+                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#E8F5E9' }]}>
+                                                        <Box size={16} color="#5BC27A" />
+                                                    </View>
+                                                </View>
+                                                <View>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>Stock Available</Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>{metrics.totalStock.toLocaleString('en-IN')} kg</Text>
+                                                </View>
+                                            </View>
+                                        </AnimatedPressable>
+                                    ) : (
                                         <AnimatedPressable
                                             style={styles.overviewTileCard}
                                             onPress={() => router.push('/sales')}
@@ -232,27 +457,63 @@ export default function Home() {
                                         </AnimatedPressable>
                                     )}
 
-                                    <AnimatedPressable
-                                        style={styles.overviewTileCard}
-                                        onPress={() => router.push('/purchases')}
-                                    >
-                                        <View style={styles.overviewTileInner}>
-                                            <View style={styles.tileHeaderRow}>
+                                    {role === 'WAREHOUSE' ? (
+                                        <AnimatedPressable
+                                            style={styles.overviewTileCard}
+                                            onPress={() => router.push('/stock')}
+                                        >
+                                            <View style={styles.overviewTileInner}>
+                                                <View style={styles.tileHeaderRow}>
                                                     <View style={[styles.tileIconCircle, { backgroundColor: '#FBE1DE' }]}>
                                                         <Box size={16} color="#E5493F" />
                                                     </View>
                                                 </View>
-                                            <View>
-                                                <Text style={styles.tileLabel} numberOfLines={1}>Today's Purchase</Text>
-                                                <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayPurchase)}</Text>
+                                                <View>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>Low Stock Alerts</Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>{metrics.lowStockCount} items</Text>
+                                                </View>
                                             </View>
-                                        </View>
-                                    </AnimatedPressable>
+                                        </AnimatedPressable>
+                                    ) : (
+                                        <AnimatedPressable
+                                            style={styles.overviewTileCard}
+                                            onPress={() => router.push('/purchases')}
+                                        >
+                                            <View style={styles.overviewTileInner}>
+                                                <View style={styles.tileHeaderRow}>
+                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#FBE1DE' }]}>
+                                                        <Box size={16} color="#E5493F" />
+                                                    </View>
+                                                </View>
+                                                <View>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>Today's Purchase</Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayPurchase)}</Text>
+                                                </View>
+                                            </View>
+                                        </AnimatedPressable>
+                                    )}
                                 </View>
 
                                 {/* Overview Row 2 */}
                                 <View style={styles.gridRow}>
-                                    {canSeeSales && (
+                                    {role === 'WAREHOUSE' ? (
+                                        <AnimatedPressable
+                                            style={styles.overviewTileCard}
+                                            onPress={() => router.push('/purchases')}
+                                        >
+                                            <View style={styles.overviewTileInner}>
+                                                <View style={styles.tileHeaderRow}>
+                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#FFF3E0' }]}>
+                                                        <Truck size={16} color="#F2A93B" />
+                                                    </View>
+                                                </View>
+                                                <View>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>Today's Inward</Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayPurchase)}</Text>
+                                                </View>
+                                            </View>
+                                        </AnimatedPressable>
+                                    ) : (
                                         <AnimatedPressable
                                             style={styles.overviewTileCard}
                                             onPress={() => router.push('/sales')}
@@ -271,22 +532,41 @@ export default function Home() {
                                         </AnimatedPressable>
                                     )}
 
-                                    <AnimatedPressable
-                                        style={styles.overviewTileCard}
-                                        onPress={() => router.push('/stock')}
-                                    >
-                                        <View style={styles.overviewTileInner}>
-                                            <View style={styles.tileHeaderRow}>
-                                                <View style={[styles.tileIconCircle, { backgroundColor: '#E8F5E9' }]}>
-                                                    <Box size={16} color="#5BC27A" />
+                                    {role === 'WAREHOUSE' ? (
+                                        <AnimatedPressable
+                                            style={styles.overviewTileCard}
+                                            onPress={() => router.push('/suppliers')}
+                                        >
+                                            <View style={styles.overviewTileInner}>
+                                                <View style={styles.tileHeaderRow}>
+                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#EAF2FF' }]}>
+                                                        <Users size={16} color="#5B8DEF" />
+                                                    </View>
+                                                </View>
+                                                <View>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>Active Suppliers</Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>{metrics.activeSuppliers} vendors</Text>
                                                 </View>
                                             </View>
-                                            <View>
-                                                <Text style={styles.tileLabel} numberOfLines={1}>Stock Available</Text>
-                                                <Text style={styles.tileValue} numberOfLines={1}>{metrics.totalStock.toLocaleString('en-IN')} kg</Text>
+                                        </AnimatedPressable>
+                                    ) : (
+                                        <AnimatedPressable
+                                            style={styles.overviewTileCard}
+                                            onPress={() => router.push('/stock')}
+                                        >
+                                            <View style={styles.overviewTileInner}>
+                                                <View style={styles.tileHeaderRow}>
+                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#E8F5E9' }]}>
+                                                        <Box size={16} color="#5BC27A" />
+                                                    </View>
+                                                </View>
+                                                <View>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>Stock Available</Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>{metrics.totalStock.toLocaleString('en-IN')} kg</Text>
+                                                </View>
                                             </View>
-                                        </View>
-                                    </AnimatedPressable>
+                                        </AnimatedPressable>
+                                    )}
                                 </View>
                             </View>
                         </FadeInDown>
@@ -302,19 +582,21 @@ export default function Home() {
 
                             <StaggerContainer stagger={50} delay={260}>
                                 <View style={styles.modulesGrid}>
-                                    <AnimatedPressable
-                                        style={styles.moduleListItem}
-                                        onPress={() => router.push('/customers')}
-                                    >
-                                        <View style={[styles.moduleIconBox, { backgroundColor: '#EAF2FF' }]}>
-                                            <Users size={18} color="#5B8DEF" />
-                                        </View>
-                                        <View style={styles.moduleTextFlex}>
-                                            <Text style={styles.moduleTitle}>Customers</Text>
-                                            <Text style={styles.moduleSub}>Directory & Balances</Text>
-                                        </View>
-                                        <ChevronRight size={18} color="#B0B0B0" />
-                                    </AnimatedPressable>
+                                    {role !== 'WAREHOUSE' && (
+                                        <AnimatedPressable
+                                            style={styles.moduleListItem}
+                                            onPress={() => router.push('/customers')}
+                                        >
+                                            <View style={[styles.moduleIconBox, { backgroundColor: '#EAF2FF' }]}>
+                                                <Users size={18} color="#5B8DEF" />
+                                            </View>
+                                            <View style={styles.moduleTextFlex}>
+                                                <Text style={styles.moduleTitle}>Customers</Text>
+                                                <Text style={styles.moduleSub}>Directory & Balances</Text>
+                                            </View>
+                                            <ChevronRight size={18} color="#B0B0B0" />
+                                        </AnimatedPressable>
+                                    )}
 
                                     <AnimatedPressable
                                         style={styles.moduleListItem}
@@ -330,61 +612,69 @@ export default function Home() {
                                         <ChevronRight size={18} color="#B0B0B0" />
                                     </AnimatedPressable>
 
-                                    <AnimatedPressable
-                                        style={styles.moduleListItem}
-                                        onPress={() => router.push('/invoices')}
-                                    >
-                                        <View style={[styles.moduleIconBox, { backgroundColor: '#F0ECFA' }]}>
-                                            <Receipt size={18} color="#8B7FD6" />
-                                        </View>
-                                        <View style={styles.moduleTextFlex}>
-                                            <Text style={styles.moduleTitle}>Invoices</Text>
-                                            <Text style={styles.moduleSub}>Billing & Receipts</Text>
-                                        </View>
-                                        <ChevronRight size={18} color="#B0B0B0" />
-                                    </AnimatedPressable>
+                                    {role !== 'WAREHOUSE' && (
+                                        <AnimatedPressable
+                                            style={styles.moduleListItem}
+                                            onPress={() => router.push('/invoices')}
+                                        >
+                                            <View style={[styles.moduleIconBox, { backgroundColor: '#F0ECFA' }]}>
+                                                <Receipt size={18} color="#8B7FD6" />
+                                            </View>
+                                            <View style={styles.moduleTextFlex}>
+                                                <Text style={styles.moduleTitle}>Invoices</Text>
+                                                <Text style={styles.moduleSub}>Billing & Receipts</Text>
+                                            </View>
+                                            <ChevronRight size={18} color="#B0B0B0" />
+                                        </AnimatedPressable>
+                                    )}
 
-                                    <AnimatedPressable
-                                        style={styles.moduleListItem}
-                                        onPress={() => router.push('/field-sales')}
-                                    >
-                                        <View style={[styles.moduleIconBox, { backgroundColor: '#FBE8F0' }]}>
-                                            <MapPin size={18} color="#F06A8C" />
-                                        </View>
-                                        <View style={styles.moduleTextFlex}>
-                                            <Text style={styles.moduleTitle}>Field Sales & Route</Text>
-                                            <Text style={styles.moduleSub}>GPS Check-In & Spot Orders</Text>
-                                        </View>
-                                        <ChevronRight size={18} color="#B0B0B0" />
-                                    </AnimatedPressable>
+                                    {(role === 'ADMIN' || role === 'MANAGER' || role === 'SALES') && (
+                                        <AnimatedPressable
+                                            style={styles.moduleListItem}
+                                            onPress={() => router.push('/field-sales')}
+                                        >
+                                            <View style={[styles.moduleIconBox, { backgroundColor: '#FBE8F0' }]}>
+                                                <MapPin size={18} color="#F06A8C" />
+                                            </View>
+                                            <View style={styles.moduleTextFlex}>
+                                                <Text style={styles.moduleTitle}>Field Sales & Route</Text>
+                                                <Text style={styles.moduleSub}>GPS Check-In & Spot Orders</Text>
+                                            </View>
+                                            <ChevronRight size={18} color="#B0B0B0" />
+                                        </AnimatedPressable>
+                                    )}
 
-                                    <AnimatedPressable
-                                        style={styles.moduleListItem}
-                                        onPress={() => router.push('/team-management')}
-                                    >
-                                        <View style={[styles.moduleIconBox, { backgroundColor: '#EDE7F6' }]}>
-                                            <Users size={18} color="#7C3AED" />
-                                        </View>
-                                        <View style={styles.moduleTextFlex}>
-                                            <Text style={styles.moduleTitle}>Team & Staff</Text>
-                                            <Text style={styles.moduleSub}>Roles, Access & WhatsApp Invites</Text>
-                                        </View>
-                                        <ChevronRight size={18} color="#B0B0B0" />
-                                    </AnimatedPressable>
+                                    {(role === 'ADMIN' || role === 'MASTER_ADMIN') && (
+                                        <AnimatedPressable
+                                            style={styles.moduleListItem}
+                                            onPress={() => router.push('/team-management')}
+                                        >
+                                            <View style={[styles.moduleIconBox, { backgroundColor: '#EDE7F6' }]}>
+                                                <Users size={18} color="#7C3AED" />
+                                            </View>
+                                            <View style={styles.moduleTextFlex}>
+                                                <Text style={styles.moduleTitle}>Team & Staff</Text>
+                                                <Text style={styles.moduleSub}>Roles, Access & WhatsApp Invites</Text>
+                                            </View>
+                                            <ChevronRight size={18} color="#B0B0B0" />
+                                        </AnimatedPressable>
+                                    )}
 
-                                    <AnimatedPressable
-                                        style={styles.moduleListItem}
-                                        onPress={() => router.push('/(tabs)/ledger')}
-                                    >
-                                        <View style={[styles.moduleIconBox, { backgroundColor: '#E8F5E9' }]}>
-                                            <BookOpen size={18} color="#5BC27A" />
-                                        </View>
-                                        <View style={styles.moduleTextFlex}>
-                                            <Text style={styles.moduleTitle}>Ledgers</Text>
-                                            <Text style={styles.moduleSub}>Financial Accounts</Text>
-                                        </View>
-                                        <ChevronRight size={18} color="#B0B0B0" />
-                                    </AnimatedPressable>
+                                    {(role === 'ADMIN' || role === 'MANAGER' || role === 'ACCOUNTANT') && (
+                                        <AnimatedPressable
+                                            style={styles.moduleListItem}
+                                            onPress={() => router.push('/(tabs)/ledger')}
+                                        >
+                                            <View style={[styles.moduleIconBox, { backgroundColor: '#E8F5E9' }]}>
+                                                <BookOpen size={18} color="#5BC27A" />
+                                            </View>
+                                            <View style={styles.moduleTextFlex}>
+                                                <Text style={styles.moduleTitle}>Ledgers</Text>
+                                                <Text style={styles.moduleSub}>Financial Accounts</Text>
+                                            </View>
+                                            <ChevronRight size={18} color="#B0B0B0" />
+                                        </AnimatedPressable>
+                                    )}
                                 </View>
                             </StaggerContainer>
                         </FadeInDown>
@@ -402,9 +692,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#FAF7F2',
     },
     scrollContent: {
-        padding: 16,
-        paddingTop: 10,
+        padding: 20,
+        paddingTop: 16,
         paddingBottom: 80,
+        maxWidth: 1200,
+        width: '100%',
+        alignSelf: 'center',
     },
     section: {
         marginBottom: 18,

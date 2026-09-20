@@ -13,6 +13,7 @@ import {
 } from 'lucide-react-native';
 import { FadeInDown } from '../src/components/Anime';
 import api, { me } from '../src/services/api';
+import { useRoleContext } from '../src/contexts/RoleContext';
 
 type TabType = 'profile' | 'business' | 'notifications';
 
@@ -36,6 +37,7 @@ const roleLabel = (role: string | undefined) => {
 
 export default function SettingsScreen() {
     const router = useRouter();
+    const { refresh } = useRoleContext();
     const [activeTab, setActiveTab] = useState<TabType>('profile');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -131,7 +133,10 @@ export default function SettingsScreen() {
                 registerNumber,
                 gstNo,
             });
-            Alert.alert('Settings Updated', 'Your ERP preferences and details have been successfully saved.');
+            refresh();
+            Alert.alert('Settings Updated', 'Your ERP preferences and details have been successfully saved.', [
+                { text: 'OK', onPress: () => router.replace('/(tabs)') }
+            ]);
         } catch (error) {
             console.error('Error saving profile:', error);
             Alert.alert('Save failed', 'Could not update settings. Please try again.');

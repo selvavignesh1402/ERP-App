@@ -182,7 +182,7 @@ export default function ProfileScreen() {
                             {isAdmin && (
                                 <TouchableOpacity
                                     style={styles.teamBtn}
-                                    onPress={() => router.push('/users')}
+                                    onPress={() => router.push('/team-management')}
                                     activeOpacity={0.8}
                                 >
                                     <Shield size={14} color="#7E57C2" />
@@ -278,7 +278,7 @@ export default function ProfileScreen() {
                         {isAdmin && (
                             <TouchableOpacity
                                 style={styles.optionItem}
-                                onPress={() => router.push('/users')}
+                                onPress={() => router.push('/team-management')}
                                 activeOpacity={0.7}
                             >
                                 <View style={[styles.optionIconBox, { backgroundColor: '#F0ECFA' }]}>

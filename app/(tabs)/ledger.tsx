@@ -4,7 +4,7 @@ import { Container } from '../../src/components/Container';
 import { Card } from '../../src/components/Card';
 import { Typography } from '../../src/theme/typography';
 import { Colors } from '../../src/theme/colors';
-import { Feather } from '@expo/vector-icons';
+import { TrendingUp, TrendingDown } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import api from '../../src/services/api';
 
@@ -52,11 +52,11 @@ export default function Ledger() {
                         return (
                             <Card style={styles.itemCard}>
                                 <View style={[styles.avatar, { backgroundColor: isIncome ? '#E8F5E9' : '#FFEBEE' }]}>
-                                    <Feather
-                                        name={isIncome ? "trending-up" : "trending-down"}
-                                        size={20}
-                                        color={isIncome ? Colors.primary : Colors.error}
-                                    />
+                                    {isIncome ? (
+                                        <TrendingUp size={20} color={Colors.primary} />
+                                    ) : (
+                                        <TrendingDown size={20} color={Colors.error} />
+                                    )}
                                 </View>
                                 <View style={styles.itemDetails}>
                                     <Text style={styles.itemName}>

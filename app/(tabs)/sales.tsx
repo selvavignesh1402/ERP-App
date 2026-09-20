@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
     TextInput, ActivityIndicator, Alert, Modal, ScrollView,
-    Platform, Share
+    Platform, Share, RefreshControl
 } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -19,12 +19,15 @@ import PrintSettingsModal, { PrintSettings } from '../../src/components/PrintSet
 import api from '../../src/services/api';
 import { syncService } from '../../src/services/syncService';
 import { useOfflineSync } from '../../src/hooks/useOfflineSync';
+import { useRoleContext } from '../../src/contexts/RoleContext';
 
 const PAYMENT_MODES = ['CASH', 'UPI', 'CARD', 'CREDIT', 'PARTIAL'] as const;
 type PaymentMode = typeof PAYMENT_MODES[number];
 
 export default function SalesScreen() {
     const router = useRouter();
+    const { orgId } = useRoleContext();
+    const activeOrgId = orgId || 1;
     const params = useLocalSearchParams<{
         action?: string;
         customerId?: string;
@@ -125,20 +128,28 @@ export default function SalesScreen() {
                 const response = await api.get('/sales');
                 const data = response.data || [];
                 setSalesList(data);
-                await syncService.cacheSalesHistory(1, data);
+                await syncService.cacheSalesHistory(activeOrgId, data);
             } else {
-                const cached = await syncService.getCachedSalesHistory(1);
+                const cached = await syncService.getCachedSalesHistory(activeOrgId);
                 setSalesList(cached);
             }
         } catch (error) {
             console.warn('Network issue fetching sales, falling back to local storage cache:', error);
-            const cached = await syncService.getCachedSalesHistory(1);
+            const cached = await syncService.getCachedSalesHistory(activeOrgId);
             setSalesList(cached);
         } finally {
             setLoading(false);
             refreshPendingCount();
         }
-    }, [isOnline, refreshPendingCount]);
+    }, [isOnline, refreshPendingCount, activeOrgId]);
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await Promise.all([fetchSales(), fetchSalesOrders()]);
+        setRefreshing(false);
+    }, [fetchSales, fetchSalesOrders]);
 
     useEffect(() => {
         fetchSales();
@@ -340,7 +351,7 @@ export default function SalesScreen() {
                 const custs = custRes.data || [];
                 setProducts(activeProds);
                 setCustomers(custs);
-                await syncService.cacheCatalog(1, activeProds, custs);
+                await syncService.cacheCatalog(activeOrgId, activeProds, custs);
 
                 // If customer was passed by id, ensure full customer object from list is linked
                 if (preselectedCustomer?.id) {
@@ -351,7 +362,7 @@ export default function SalesScreen() {
                     }
                 }
             } else {
-                const cached = await syncService.getCachedCatalog(1);
+                const cached = await syncService.getCachedCatalog(activeOrgId);
                 setProducts(cached.products);
                 setCustomers(cached.customers);
                 if (preselectedCustomer?.id) {
@@ -364,7 +375,7 @@ export default function SalesScreen() {
             }
         } catch (error) {
             console.warn('Network issue loading catalog, loading from offline storage:', error);
-            const cached = await syncService.getCachedCatalog(1);
+            const cached = await syncService.getCachedCatalog(activeOrgId);
             setProducts(cached.products);
             setCustomers(cached.customers);
         } finally {
@@ -607,7 +618,7 @@ export default function SalesScreen() {
                 fetchSales();
             } else {
                 // Device is Offline -> Create local offline sale
-                const offlineSale = await syncService.createOfflineSale(1, {
+                const offlineSale = await syncService.createOfflineSale(activeOrgId, {
                     customerId: selectedCustomer?.id ?? null,
                     customerName: selectedCustomer?.customerName || customerSearch.trim() || 'Walk-in Guest',
                     paymentMode: paymentMode === 'PARTIAL' ? 'CREDIT' : paymentMode,
@@ -640,7 +651,7 @@ export default function SalesScreen() {
             console.warn('Online sale creation failed, saving offline locally:', error);
             // Network fallback to offline sale
             try {
-                const offlineSale = await syncService.createOfflineSale(1, {
+                const offlineSale = await syncService.createOfflineSale(activeOrgId, {
                     customerId: selectedCustomer?.id ?? null,
                     customerName: selectedCustomer?.customerName || customerSearch.trim() || 'Walk-in Guest',
                     paymentMode: paymentMode === 'PARTIAL' ? 'CREDIT' : paymentMode,
@@ -723,6 +734,14 @@ export default function SalesScreen() {
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={['#1A1A1A']}
+                        tintColor="#1A1A1A"
+                    />
+                }
             >
                 {/* 1. Header: Positioned lower down per request */}
                 <FadeInDown delay={20} style={styles.header}>
@@ -979,11 +998,19 @@ export default function SalesScreen() {
                             <StaggerContainer stagger={25} delay={160}>
                                 <View style={styles.invoicesListWrapper}>
                                     {filteredSalesOrders.map((order: any) => {
+                                        const items = order.items || [];
+                                        const totalOrdered = items.reduce((sum: number, it: any) => sum + (it.orderedQuantity || 0), 0);
+                                        const totalDelivered = items.reduce((sum: number, it: any) => sum + (it.deliveredQuantity || 0), 0);
+                                        const totalRemaining = items.reduce((sum: number, it: any) => sum + (it.remainingQuantity != null ? it.remainingQuantity : Math.max(0, (it.orderedQuantity || 0) - (it.deliveredQuantity || 0))), 0);
+                                        const fulfillmentPct = totalOrdered > 0 ? Math.min(100, Math.round((totalDelivered / totalOrdered) * 100)) : 0;
+
                                         const isCompleted = order.status === 'DELIVERED';
+                                        const isPartial = order.status === 'PARTIALLY_DELIVERED';
                                         const isTransit = order.status === 'OUT_FOR_DELIVERY';
                                         const isReady = order.status === 'READY_FOR_DELIVERY';
-                                        const badgeBg = isCompleted ? '#ECFDF5' : isTransit ? '#F0F9FF' : isReady ? '#EDE9FE' : '#FFFBEB';
-                                        const badgeColor = isCompleted ? '#059669' : isTransit ? '#0284C7' : isReady ? '#7C3AED' : '#D97706';
+
+                                        const badgeBg = isCompleted ? '#ECFDF5' : isPartial ? '#FEF3C7' : isTransit ? '#F0F9FF' : isReady ? '#EDE9FE' : '#FFFBEB';
+                                        const badgeColor = isCompleted ? '#059669' : isPartial ? '#D97706' : isTransit ? '#0284C7' : isReady ? '#7C3AED' : '#B45309';
 
                                         const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '';
 
@@ -1008,7 +1035,7 @@ export default function SalesScreen() {
                                                             </Text>
                                                             <View style={[styles.paymentBadge, { backgroundColor: badgeBg }]}>
                                                                 <Text style={[styles.paymentBadgeText, { color: badgeColor }]}>
-                                                                    {order.status.replace(/_/g, ' ')}
+                                                                    {isPartial ? 'PARTIALLY DELIVERED' : (order.status || 'CONFIRMED').replace(/_/g, ' ')}
                                                                 </Text>
                                                             </View>
                                                         </View>
@@ -1027,8 +1054,45 @@ export default function SalesScreen() {
                                                     </View>
                                                 </View>
 
-                                                {/* Minimal Card Action */}
-                                                <View style={styles.invoiceCardActionsRow}>
+                                                {/* Fulfillment Progress Indicator */}
+                                                {totalOrdered > 0 && (
+                                                    <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
+                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                                                            <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#4B5563' }}>
+                                                                {isCompleted ? '📦 Fully Delivered' : isPartial ? '⚠️ Partial Dispatch Fulfilled' : isTransit ? '🚚 Out for Delivery' : isReady ? '📋 Ready for Van Assignment' : '📝 Order Booked'}
+                                                            </Text>
+                                                            <Text style={{ fontSize: 11.5, fontWeight: '800', color: isCompleted ? '#059669' : isPartial ? '#D97706' : '#1A1A1A' }}>
+                                                                {totalDelivered}/{totalOrdered} Bags ({fulfillmentPct}%)
+                                                            </Text>
+                                                        </View>
+
+                                                        {/* Sleek Visual Progress Bar */}
+                                                        <View style={{ height: 6, backgroundColor: '#F3F4F6', borderRadius: 999, overflow: 'hidden', marginBottom: 6 }}>
+                                                            <View
+                                                                style={{
+                                                                    height: '100%',
+                                                                    width: `${fulfillmentPct}%`,
+                                                                    backgroundColor: isCompleted ? '#10B981' : isPartial ? '#F59E0B' : '#3B82F6',
+                                                                    borderRadius: 999
+                                                                }}
+                                                            />
+                                                        </View>
+
+                                                        {totalDelivered > 0 && totalRemaining > 0 ? (
+                                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <Text style={{ fontSize: 10.5, color: '#059669', fontWeight: '700' }}>
+                                                                    ✓ {totalDelivered} Bags Invoiced
+                                                                </Text>
+                                                                <Text style={{ fontSize: 10.5, color: '#D97706', fontWeight: '700' }}>
+                                                                    • {totalRemaining} Bags Pending Stock
+                                                                </Text>
+                                                            </View>
+                                                        ) : null}
+                                                    </View>
+                                                )}
+
+                                                {/* Card Action */}
+                                                <View style={[styles.invoiceCardActionsRow, { marginTop: 10 }]}>
                                                     <TouchableOpacity
                                                         style={[styles.cardActionPill, { flex: 1, justifyContent: 'center' }]}
                                                         onPress={() => {
@@ -1038,7 +1102,7 @@ export default function SalesScreen() {
                                                         activeOpacity={0.75}
                                                     >
                                                         <Eye size={13} color="#1A1A1A" />
-                                                        <Text style={styles.cardActionPillText}>View Details</Text>
+                                                        <Text style={styles.cardActionPillText}>View Details & Status</Text>
                                                     </TouchableOpacity>
                                                 </View>
                                             </AnimatedPressable>
@@ -2043,7 +2107,7 @@ export default function SalesScreen() {
                 onRequestClose={() => setSalesOrderDetailModalVisible(false)}
             >
                 <View style={styles.modalBackdrop}>
-                    <View style={styles.productPickerCard}>
+                    <View style={styles.salesOrderDetailModalCard}>
                         <View style={styles.modalGrabHandle} />
 
                         {/* Modal Header */}
@@ -2063,84 +2127,222 @@ export default function SalesScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {selectedSalesOrder && (
-                            <ScrollView
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
-                            >
-                                {/* Status Banner */}
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#ECEBE4', marginBottom: 14 }}>
-                                    <View>
-                                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Fulfillment Status</Text>
-                                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A1A1A', marginTop: 2 }}>{selectedSalesOrder.status?.replace(/_/g, ' ')}</Text>
-                                    </View>
-                                    <View style={{ backgroundColor: selectedSalesOrder.status === 'DELIVERED' ? '#ECFDF5' : selectedSalesOrder.status === 'OUT_FOR_DELIVERY' ? '#F0F9FF' : '#FFFBEB', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: selectedSalesOrder.status === 'DELIVERED' ? '#A7F3D0' : selectedSalesOrder.status === 'OUT_FOR_DELIVERY' ? '#BAE6FD' : '#FDE68A' }}>
-                                        <Text style={{ fontSize: 11, fontWeight: '800', color: selectedSalesOrder.status === 'DELIVERED' ? '#059669' : selectedSalesOrder.status === 'OUT_FOR_DELIVERY' ? '#0284C7' : '#D97706' }}>
-                                            {selectedSalesOrder.status?.replace(/_/g, ' ')}
-                                        </Text>
-                                    </View>
-                                </View>
+                        {selectedSalesOrder && (() => {
+                            const selectedItems = selectedSalesOrder.items || [];
+                            const modalTotalOrdered = selectedItems.reduce((sum: number, it: any) => sum + (it.orderedQuantity || 0), 0);
+                            const modalTotalDelivered = selectedItems.reduce((sum: number, it: any) => sum + (it.deliveredQuantity || 0), 0);
+                            const modalTotalRemaining = selectedItems.reduce((sum: number, it: any) => sum + (it.remainingQuantity != null ? it.remainingQuantity : Math.max(0, (it.orderedQuantity || 0) - (it.deliveredQuantity || 0))), 0);
+                            const modalPct = modalTotalOrdered > 0 ? Math.min(100, Math.round((modalTotalDelivered / modalTotalOrdered) * 100)) : 0;
+                            
+                            const modalIsCompleted = selectedSalesOrder.status === 'DELIVERED';
+                            const modalIsPartial = selectedSalesOrder.status === 'PARTIALLY_DELIVERED';
+                            const modalIsTransit = selectedSalesOrder.status === 'OUT_FOR_DELIVERY';
+                            const modalIsReady = selectedSalesOrder.status === 'READY_FOR_DELIVERY';
 
-                                {/* Customer & Rep Card */}
-                                <View style={{ backgroundColor: '#FFFFFF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#ECEBE4', marginBottom: 14 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                                        <Store size={16} color="#1A1A1A" />
-                                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A1A1A' }}>{selectedSalesOrder.customer?.customerName || 'Store Customer'}</Text>
-                                    </View>
-                                    {selectedSalesOrder.customer?.phoneNumber ? (
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                            <Phone size={12} color="#059669" />
-                                            <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600' }}>{selectedSalesOrder.customer.phoneNumber}</Text>
-                                        </View>
-                                    ) : null}
-                                    {selectedSalesOrder.customer?.address ? (
-                                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
-                                            <MapPin size={12} color="#6B7280" style={{ marginTop: 2 }} />
-                                            <Text style={{ fontSize: 11.5, color: '#6B7280', flex: 1 }}>{selectedSalesOrder.customer.address}</Text>
-                                        </View>
-                                    ) : null}
+                            const modalBadgeBg = modalIsCompleted ? '#ECFDF5' : modalIsPartial ? '#FEF3C7' : modalIsTransit ? '#F0F9FF' : modalIsReady ? '#EDE9FE' : '#FFFBEB';
+                            const modalBadgeBorder = modalIsCompleted ? '#A7F3D0' : modalIsPartial ? '#FDE68A' : modalIsTransit ? '#BAE6FD' : modalIsReady ? '#DDD6FE' : '#FDE68A';
+                            const modalBadgeColor = modalIsCompleted ? '#059669' : modalIsPartial ? '#D97706' : modalIsTransit ? '#0284C7' : modalIsReady ? '#7C3AED' : '#B45309';
 
-                                    {selectedSalesOrder.salesperson?.name ? (
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
-                                            <User size={12} color="#4B5563" />
-                                            <Text style={{ fontSize: 11.5, color: '#4B5563', fontWeight: '600' }}>Booked by: {selectedSalesOrder.salesperson.name}</Text>
-                                        </View>
-                                    ) : null}
-                                </View>
+                            const totalInvoicedValue = selectedItems.reduce((acc: number, it: any) => acc + ((it.deliveredQuantity || 0) * (it.unitPrice || 0)), 0);
+                            const totalPendingValue = selectedItems.reduce((acc: number, it: any) => acc + (((it.remainingQuantity != null ? it.remainingQuantity : Math.max(0, (it.orderedQuantity || 0) - (it.deliveredQuantity || 0)))) * (it.unitPrice || 0)), 0);
 
-                                {/* Ordered Items List */}
-                                <Text style={{ fontSize: 13, fontWeight: '800', color: '#1A1A1A', marginBottom: 8 }}>Ordered Items</Text>
-                                <View style={{ backgroundColor: '#FAFAF8', borderRadius: 12, borderWidth: 1, borderColor: '#EFEFEA', paddingHorizontal: 12, paddingVertical: 4, marginBottom: 14 }}>
-                                    {(selectedSalesOrder.items || []).map((it: any, idx: number) => (
-                                        <View key={it.id || idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: idx < (selectedSalesOrder.items?.length || 0) - 1 ? 1 : 0, borderBottomColor: '#F3F4F6' }}>
-                                            <View style={{ flex: 1, paddingRight: 10 }}>
-                                                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A1A' }}>{it.product?.productName || 'Rice Product'}</Text>
-                                                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>{it.orderedQuantity} Bags × ₹{it.unitPrice?.toLocaleString('en-IN') || 0}</Text>
+                            return (
+                                <ScrollView
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
+                                >
+                                    {/* Status Banner */}
+                                    <View style={{ backgroundColor: '#FFFFFF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#ECEBE4', marginBottom: 14 }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <View>
+                                                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>Fulfillment Status</Text>
+                                                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A1A1A', marginTop: 2 }}>
+                                                    {modalIsPartial ? 'Partially Delivered' : (selectedSalesOrder.status || 'CONFIRMED').replace(/_/g, ' ')}
+                                                </Text>
                                             </View>
-                                            <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#1A1A1A' }}>
-                                                ₹{(it.totalPrice || (it.orderedQuantity * (it.unitPrice || 0))).toLocaleString('en-IN')}
+                                            <View style={{ backgroundColor: modalBadgeBg, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: modalBadgeBorder }}>
+                                                <Text style={{ fontSize: 11, fontWeight: '800', color: modalBadgeColor }}>
+                                                    {modalIsPartial ? 'PARTIALLY DELIVERED' : (selectedSalesOrder.status || 'CONFIRMED').replace(/_/g, ' ')}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        {modalTotalOrdered > 0 && (
+                                            <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                    <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#4B5563' }}>Fulfillment Progress</Text>
+                                                    <Text style={{ fontSize: 12, fontWeight: '800', color: modalIsCompleted ? '#059669' : modalIsPartial ? '#D97706' : '#1A1A1A' }}>
+                                                        {modalTotalDelivered} / {modalTotalOrdered} Bags ({modalPct}%)
+                                                    </Text>
+                                                </View>
+                                                <View style={{ height: 8, backgroundColor: '#F3F4F6', borderRadius: 999, overflow: 'hidden', marginBottom: 10 }}>
+                                                    <View
+                                                        style={{
+                                                            height: '100%',
+                                                            width: `${modalPct}%`,
+                                                            backgroundColor: modalIsCompleted ? '#10B981' : modalIsPartial ? '#F59E0B' : '#3B82F6',
+                                                            borderRadius: 999
+                                                        }}
+                                                    />
+                                                </View>
+
+                                                {/* 3 Metrics Chips */}
+                                                <View style={{ flexDirection: 'row', gap: 6 }}>
+                                                    <View style={{ flex: 1, backgroundColor: '#F9FAFB', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: '#F3F4F6', alignItems: 'center' }}>
+                                                        <Text style={{ fontSize: 9.5, color: '#6B7280', fontWeight: '700' }}>ORDERED</Text>
+                                                        <Text style={{ fontSize: 12, fontWeight: '800', color: '#1A1A1A', marginTop: 1 }}>{modalTotalOrdered} Bags</Text>
+                                                    </View>
+                                                    <View style={{ flex: 1, backgroundColor: '#ECFDF5', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: '#D1FAE5', alignItems: 'center' }}>
+                                                        <Text style={{ fontSize: 9.5, color: '#059669', fontWeight: '700' }}>DELIVERED</Text>
+                                                        <Text style={{ fontSize: 12, fontWeight: '800', color: '#059669', marginTop: 1 }}>{modalTotalDelivered} Bags</Text>
+                                                    </View>
+                                                    <View style={{ flex: 1, backgroundColor: modalTotalRemaining > 0 ? '#FEF3C7' : '#F9FAFB', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: modalTotalRemaining > 0 ? '#FDE68A' : '#F3F4F6', alignItems: 'center' }}>
+                                                        <Text style={{ fontSize: 9.5, color: modalTotalRemaining > 0 ? '#D97706' : '#6B7280', fontWeight: '700' }}>REMAINING</Text>
+                                                        <Text style={{ fontSize: 12, fontWeight: '800', color: modalTotalRemaining > 0 ? '#D97706' : '#1A1A1A', marginTop: 1 }}>{modalTotalRemaining} Bags</Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Customer & Rep Card */}
+                                    <View style={{ backgroundColor: '#FFFFFF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#ECEBE4', marginBottom: 14 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                            <Store size={16} color="#1A1A1A" />
+                                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A1A1A' }}>{selectedSalesOrder.customer?.customerName || 'Store Customer'}</Text>
+                                        </View>
+                                        {selectedSalesOrder.customer?.phoneNumber ? (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                <Phone size={12} color="#059669" />
+                                                <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600' }}>{selectedSalesOrder.customer.phoneNumber}</Text>
+                                            </View>
+                                        ) : null}
+                                        {selectedSalesOrder.customer?.address ? (
+                                            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                                                <MapPin size={12} color="#6B7280" style={{ marginTop: 2 }} />
+                                                <Text style={{ fontSize: 11.5, color: '#6B7280', flex: 1 }}>{selectedSalesOrder.customer.address}</Text>
+                                            </View>
+                                        ) : null}
+
+                                        {selectedSalesOrder.salesperson?.name ? (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
+                                                <User size={12} color="#4B5563" />
+                                                <Text style={{ fontSize: 11.5, color: '#4B5563', fontWeight: '600' }}>Booked by: {selectedSalesOrder.salesperson.name}</Text>
+                                            </View>
+                                        ) : null}
+                                    </View>
+
+                                    {/* Ordered Items List */}
+                                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#1A1A1A', marginBottom: 8 }}>Item Fulfillment Breakdown</Text>
+                                    <View style={{ backgroundColor: '#FAFAF8', borderRadius: 14, borderWidth: 1, borderColor: '#EFEFEA', padding: 12, marginBottom: 14, gap: 12 }}>
+                                        {(selectedSalesOrder.items || []).map((it: any, idx: number) => {
+                                            const itDelivered = it.deliveredQuantity || 0;
+                                            const itRemaining = it.remainingQuantity != null ? it.remainingQuantity : Math.max(0, (it.orderedQuantity || 0) - itDelivered);
+                                            const itPct = it.orderedQuantity > 0 ? Math.min(100, Math.round((itDelivered / it.orderedQuantity) * 100)) : 0;
+                                            const itLineTotal = it.totalPrice || (it.orderedQuantity * (it.unitPrice || 0));
+
+                                            return (
+                                                <View key={it.id || idx} style={{ backgroundColor: '#FFFFFF', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#ECEBE4' }}>
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                                                        <View style={{ flex: 1, paddingRight: 8 }}>
+                                                            <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#1A1A1A' }}>{it.product?.productName || 'Rice Product'}</Text>
+                                                            <Text style={{ fontSize: 11.5, color: '#6B7280', marginTop: 1 }}>Rate: ₹{(it.unitPrice || 0).toLocaleString('en-IN')} / Bag</Text>
+                                                        </View>
+                                                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A1A1A' }}>
+                                                            ₹{itLineTotal.toLocaleString('en-IN')}
+                                                        </Text>
+                                                    </View>
+
+                                                    {/* Progress bar per line */}
+                                                    <View style={{ height: 5, backgroundColor: '#F3F4F6', borderRadius: 999, overflow: 'hidden', marginVertical: 6 }}>
+                                                        <View
+                                                            style={{
+                                                                height: '100%',
+                                                                width: `${itPct}%`,
+                                                                backgroundColor: itPct === 100 ? '#10B981' : itPct > 0 ? '#F59E0B' : '#9CA3AF',
+                                                                borderRadius: 999
+                                                            }}
+                                                        />
+                                                    </View>
+
+                                                    {/* Item status row */}
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                                                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                                                            <View style={{ backgroundColor: '#F3F4F6', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 }}>
+                                                                <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#4B5563' }}>Ordered: {it.orderedQuantity}</Text>
+                                                            </View>
+                                                            <View style={{ backgroundColor: itDelivered > 0 ? '#ECFDF5' : '#F3F4F6', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 }}>
+                                                                <Text style={{ fontSize: 10.5, fontWeight: '700', color: itDelivered > 0 ? '#059669' : '#6B7280' }}>Delivered: {itDelivered}</Text>
+                                                            </View>
+                                                            {itRemaining > 0 && (
+                                                                <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 }}>
+                                                                    <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#D97706' }}>Remaining: {itRemaining}</Text>
+                                                                </View>
+                                                            )}
+                                                        </View>
+
+                                                        {itDelivered > 0 && (
+                                                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#059669' }}>
+                                                                Billed: ₹{(itDelivered * (it.unitPrice || 0)).toLocaleString('en-IN')}
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
+
+                                    {/* Order Value & Accounting Breakdown */}
+                                    <View style={{ backgroundColor: '#FFFFFF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#ECEBE4', marginBottom: 16 }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: modalTotalDelivered > 0 ? 8 : 0 }}>
+                                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A1A1A' }}>Total Booked Amount</Text>
+                                            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A1A1A' }}>
+                                                ₹{(selectedSalesOrder.grandTotal || 0).toLocaleString('en-IN')}
                                             </Text>
                                         </View>
-                                    ))}
-                                </View>
 
-                                {/* Grand Total */}
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#ECEBE4', marginBottom: 16 }}>
-                                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A1A1A' }}>Grand Total</Text>
-                                    <Text style={{ fontSize: 18, fontWeight: '800', color: '#059669' }}>
-                                        ₹{(selectedSalesOrder.grandTotal || 0).toLocaleString('en-IN')}
-                                    </Text>
-                                </View>
+                                        {modalTotalDelivered > 0 && (
+                                            <View style={{ paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 4 }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Text style={{ fontSize: 12.5, color: '#059669', fontWeight: '600' }}>Delivered & Invoiced Value</Text>
+                                                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#059669' }}>₹{totalInvoicedValue.toLocaleString('en-IN')}</Text>
+                                                </View>
+                                                {totalPendingValue > 0 && (
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <Text style={{ fontSize: 12.5, color: '#D97706', fontWeight: '600' }}>Pending Stock Value</Text>
+                                                        <Text style={{ fontSize: 13, fontWeight: '800', color: '#D97706' }}>₹{totalPendingValue.toLocaleString('en-IN')}</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
 
-                                <TouchableOpacity
-                                    style={{ height: 44, borderRadius: 999, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center' }}
-                                    onPress={() => setSalesOrderDetailModalVisible(false)}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Close</Text>
-                                </TouchableOpacity>
-                            </ScrollView>
-                        )}
+                                    {modalTotalRemaining > 0 && selectedSalesOrder.status !== 'CANCELLED' && (
+                                        <TouchableOpacity
+                                            style={{ height: 48, borderRadius: 999, backgroundColor: '#059669', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 10 }}
+                                            onPress={() => {
+                                                setSalesOrderDetailModalVisible(false);
+                                                router.push('/delivery' as any);
+                                            }}
+                                            activeOpacity={0.85}
+                                        >
+                                            <Truck size={16} color="#FFFFFF" strokeWidth={2.2} />
+                                            <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#FFFFFF' }}>
+                                                Dispatch Remaining ({modalTotalRemaining} Bags) in Delivery Hub
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <TouchableOpacity
+                                        style={{ height: 46, borderRadius: 999, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center' }}
+                                        onPress={() => setSalesOrderDetailModalVisible(false)}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#FFFFFF' }}>Close</Text>
+                                    </TouchableOpacity>
+                                </ScrollView>
+                            );
+                        })()}
                     </View>
                 </View>
             </Modal>
@@ -2158,8 +2360,11 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: 16,
-        paddingTop: 48, // Moved down to the position of new invoice button
-        paddingBottom: 95, // Adequate clearance for bottom dock
+        paddingTop: 32,
+        paddingBottom: 130,
+        maxWidth: 1200,
+        width: '100%',
+        alignSelf: 'center',
     },
     header: {
         flexDirection: 'row',
@@ -2628,6 +2833,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     modalGrabHandle: {
         width: 36,
@@ -2643,6 +2849,8 @@ const styles = StyleSheet.create({
     // INVOICE BILL VIEWER MODAL
     // ─────────────────────────────────────────────
     billModalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FAF7F2',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
@@ -2924,6 +3132,8 @@ const styles = StyleSheet.create({
     // CREATE SALE / POS MODAL STYLES
     // ─────────────────────────────────────────────
     createModalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FAF7F2',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
@@ -2932,7 +3142,7 @@ const styles = StyleSheet.create({
     },
     createFormScroll: {
         paddingHorizontal: 16,
-        paddingBottom: 16,
+        paddingBottom: 40,
     },
     formSectionBox: {
         backgroundColor: '#FFFFFF',
@@ -3221,12 +3431,14 @@ const styles = StyleSheet.create({
     },
     stepperInput: {
         flex: 1,
+        minWidth: 24,
         height: '100%',
         fontSize: 13.5,
         fontWeight: '700',
         color: '#1A1A1A',
         textAlign: 'center',
         paddingHorizontal: 2,
+        paddingVertical: 0,
     },
     priceTextInput: {
         backgroundColor: '#FFFFFF',
@@ -3282,11 +3494,6 @@ const styles = StyleSheet.create({
     },
     payModePill: {
         flex: 1,
-        height: 40,
-        borderRadius: 999,
-        backgroundColor: '#F5F5F7',
-        justifyContent: 'center',
-        alignItems: 'center',
         borderWidth: 1,
         borderColor: '#E5E5E5',
     },
@@ -3390,6 +3597,8 @@ const styles = StyleSheet.create({
     // PRODUCT CATALOG PICKER SUB-MODAL
     // ─────────────────────────────────────────────
     productPickerCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FAF7F2',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
@@ -3546,7 +3755,19 @@ const styles = StyleSheet.create({
     // ─────────────────────────────────────────────
     // THERMAL RECEIPT MODAL
     // ─────────────────────────────────────────────
+    salesOrderDetailModalCard: {
+        width: '100%',
+        maxWidth: 580,
+        backgroundColor: '#FAF7F2',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        maxHeight: '90%',
+        height: '84%',
+        display: 'flex',
+    },
     thermalModalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FAF7F2',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,

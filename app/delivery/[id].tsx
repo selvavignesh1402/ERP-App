@@ -103,7 +103,7 @@ export default function DeliveryDetailScreen() {
                 paymentMode: paymentMode,
                 items: (delivery.items || []).map((it: any) => ({
                     productId: it.product.id,
-                    deliveredQuantity: deliveredQtys[it.product.id] ?? it.deliveringQuantity,
+                    deliveredQuantity: deliveredQtys[it.product.id] !== undefined ? deliveredQtys[it.product.id] : (it.deliveringQuantity || 0),
                 }))
             };
 
@@ -277,34 +277,45 @@ export default function DeliveryDetailScreen() {
                 {isInTransit && (
                     <FadeInDown delay={70}>
                         <View style={styles.card}>
-                            <Text style={styles.sectionTitle}>Delivery Verification Checklist</Text>
-                            <Text style={styles.sectionSubtitle}>Verify bags delivered. Adjust quantities if partial drop-off.</Text>
+                            <Text style={styles.sectionTitle}>Dispatched Items to Deliver</Text>
+                            <Text style={styles.sectionSubtitle}>Confirm customer acceptance and drop-off receipt.</Text>
 
                             <View style={styles.checklistWrapper}>
                                 {delivery.items.map((item: any) => {
-                                    const deliveredCount = deliveredQtys[item.product.id] ?? item.deliveringQuantity;
+                                    const maxQty = item.deliveringQuantity || 0;
+                                    const currentQty = deliveredQtys[item.product.id] ?? maxQty;
                                     return (
                                         <View key={item.id} style={styles.checkItemRow}>
                                             <View style={{ flex: 1, paddingRight: 8 }}>
-                                                <Text style={styles.itemNameText} numberOfLines={1}>{item.product.productName}</Text>
-                                                <Text style={styles.itemRateSub}>₹{item.unitPrice?.toLocaleString('en-IN')} / Bag • Max: {item.deliveringQuantity} Bags</Text>
+                                                <Text style={styles.itemNameText} numberOfLines={1}>{item.product?.productName}</Text>
+                                                <Text style={styles.itemRateSub}>₹{item.unitPrice?.toLocaleString('en-IN')} / Bag • Dispatched: {maxQty}</Text>
                                             </View>
 
-                                            <View style={styles.stepperContainer}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
                                                 <TouchableOpacity
-                                                    style={styles.stepBtn}
-                                                    onPress={() => adjustQty(item.product.id, -1, item.deliveringQuantity)}
-                                                    activeOpacity={0.7}
+                                                    onPress={() => {
+                                                        if (currentQty > 0) {
+                                                            setDeliveredQtys(prev => ({ ...prev, [item.product.id]: currentQty - 1 }));
+                                                        }
+                                                    }}
+                                                    disabled={currentQty <= 0}
+                                                    style={{ padding: 4 }}
                                                 >
-                                                    <Minus size={12} color="#1A1A1A" />
+                                                    <Minus size={16} color={currentQty <= 0 ? '#9CA3AF' : '#1F2937'} />
                                                 </TouchableOpacity>
-                                                <Text style={styles.stepCountText}>{deliveredCount}</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: '800', color: currentQty === maxQty ? '#059669' : '#D97706', minWidth: 24, textAlign: 'center' }}>
+                                                    {currentQty}
+                                                </Text>
                                                 <TouchableOpacity
-                                                    style={styles.stepBtn}
-                                                    onPress={() => adjustQty(item.product.id, 1, item.deliveringQuantity)}
-                                                    activeOpacity={0.7}
+                                                    onPress={() => {
+                                                        if (currentQty < maxQty) {
+                                                            setDeliveredQtys(prev => ({ ...prev, [item.product.id]: currentQty + 1 }));
+                                                        }
+                                                    }}
+                                                    disabled={currentQty >= maxQty}
+                                                    style={{ padding: 4 }}
                                                 >
-                                                    <Plus size={12} color="#1A1A1A" />
+                                                    <Plus size={16} color={currentQty >= maxQty ? '#9CA3AF' : '#1F2937'} />
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -840,8 +851,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.45)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     modalSheet: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,

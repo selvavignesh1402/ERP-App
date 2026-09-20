@@ -12,6 +12,7 @@ import {
     Briefcase, Sparkles, RefreshCw, X, ShieldAlert, Mail
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../src/components/Anime';
+import { RoleGate } from '../src/components/RoleGate';
 import api from '../src/services/api';
 
 const ROLES = [
@@ -32,7 +33,7 @@ export default function TeamManagementScreen() {
     const [activeTab, setActiveTab] = useState<'DIRECT' | 'INVITE'>('DIRECT');
     const [staffName, setStaffName] = useState('');
     const [staffPhone, setStaffPhone] = useState('');
-    const [staffPassword, setStaffPassword] = useState('staff123');
+    const [staffPassword, setStaffPassword] = useState('');
     const [selectedRole, setSelectedRole] = useState('SALES');
     const [submitting, setSubmitting] = useState(false);
     const [createdInviteLink, setCreatedInviteLink] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export default function TeamManagementScreen() {
                 await api.post('/api/organizations/staff', {
                     name: staffName.trim(),
                     phoneNumber: staffPhone.trim(),
-                    password: staffPassword.trim(),
+                    password: staffPassword,
                     role: selectedRole,
                 });
                 Alert.alert('Staff Added', `${staffName.trim()} has been added to your shop.`);
@@ -109,7 +110,7 @@ export default function TeamManagementScreen() {
     const resetForm = () => {
         setStaffName('');
         setStaffPhone('');
-        setStaffPassword('staff123');
+        setStaffPassword('');
         setSelectedRole('SALES');
         setCreatedInviteLink(null);
     };
@@ -190,8 +191,9 @@ export default function TeamManagementScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <Stack.Screen options={{ headerShown: false }} />
+        <RoleGate role={['ADMIN', 'MASTER_ADMIN']} permission="users:manage">
+            <SafeAreaView style={styles.container}>
+                <Stack.Screen options={{ headerShown: false }} />
 
             {/* Pastel SVG Background Blobs */}
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
@@ -516,15 +518,18 @@ export default function TeamManagementScreen() {
                                     {/* Direct Account Password Field */}
                                     {activeTab === 'DIRECT' && (
                                         <View style={styles.inputGroup}>
-                                            <Text style={styles.inputLabel}>DEFAULT LOGIN PASSWORD</Text>
+                                            <Text style={styles.inputLabel}>PASSWORD FOR NEW ACCOUNT</Text>
                                             <TextInput
                                                 style={styles.textInput}
-                                                placeholder="Default: staff123"
+                                                placeholder="New accounts: at least 12 characters"
                                                 placeholderTextColor="#999"
                                                 value={staffPassword}
                                                 onChangeText={setStaffPassword}
                                                 secureTextEntry
+                                                autoCapitalize="none"
+                                                autoCorrect={false}
                                             />
+                                            <Text style={styles.inputLabel}>Existing accounts keep their current password.</Text>
                                         </View>
                                     )}
 
@@ -633,7 +638,8 @@ export default function TeamManagementScreen() {
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView>
+            </SafeAreaView>
+        </RoleGate>
     );
 }
 
@@ -968,8 +974,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.45)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     modalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,

@@ -58,22 +58,64 @@ export default function BeatPlanScreen() {
 
     const loadPrerequisites = useCallback(async () => {
         try {
-            const [cRes, uRes] = await Promise.all([
+            const [cRes, mRes, uRes] = await Promise.all([
                 api.get('/customers').catch(() => ({ data: [] })),
+                api.get('/api/organizations/members').catch(() => ({ data: [] })),
                 api.get('/users').catch(() => ({ data: [] })),
             ]);
             setCustomers(cRes.data || []);
-            const users = uRes.data || [];
-            const activeUsers = users.filter((u: any) => u.active !== false);
-            const staffList = activeUsers.length > 0 ? activeUsers : users;
+            
+            let staffList: any[] = [];
+            if (Array.isArray(mRes.data) && mRes.data.length > 0) {
+                staffList = mRes.data
+                    .filter((m: any) => m.isActive !== false)
+                    .map((m: any) => ({
+                        id: m.userId || m.id,
+                        name: m.name || `Staff #${m.userId || m.id}`,
+                        phoneNumber: m.phoneNumber,
+                        role: m.role,
+                        active: m.isActive !== false
+                    }));
+            }
+            
+            if (staffList.length === 0 && Array.isArray(uRes.data) && uRes.data.length > 0) {
+                staffList = uRes.data
+                    .filter((u: any) => u.active !== false)
+                    .map((u: any) => ({
+                        id: u.id,
+                        name: u.name || `User #${u.id}`,
+                        phoneNumber: u.phoneNumber,
+                        role: u.role,
+                        active: u.active !== false
+                    }));
+            }
+
+            // If still empty, fallback to current user from /auth/me
+            if (staffList.length === 0) {
+                try {
+                    const meRes = await api.get('/auth/me');
+                    if (meRes.data?.id) {
+                        staffList = [{
+                            id: meRes.data.id,
+                            name: meRes.data.name || 'Current User',
+                            phoneNumber: meRes.data.phoneNumber,
+                            role: meRes.data.role || 'SALES',
+                            active: true
+                        }];
+                    }
+                } catch (err) {
+                    console.error('Failed to get current user fallback:', err);
+                }
+            }
+
             setSalesStaff(staffList);
-            if (staffList.length > 0 && !selectedSalespersonId) {
-                setSelectedSalespersonId(staffList[0].id);
+            if (staffList.length > 0) {
+                setSelectedSalespersonId(prev => (prev && staffList.some((s: any) => s.id === prev) ? prev : staffList[0].id));
             }
         } catch (e) {
             console.error('Failed to load prerequisites for beat plan', e);
         }
-    }, [selectedSalespersonId]);
+    }, []);
 
     useFocusEffect(useCallback(() => {
         fetchPlans();
@@ -525,24 +567,38 @@ export default function BeatPlanScreen() {
 
                             {/* Salesperson Selector */}
                             <Text style={styles.modalInputLabel}>Assigned Sales Executive *</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.staffScroll}>
-                                {salesStaff.map((staff) => {
-                                    const isSelected = selectedSalespersonId === staff.id;
-                                    return (
-                                        <TouchableOpacity
-                                            key={staff.id}
-                                            style={[styles.staffChip, isSelected && styles.staffChipSelected]}
-                                            onPress={() => setSelectedSalespersonId(staff.id)}
-                                            activeOpacity={0.75}
-                                        >
-                                            <User size={13} color={isSelected ? '#FFFFFF' : '#1A1A1A'} />
-                                            <Text style={[styles.staffChipText, isSelected && styles.staffChipTextSelected]}>
-                                                {staff.name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
+                            {salesStaff.length === 0 ? (
+                                <View style={styles.staffEmptyWrap}>
+                                    <ActivityIndicator size="small" color="#8A8A8A" />
+                                    <Text style={styles.staffEmptyText}>Loading sales executives...</Text>
+                                </View>
+                            ) : (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.staffScroll}>
+                                    {salesStaff.map((staff) => {
+                                        const isSelected = selectedSalespersonId === staff.id;
+                                        return (
+                                            <TouchableOpacity
+                                                key={staff.id}
+                                                style={[styles.staffChip, isSelected && styles.staffChipSelected]}
+                                                onPress={() => setSelectedSalespersonId(staff.id)}
+                                                activeOpacity={0.75}
+                                            >
+                                                <User size={13} color={isSelected ? '#FFFFFF' : '#1A1A1A'} />
+                                                <Text style={[styles.staffChipText, isSelected && styles.staffChipTextSelected]}>
+                                                    {staff.name}
+                                                </Text>
+                                                {staff.role && (
+                                                    <View style={[styles.staffRolePill, isSelected && styles.staffRolePillSelected]}>
+                                                        <Text style={[styles.staffRoleText, isSelected && styles.staffRoleTextSelected]}>
+                                                            {staff.role}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+                            )}
 
                             {/* Day Selection Tabs for assigning shops */}
                             <Text style={styles.modalInputLabel}>
@@ -1020,8 +1076,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     modalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FAF7F2',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
@@ -1116,6 +1175,37 @@ const styles = StyleSheet.create({
         color: '#1A1A1A',
     },
     staffChipTextSelected: {
+        color: '#FFFFFF',
+    },
+    staffEmptyWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        marginBottom: 4,
+    },
+    staffEmptyText: {
+        fontSize: 12,
+        color: '#8A8A8A',
+        fontFamily: 'Urbanist_500Medium',
+    },
+    staffRolePill: {
+        backgroundColor: '#F0F0F0',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        marginLeft: 2,
+    },
+    staffRolePillSelected: {
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    },
+    staffRoleText: {
+        fontSize: 9.5,
+        fontWeight: '700',
+        color: '#666666',
+    },
+    staffRoleTextSelected: {
         color: '#FFFFFF',
     },
     modalDayScroll: {

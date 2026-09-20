@@ -59,8 +59,6 @@ export default function LoginScreen() {
             
             if (pendingToken) {
                 router.replace(`/invite?token=${pendingToken}` as any);
-            } else if (profileCompleted === false) {
-                router.replace('/settings');
             } else {
                 router.replace('/(tabs)');
             }
@@ -157,7 +155,7 @@ export default function LoginScreen() {
                 const response = await firebaseLogin(fbResult.idToken);
                 if (response.data && response.data.token) {
                     setToken(response.data.token);
-                    await handlePostLoginRedirect();
+                    await handlePostLoginRedirect(response.data.profileCompleted, response.data.role);
                 } else {
                     Alert.alert('Login Error', 'Failed to retrieve ERP session');
                 }
@@ -166,7 +164,7 @@ export default function LoginScreen() {
                 const response = await verifyBackendOtp(clean10DigitPhone, otpCode.trim());
                 if (response.data && response.data.token) {
                     setToken(response.data.token);
-                    await handlePostLoginRedirect();
+                    await handlePostLoginRedirect(response.data.profileCompleted, response.data.role);
                 } else {
                     Alert.alert('Login Error', 'Invalid verification response');
                 }

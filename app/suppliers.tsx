@@ -13,6 +13,7 @@ import {
     IndianRupee, Star, Truck, Package, Clock
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../src/components/Anime';
+import { RoleGate } from '../src/components/RoleGate';
 import api from '../src/services/api';
 
 const SUPPLIER_CATEGORIES = ['All', 'Paddy Miller', 'Raw Rice Vendor', 'Packaging Material', 'Logistics & Transport', 'General'];
@@ -69,8 +70,9 @@ export default function SuppliersScreen() {
         try {
             const res = await api.get('/products');
             setProducts(res.data || []);
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error loading products for procurement:', e);
+            setProducts([]);
         }
     };
 
@@ -244,6 +246,7 @@ export default function SuppliersScreen() {
     };
 
     return (
+        <RoleGate permission="supplier:view">
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
@@ -854,6 +857,7 @@ export default function SuppliersScreen() {
                 </View>
             </Modal>
         </SafeAreaView>
+        </RoleGate>
     );
 }
 
@@ -1277,8 +1281,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
     modalCard: {
+        width: '100%',
+        maxWidth: 580,
         backgroundColor: '#FAF7F2',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,

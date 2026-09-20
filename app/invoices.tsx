@@ -5,6 +5,7 @@ import { Colors } from '../src/theme/colors';
 import { Typography } from '../src/theme/typography';
 import { Card } from '../src/components/Card';
 import { Plus, Search, Calendar, ShoppingBag, X, Scale, RefreshCw } from 'lucide-react-native';
+import { RoleGate } from '../src/components/RoleGate';
 import api from '../src/services/api';
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
@@ -160,7 +161,7 @@ export default function InvoicesScreen() {
 
     const openReconcile = (invoice: any) => {
         setReconcileInvoice(invoice);
-        setReconcilePurchaseId(null);
+        setReconcilePurchaseId(invoice.purchase?.id || null);
         setReconciliation(null);
         setReconcileVisible(true);
     };
@@ -196,6 +197,7 @@ export default function InvoicesScreen() {
     };
 
     return (
+        <RoleGate permission="invoice:view">
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
@@ -465,15 +467,16 @@ export default function InvoicesScreen() {
                 </Modal>
             )}
         </SafeAreaView>
+        </RoleGate>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
-    header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
+    header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20, maxWidth: 1200, width: '100%', alignSelf: 'center' },
     title: { fontSize: 24, fontFamily: 'Urbanist_700Bold', color: Colors.text, marginBottom: 8 },
     subtitle: { fontSize: 14, fontFamily: 'Urbanist_400Regular', color: Colors.textSecondary },
-    content: { flex: 1, paddingHorizontal: 20 },
+    content: { flex: 1, paddingHorizontal: 20, maxWidth: 1200, width: '100%', alignSelf: 'center' },
     addButton: {
         backgroundColor: Colors.primary,
         flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
@@ -511,7 +514,7 @@ const styles = StyleSheet.create({
         flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20,
     },
     modalContent: {
-        backgroundColor: '#fff', width: '100%', padding: 24, borderRadius: 24,
+        backgroundColor: '#fff', width: '100%', maxWidth: 540, padding: 24, borderRadius: 24,
         shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25,
         shadowRadius: 10, elevation: 10,
     },
