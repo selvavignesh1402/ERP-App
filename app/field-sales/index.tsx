@@ -1,14 +1,22 @@
 import React from 'react';
-import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-    Platform
-} from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    CalendarDays, MapPin, Store, ShoppingCart, BarChart2,
-    ClipboardList, ArrowLeft, ChevronRight, Navigation,
-    IndianRupee, TrendingUp, Users, CheckCircle2, Sparkles
+    CalendarDays,
+    MapPin,
+    Store,
+    ShoppingCart,
+    BarChart2,
+    ClipboardList,
+    ArrowLeft,
+    ChevronRight,
+    Navigation,
+    IndianRupee,
+    TrendingUp,
+    Users,
+    CheckCircle2,
+    Sparkles,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../../src/components/Anime';
 import { useCurrentRole } from '../../src/hooks/useCurrentRole';
@@ -87,7 +95,7 @@ export default function FieldSalesHub() {
     const { role } = useCurrentRole();
 
     // Fail closed: no confirmed role means no privileged modules.
-    const visibleModules = role ? SALES_MODULES.filter(m => m.roles.includes(role)) : [];
+    const visibleModules = role ? SALES_MODULES.filter((m) => m.roles.includes(role)) : [];
 
     return (
         <SafeAreaView style={styles.container}>
@@ -97,7 +105,7 @@ export default function FieldSalesHub() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    
+
                     {/* Top Right Signature Soft Pink Blob */}
                     <Path
                         d="M100 -50 C200 -50, 385 -40, 395 60 C410 180, 360 250, 220 230 C120 210, 40 140, 100 -50 Z"
@@ -119,16 +127,13 @@ export default function FieldSalesHub() {
                 </Svg>
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* 1. Header with Back Button */}
                 <FadeInDown delay={20} style={styles.header}>
                     <View style={styles.headerTopRow}>
                         <TouchableOpacity
                             style={styles.backBtn}
-                            onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)/menu')}
+                            onPress={() => (router.canGoBack() ? router.back() : router.push('/(tabs)/menu'))}
                             activeOpacity={0.7}
                         >
                             <ArrowLeft size={20} color="#1A1A1A" />
@@ -136,7 +141,9 @@ export default function FieldSalesHub() {
 
                         <View style={styles.headerTitleCol}>
                             <Text style={styles.headerTitle}>Field Sales Hub</Text>
-                            <Text style={styles.headerSubtitle}>Route Optimization, Visits & Collections</Text>
+                            <Text style={styles.headerSubtitle}>
+                                Route Optimization, Visits & Collections
+                            </Text>
                         </View>
                     </View>
                 </FadeInDown>
@@ -176,7 +183,9 @@ export default function FieldSalesHub() {
                             </View>
                         </View>
                         <Text style={styles.kpiLabel}>Assigned Shops</Text>
-                        <Text style={styles.kpiValue} numberOfLines={1}>8 Stores</Text>
+                        <Text style={styles.kpiValue} numberOfLines={1}>
+                            8 Stores
+                        </Text>
                     </View>
 
                     {/* KPI 2 */}
@@ -187,7 +196,9 @@ export default function FieldSalesHub() {
                             </View>
                         </View>
                         <Text style={styles.kpiLabel}>Weekly Beats</Text>
-                        <Text style={styles.kpiValue} numberOfLines={1}>6 Routes</Text>
+                        <Text style={styles.kpiValue} numberOfLines={1}>
+                            6 Routes
+                        </Text>
                     </View>
 
                     {/* KPI 3 */}
@@ -198,7 +209,9 @@ export default function FieldSalesHub() {
                             </View>
                         </View>
                         <Text style={styles.kpiLabel}>Today's Orders</Text>
-                        <Text style={[styles.kpiValue, { color: '#E65100' }]} numberOfLines={1}>14 Bags</Text>
+                        <Text style={[styles.kpiValue, { color: '#E65100' }]} numberOfLines={1}>
+                            14 Bags
+                        </Text>
                     </View>
 
                     {/* KPI 4 */}
@@ -209,7 +222,9 @@ export default function FieldSalesHub() {
                             </View>
                         </View>
                         <Text style={styles.kpiLabel}>Collections</Text>
-                        <Text style={[styles.kpiValue, { color: '#2E7D32' }]} numberOfLines={1}>₹ 42,500</Text>
+                        <Text style={[styles.kpiValue, { color: '#2E7D32' }]} numberOfLines={1}>
+                            ₹ 42,500
+                        </Text>
                     </View>
                 </FadeInDown>
 
@@ -240,7 +255,9 @@ export default function FieldSalesHub() {
                                 </View>
 
                                 <Text style={styles.moduleTitle}>{mod.title}</Text>
-                                <Text style={styles.moduleSubtitle} numberOfLines={2}>{mod.subtitle}</Text>
+                                <Text style={styles.moduleSubtitle} numberOfLines={2}>
+                                    {mod.subtitle}
+                                </Text>
                             </TouchableOpacity>
                         ))}
                     </View>

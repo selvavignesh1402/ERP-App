@@ -18,37 +18,33 @@ export const Card: React.FC<CardProps> = ({
     variant = 'elevated',
     onPress,
     animateEntrance = false,
-    delay = 0
+    delay = 0,
 }) => {
     const { pressHandlers, animatedStyle } = useAnimePress(0.98);
 
     const cardContent = (
-        <View style={[
-            styles.card,
-            variant === 'elevated' && styles.elevated,
-            variant === 'outlined' && styles.outlined,
-            style
-        ]}>
+        <View
+            style={[
+                styles.card,
+                variant === 'elevated' && styles.elevated,
+                variant === 'outlined' && styles.outlined,
+                style,
+            ]}
+        >
             {children}
         </View>
     );
 
     let mainElement = onPress ? (
         <Pressable onPress={onPress} {...pressHandlers}>
-            <Animated.View style={animatedStyle}>
-                {cardContent}
-            </Animated.View>
+            <Animated.View style={animatedStyle}>{cardContent}</Animated.View>
         </Pressable>
     ) : (
         cardContent
     );
 
     if (animateEntrance) {
-        return (
-            <FadeInDown delay={delay}>
-                {mainElement}
-            </FadeInDown>
-        );
+        return <FadeInDown delay={delay}>{mainElement}</FadeInDown>;
     }
 
     return mainElement;

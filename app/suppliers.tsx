@@ -1,24 +1,70 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, TextInput,
-    TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView,
-    Platform, Linking
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    TextInput,
+    TouchableOpacity,
+    Modal,
+    Alert,
+    ActivityIndicator,
+    ScrollView,
+    Platform,
+    Linking,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    Search, Plus, ArrowLeft, Factory, Phone, Mail, MapPin,
-    Building2, Pencil, Trash2, CheckCircle2, ArrowUpDown,
-    PackagePlus, ShieldCheck, Sparkles, X, ChevronRight, PhoneCall,
-    IndianRupee, Star, Truck, Package, Clock
+    Search,
+    Plus,
+    ArrowLeft,
+    Factory,
+    Phone,
+    Mail,
+    MapPin,
+    Building2,
+    Pencil,
+    Trash2,
+    CheckCircle2,
+    ArrowUpDown,
+    PackagePlus,
+    ShieldCheck,
+    Sparkles,
+    X,
+    ChevronRight,
+    PhoneCall,
+    IndianRupee,
+    Star,
+    Truck,
+    Package,
+    Clock,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../src/components/Anime';
 import { RoleGate } from '../src/components/RoleGate';
-import api from '../src/services/api';
+import { OrgScopedScreen } from '../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../src/services/api';
 
-const SUPPLIER_CATEGORIES = ['All', 'Paddy Miller', 'Raw Rice Vendor', 'Packaging Material', 'Logistics & Transport', 'General'];
+const SUPPLIER_CATEGORIES = [
+    'All',
+    'Paddy Miller',
+    'Raw Rice Vendor',
+    'Packaging Material',
+    'Logistics & Transport',
+    'General',
+];
 
 export default function SuppliersScreen() {
+    return (
+        <RoleGate permission="supplier:view">
+            <OrgScopedScreen emptyMessage="Select a shop to manage suppliers.">
+                {(api) => <SuppliersScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function SuppliersScreenContent({ api }: { api: OrganizationApi }) {
     const router = useRouter();
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -86,11 +132,21 @@ export default function SuppliersScreen() {
     // ─────────────────────────────────────────────
     const metrics = useMemo(() => {
         const totalSuppliers = suppliers.length;
-        const millersCount = suppliers.filter(s => s.category?.toLowerCase().includes('miller') || s.category?.toLowerCase().includes('paddy')).length;
-        const packagingCount = suppliers.filter(s => s.category?.toLowerCase().includes('packaging') || s.category?.toLowerCase().includes('transport')).length;
-        const avgRating = totalSuppliers > 0
-            ? (suppliers.reduce((acc, s) => acc + (parseFloat(s.rating) || 5.0), 0) / totalSuppliers).toFixed(1)
-            : '5.0';
+        const millersCount = suppliers.filter(
+            (s) =>
+                s.category?.toLowerCase().includes('miller') || s.category?.toLowerCase().includes('paddy'),
+        ).length;
+        const packagingCount = suppliers.filter(
+            (s) =>
+                s.category?.toLowerCase().includes('packaging') ||
+                s.category?.toLowerCase().includes('transport'),
+        ).length;
+        const avgRating =
+            totalSuppliers > 0
+                ? (
+                      suppliers.reduce((acc, s) => acc + (parseFloat(s.rating) || 5.0), 0) / totalSuppliers
+                  ).toFixed(1)
+                : '5.0';
 
         return {
             totalSuppliers,
@@ -107,17 +163,18 @@ export default function SuppliersScreen() {
         let list = suppliers;
 
         if (selectedCategory !== 'All') {
-            list = list.filter(s => (s.category || '').toLowerCase() === selectedCategory.toLowerCase());
+            list = list.filter((s) => (s.category || '').toLowerCase() === selectedCategory.toLowerCase());
         }
 
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
-            list = list.filter((s: any) =>
-                (s.supplierName || '').toLowerCase().includes(q) ||
-                (s.phone || '').includes(q) ||
-                (s.address || '').toLowerCase().includes(q) ||
-                (s.gstNumber || '').toLowerCase().includes(q) ||
-                (s.category || '').toLowerCase().includes(q)
+            list = list.filter(
+                (s: any) =>
+                    (s.supplierName || '').toLowerCase().includes(q) ||
+                    (s.phone || '').includes(q) ||
+                    (s.address || '').toLowerCase().includes(q) ||
+                    (s.gstNumber || '').toLowerCase().includes(q) ||
+                    (s.category || '').toLowerCase().includes(q),
             );
         }
 
@@ -176,7 +233,7 @@ export default function SuppliersScreen() {
                 address: address.trim(),
                 gstNumber: gst.trim(),
                 rating: editingSupplier?.rating || 5.0,
-                category: category || 'General'
+                category: category || 'General',
             };
 
             if (editingSupplier) {
@@ -225,9 +282,12 @@ export default function SuppliersScreen() {
                 purchasePrice: parseFloat(purchasePrice),
                 leadTimeDays: parseInt(leadTimeDays, 10) || 2,
                 minOrderQty: parseInt(minOrderQty, 10) || 50,
-                isPreferred: true
+                isPreferred: true,
             });
-            Alert.alert('SKU Linked', `Successfully linked ${selectedProduct.productName} to ${procurementSupplier.supplierName}`);
+            Alert.alert(
+                'SKU Linked',
+                `Successfully linked ${selectedProduct.productName} to ${procurementSupplier.supplierName}`,
+            );
             setProcurementVisible(false);
         } catch (error: any) {
             console.error('Error linking supplier SKU:', error);
@@ -246,7 +306,6 @@ export default function SuppliersScreen() {
     };
 
     return (
-        <RoleGate permission="supplier:view">
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
@@ -254,7 +313,7 @@ export default function SuppliersScreen() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    
+
                     {/* Top Right Signature Soft Pink Blob */}
                     <Path
                         d="M100 -50 C200 -50, 385 -40, 395 60 C410 180, 360 250, 220 230 C120 210, 40 140, 100 -50 Z"
@@ -276,16 +335,13 @@ export default function SuppliersScreen() {
                 </Svg>
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* 1. Header with Back Button & Title */}
                 <FadeInDown delay={20} style={styles.header}>
                     <View style={styles.headerTopRow}>
                         <TouchableOpacity
                             style={styles.backBtn}
-                            onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)/menu')}
+                            onPress={() => (router.canGoBack() ? router.back() : router.push('/(tabs)/menu'))}
                             activeOpacity={0.7}
                         >
                             <ArrowLeft size={20} color="#1A1A1A" />
@@ -389,7 +445,12 @@ export default function SuppliersScreen() {
                                     onPress={() => setSelectedCategory(cat)}
                                     activeOpacity={0.7}
                                 >
-                                    <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
+                                    <Text
+                                        style={[
+                                            styles.categoryChipText,
+                                            active && styles.categoryChipTextActive,
+                                        ]}
+                                    >
                                         {cat}
                                     </Text>
                                 </TouchableOpacity>
@@ -420,7 +481,11 @@ export default function SuppliersScreen() {
                         >
                             <ArrowUpDown size={14} color="#555" />
                             <Text style={styles.sortBtnText}>
-                                {sortOption === 'name' ? 'Name' : sortOption === 'rating' ? 'Rating' : 'Category'}
+                                {sortOption === 'name'
+                                    ? 'Name'
+                                    : sortOption === 'rating'
+                                      ? 'Rating'
+                                      : 'Category'}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -453,7 +518,9 @@ export default function SuppliersScreen() {
                             <Factory size={40} color="#D0D0D0" />
                             <Text style={styles.emptyTitle}>No Suppliers Found</Text>
                             <Text style={styles.emptySubtitle}>
-                                {searchQuery ? 'No vendor matches your search criteria.' : 'Add your first supplier partner using the button above!'}
+                                {searchQuery
+                                    ? 'No vendor matches your search criteria.'
+                                    : 'Add your first supplier partner using the button above!'}
                             </Text>
                         </View>
                     ) : (
@@ -472,16 +539,22 @@ export default function SuppliersScreen() {
 
                                                 <View style={styles.suppMainInfo}>
                                                     <View style={styles.suppNameRow}>
-                                                        <Text style={styles.suppName} numberOfLines={1}>{s.supplierName}</Text>
+                                                        <Text style={styles.suppName} numberOfLines={1}>
+                                                            {s.supplierName}
+                                                        </Text>
                                                         <View style={styles.ratingBadge}>
                                                             <Star size={11} color="#E65100" fill="#E65100" />
-                                                            <Text style={styles.ratingBadgeText}>{ratingVal.toFixed(1)}</Text>
+                                                            <Text style={styles.ratingBadgeText}>
+                                                                {ratingVal.toFixed(1)}
+                                                            </Text>
                                                         </View>
                                                     </View>
 
                                                     <View style={styles.suppMetaRow}>
                                                         <View style={styles.categoryPill}>
-                                                            <Text style={styles.categoryPillText}>{s.category || 'General'}</Text>
+                                                            <Text style={styles.categoryPillText}>
+                                                                {s.category || 'General'}
+                                                            </Text>
                                                         </View>
 
                                                         {s.phone && (
@@ -491,7 +564,9 @@ export default function SuppliersScreen() {
                                                                 activeOpacity={0.7}
                                                             >
                                                                 <PhoneCall size={12} color="#5B8DEF" />
-                                                                <Text style={styles.phoneChipText}>{s.phone}</Text>
+                                                                <Text style={styles.phoneChipText}>
+                                                                    {s.phone}
+                                                                </Text>
                                                             </TouchableOpacity>
                                                         )}
                                                     </View>
@@ -504,11 +579,18 @@ export default function SuppliersScreen() {
                                                     {s.address ? (
                                                         <View style={styles.addressLine}>
                                                             <MapPin size={12} color="#888" />
-                                                            <Text style={styles.addressLineText} numberOfLines={1}>{s.address}</Text>
+                                                            <Text
+                                                                style={styles.addressLineText}
+                                                                numberOfLines={1}
+                                                            >
+                                                                {s.address}
+                                                            </Text>
                                                         </View>
                                                     ) : null}
                                                     {s.gstNumber ? (
-                                                        <Text style={styles.gstSmallText}>GSTIN: {s.gstNumber}</Text>
+                                                        <Text style={styles.gstSmallText}>
+                                                            GSTIN: {s.gstNumber}
+                                                        </Text>
                                                     ) : null}
                                                 </View>
                                             )}
@@ -521,7 +603,9 @@ export default function SuppliersScreen() {
                                                     activeOpacity={0.75}
                                                 >
                                                     <PackagePlus size={14} color="#F06A8C" />
-                                                    <Text style={styles.linkSkuBtnText}>Link SKUs & Price</Text>
+                                                    <Text style={styles.linkSkuBtnText}>
+                                                        Link SKUs & Price
+                                                    </Text>
                                                 </TouchableOpacity>
 
                                                 <TouchableOpacity
@@ -572,7 +656,9 @@ export default function SuppliersScreen() {
                                     {editingSupplier ? 'Edit Supplier' : 'Add New Supplier'}
                                 </Text>
                                 <Text style={styles.modalSubtitle}>
-                                    {editingSupplier ? 'Update vendor credentials & contact' : 'Register paddy miller or trade vendor partner'}
+                                    {editingSupplier
+                                        ? 'Update vendor credentials & contact'
+                                        : 'Register paddy miller or trade vendor partner'}
                                 </Text>
                             </View>
                             <TouchableOpacity
@@ -615,13 +701,27 @@ export default function SuppliersScreen() {
                                         showsHorizontalScrollIndicator={false}
                                         contentContainerStyle={{ gap: 6, paddingVertical: 4 }}
                                     >
-                                        {['Paddy Miller', 'Raw Rice Vendor', 'Packaging Material', 'Logistics & Transport', 'General'].map((c) => (
+                                        {[
+                                            'Paddy Miller',
+                                            'Raw Rice Vendor',
+                                            'Packaging Material',
+                                            'Logistics & Transport',
+                                            'General',
+                                        ].map((c) => (
                                             <TouchableOpacity
                                                 key={c}
-                                                style={[styles.modalCatChip, category === c && styles.modalCatChipActive]}
+                                                style={[
+                                                    styles.modalCatChip,
+                                                    category === c && styles.modalCatChipActive,
+                                                ]}
                                                 onPress={() => setCategory(c)}
                                             >
-                                                <Text style={[styles.modalCatText, category === c && styles.modalCatTextActive]}>
+                                                <Text
+                                                    style={[
+                                                        styles.modalCatText,
+                                                        category === c && styles.modalCatTextActive,
+                                                    ]}
+                                                >
                                                     {c}
                                                 </Text>
                                             </TouchableOpacity>
@@ -694,7 +794,9 @@ export default function SuppliersScreen() {
                                     <>
                                         <Sparkles size={18} color="#FFFFFF" />
                                         <Text style={styles.submitBtnText}>
-                                            {editingSupplier ? 'Update Supplier Profile' : 'Save Supplier Partner'}
+                                            {editingSupplier
+                                                ? 'Update Supplier Profile'
+                                                : 'Save Supplier Partner'}
                                         </Text>
                                     </>
                                 )}
@@ -746,10 +848,12 @@ export default function SuppliersScreen() {
                                         <Package size={20} color="#F06A8C" />
                                         <View style={{ flex: 1 }}>
                                             <Text style={styles.selectedProdTitle}>
-                                                {selectedProduct.brand ? `${selectedProduct.brand} ` : ''}{selectedProduct.productName}
+                                                {selectedProduct.brand ? `${selectedProduct.brand} ` : ''}
+                                                {selectedProduct.productName}
                                             </Text>
                                             <Text style={styles.selectedProdSub}>
-                                                HSN: {selectedProduct.hsnCode || '1006'} · Selling Price: ₹{selectedProduct.sellingPrice}
+                                                HSN: {selectedProduct.hsnCode || '1006'} · Selling Price: ₹
+                                                {selectedProduct.sellingPrice}
                                             </Text>
                                         </View>
                                         <TouchableOpacity
@@ -761,21 +865,38 @@ export default function SuppliersScreen() {
                                     </View>
                                 ) : (
                                     <View style={{ maxHeight: 180 }}>
-                                        <Text style={styles.inputLabel}>Choose product supplied by this vendor:</Text>
-                                        <ScrollView nestedScrollEnabled style={{ borderWidth: 1, borderColor: '#ECECEC', borderRadius: 12 }}>
+                                        <Text style={styles.inputLabel}>
+                                            Choose product supplied by this vendor:
+                                        </Text>
+                                        <ScrollView
+                                            nestedScrollEnabled
+                                            style={{
+                                                borderWidth: 1,
+                                                borderColor: '#ECECEC',
+                                                borderRadius: 12,
+                                            }}
+                                        >
                                             {products.map((p) => (
                                                 <TouchableOpacity
                                                     key={p.id}
                                                     style={styles.prodPickItem}
                                                     onPress={() => {
                                                         setSelectedProduct(p);
-                                                        setPurchasePrice(String(p.purchasePrice || Math.round(p.sellingPrice * 0.8)));
+                                                        setPurchasePrice(
+                                                            String(
+                                                                p.purchasePrice ||
+                                                                    Math.round(p.sellingPrice * 0.8),
+                                                            ),
+                                                        );
                                                     }}
                                                 >
                                                     <Text style={styles.prodPickName}>
-                                                        {p.brand ? `${p.brand} ` : ''}{p.productName}
+                                                        {p.brand ? `${p.brand} ` : ''}
+                                                        {p.productName}
                                                     </Text>
-                                                    <Text style={styles.prodPickPrice}>₹{p.sellingPrice}/bag</Text>
+                                                    <Text style={styles.prodPickPrice}>
+                                                        ₹{p.sellingPrice}/bag
+                                                    </Text>
                                                 </TouchableOpacity>
                                             ))}
                                         </ScrollView>
@@ -857,7 +978,6 @@ export default function SuppliersScreen() {
                 </View>
             </Modal>
         </SafeAreaView>
-        </RoleGate>
     );
 }
 

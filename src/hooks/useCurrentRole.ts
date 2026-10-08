@@ -22,8 +22,8 @@ export const hasRole = (current: CurrentRole | string | null, targetRole: string
 };
 
 /**
- * Hook — now simply delegates to the centralized RoleProvider context.
- * All consumers share a single `/auth/me` fetch.
+ * Compatibility hook for profile/session metadata. Prefer usePermission for
+ * authorization decisions and OrgScopedScreen for shop-scoped lifecycle.
  */
 export const useCurrentRole = (): CurrentRole => {
     return useRoleContext();

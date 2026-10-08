@@ -1,31 +1,62 @@
 import React, { useState, useCallback } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView, Alert,
-    TouchableOpacity, Platform
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    Alert,
+    TouchableOpacity,
+    Platform,
 } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    User, Settings, Shield, HelpCircle, Info, LogOut,
-    BadgeCheck, ChevronRight, Phone, Mail, Sparkles,
-    Lock, Bell, Building2, KeyRound, Users, MapPin
+    User,
+    Settings,
+    Shield,
+    HelpCircle,
+    Info,
+    LogOut,
+    BadgeCheck,
+    ChevronRight,
+    Phone,
+    Mail,
+    Sparkles,
+    Lock,
+    Bell,
+    Building2,
+    KeyRound,
+    Users,
+    MapPin,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../../src/components/Anime';
 import { me, clearToken } from '../../src/services/api';
 import { useCurrentRole, hasRole } from '../../src/hooks/useCurrentRole';
+import { RoleGate } from '../../src/components/RoleGate';
 
 const roleLabel = (role: string | undefined) => {
     switch (role) {
-        case 'ADMIN': return 'Administrator';
-        case 'MANAGER': return 'Operations Manager';
-        case 'ACCOUNTANT': return 'Head Accountant';
-        case 'SALES': return 'Sales Executive';
-        case 'WAREHOUSE': return 'Warehouse Manager';
-        default: return role ?? 'ERP User';
+        case 'ADMIN':
+            return 'Administrator';
+        case 'MANAGER':
+            return 'Operations Manager';
+        case 'ACCOUNTANT':
+            return 'Head Accountant';
+        case 'SALES':
+            return 'Sales Executive';
+        case 'WAREHOUSE':
+            return 'Warehouse Manager';
+        default:
+            return role ?? 'ERP User';
     }
 };
 
 export default function ProfileScreen() {
+    return <ProfileContent />;
+}
+
+function ProfileContent() {
     const router = useRouter();
     const currentRole = useCurrentRole();
     const isAdmin = hasRole(currentRole, 'ADMIN');
@@ -62,25 +93,21 @@ export default function ProfileScreen() {
     useFocusEffect(
         useCallback(() => {
             loadUser();
-        }, [loadUser])
+        }, [loadUser]),
     );
 
     const handleLogout = () => {
-        Alert.alert(
-            'Confirm Logout',
-            'Are you sure you want to log out from this session?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Log Out',
-                    style: 'destructive',
-                    onPress: () => {
-                        clearToken();
-                        router.replace('/(auth)/welcome');
-                    }
-                }
-            ]
-        );
+        Alert.alert('Confirm Logout', 'Are you sure you want to log out from this session?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Log Out',
+                style: 'destructive',
+                onPress: () => {
+                    clearToken();
+                    router.replace('/(auth)/welcome');
+                },
+            },
+        ]);
     };
 
     // Fail-closed: only a confirmed ADMIN sees user-management entry points.
@@ -94,7 +121,7 @@ export default function ProfileScreen() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    
+
                     {/* Top Right Signature Soft Pink Blob */}
                     <Path
                         d="M100 -50 C200 -50, 385 -40, 395 60 C410 180, 360 250, 220 230 C120 210, 40 140, 100 -50 Z"
@@ -116,10 +143,7 @@ export default function ProfileScreen() {
                 </Svg>
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* 1. Header */}
                 <FadeInDown delay={20} style={styles.header}>
                     <Text style={styles.headerTitle}>Profile & Account</Text>
@@ -141,7 +165,9 @@ export default function ProfileScreen() {
 
                             <View style={styles.profileHeroDetails}>
                                 <View style={styles.nameRow}>
-                                    <Text style={styles.userName} numberOfLines={1}>{userName}</Text>
+                                    <Text style={styles.userName} numberOfLines={1}>
+                                        {userName}
+                                    </Text>
                                     <BadgeCheck size={18} color="#2FAE55" />
                                 </View>
                                 <View style={styles.roleBadge}>
@@ -205,7 +231,9 @@ export default function ProfileScreen() {
                             </View>
                         </View>
                         <Text style={styles.kpiLabel}>Access Privilege</Text>
-                        <Text style={styles.kpiValue} numberOfLines={1}>{rawRole}</Text>
+                        <Text style={styles.kpiValue} numberOfLines={1}>
+                            {rawRole}
+                        </Text>
                     </View>
 
                     <View style={styles.kpiCard}>
@@ -215,7 +243,9 @@ export default function ProfileScreen() {
                             </View>
                         </View>
                         <Text style={styles.kpiLabel}>Account Status</Text>
-                        <Text style={[styles.kpiValue, { color: '#2E7D32' }]} numberOfLines={1}>Verified</Text>
+                        <Text style={[styles.kpiValue, { color: '#2E7D32' }]} numberOfLines={1}>
+                            Verified
+                        </Text>
                     </View>
                 </FadeInDown>
 
@@ -235,7 +265,9 @@ export default function ProfileScreen() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.optionTitle}>App Settings & Business Info</Text>
-                                <Text style={styles.optionSubtitle}>GST parameters, notifications & currency</Text>
+                                <Text style={styles.optionSubtitle}>
+                                    GST parameters, notifications & currency
+                                </Text>
                             </View>
                             <ChevronRight size={18} color="#B0B0B0" />
                         </TouchableOpacity>
@@ -252,7 +284,9 @@ export default function ProfileScreen() {
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.optionTitle}>Team & Staff Directory</Text>
-                                    <Text style={styles.optionSubtitle}>Roles, permissions & WhatsApp invite links</Text>
+                                    <Text style={styles.optionSubtitle}>
+                                        Roles, permissions & WhatsApp invite links
+                                    </Text>
                                 </View>
                                 <ChevronRight size={18} color="#B0B0B0" />
                             </TouchableOpacity>
@@ -269,7 +303,9 @@ export default function ProfileScreen() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.optionTitle}>Field Sales & Route Planning</Text>
-                                <Text style={styles.optionSubtitle}>Store check-in, visit logs & spot bookings</Text>
+                                <Text style={styles.optionSubtitle}>
+                                    Store check-in, visit logs & spot bookings
+                                </Text>
                             </View>
                             <ChevronRight size={18} color="#B0B0B0" />
                         </TouchableOpacity>
@@ -286,7 +322,9 @@ export default function ProfileScreen() {
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.optionTitle}>Staff & User Roles</Text>
-                                    <Text style={styles.optionSubtitle}>Create accounts, reset passwords & permissions</Text>
+                                    <Text style={styles.optionSubtitle}>
+                                        Create accounts, reset passwords & permissions
+                                    </Text>
                                 </View>
                                 <ChevronRight size={18} color="#B0B0B0" />
                             </TouchableOpacity>
@@ -295,7 +333,12 @@ export default function ProfileScreen() {
                         {/* Help & Support */}
                         <TouchableOpacity
                             style={styles.optionItem}
-                            onPress={() => Alert.alert('Technical Support', 'For assistance, contact ERP support team at support@riceerp.com')}
+                            onPress={() =>
+                                Alert.alert(
+                                    'Technical Support',
+                                    'For assistance, contact ERP support team at support@riceerp.com',
+                                )
+                            }
                             activeOpacity={0.7}
                         >
                             <View style={[styles.optionIconBox, { backgroundColor: '#EAF2FF' }]}>
@@ -303,7 +346,9 @@ export default function ProfileScreen() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.optionTitle}>Help & Support</Text>
-                                <Text style={styles.optionSubtitle}>Knowledge base, FAQs & technical help</Text>
+                                <Text style={styles.optionSubtitle}>
+                                    Knowledge base, FAQs & technical help
+                                </Text>
                             </View>
                             <ChevronRight size={18} color="#B0B0B0" />
                         </TouchableOpacity>
@@ -311,7 +356,12 @@ export default function ProfileScreen() {
                         {/* About App */}
                         <TouchableOpacity
                             style={[styles.optionItem, { borderBottomWidth: 0 }]}
-                            onPress={() => Alert.alert('Rice Mill ERP Suite', 'Version 2.4.0 (Enterprise Edition)\nSecure Cloud Data Sync Enabled')}
+                            onPress={() =>
+                                Alert.alert(
+                                    'Rice Mill ERP Suite',
+                                    'Version 2.4.0 (Enterprise Edition)\nSecure Cloud Data Sync Enabled',
+                                )
+                            }
                             activeOpacity={0.7}
                         >
                             <View style={[styles.optionIconBox, { backgroundColor: '#E8F5E9' }]}>
@@ -328,11 +378,7 @@ export default function ProfileScreen() {
 
                 {/* 5. Logout Button */}
                 <FadeInDown delay={140} style={styles.logoutSection}>
-                    <TouchableOpacity
-                        style={styles.logoutBtn}
-                        onPress={handleLogout}
-                        activeOpacity={0.85}
-                    >
+                    <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
                         <LogOut size={18} color="#E53935" />
                         <Text style={styles.logoutBtnText}>Log Out Account</Text>
                     </TouchableOpacity>

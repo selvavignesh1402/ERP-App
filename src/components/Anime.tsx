@@ -77,10 +77,7 @@ export const Anime: React.FC<AnimeProps> = ({
         }
 
         if (delay > 0) {
-            Animated.sequence([
-                Animated.delay(delay),
-                anim
-            ]).start();
+            Animated.sequence([Animated.delay(delay), anim]).start();
         } else {
             anim.start();
         }
@@ -96,7 +93,7 @@ export const Anime: React.FC<AnimeProps> = ({
             scale: progress.interpolate({
                 inputRange: [0, 1],
                 outputRange: [start, end],
-            })
+            }),
         });
     }
 
@@ -108,7 +105,7 @@ export const Anime: React.FC<AnimeProps> = ({
             translateX: progress.interpolate({
                 inputRange: [0, 1],
                 outputRange: [start, end],
-            })
+            }),
         });
     }
 
@@ -120,7 +117,7 @@ export const Anime: React.FC<AnimeProps> = ({
             translateY: progress.interpolate({
                 inputRange: [0, 1],
                 outputRange: [start, end],
-            })
+            }),
         });
     }
 
@@ -132,7 +129,7 @@ export const Anime: React.FC<AnimeProps> = ({
             rotate: progress.interpolate({
                 inputRange: [0, 1],
                 outputRange: [startStr, endStr],
-            })
+            }),
         });
     }
 
@@ -150,11 +147,7 @@ export const Anime: React.FC<AnimeProps> = ({
         animatedStyle.transform = transformStyles;
     }
 
-    return (
-        <Animated.View style={[style, animatedStyle]}>
-            {children}
-        </Animated.View>
-    );
+    return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
 };
 
 Anime.displayName = 'Anime';
@@ -166,15 +159,11 @@ interface StaggerContainerProps {
     children: React.ReactNode;
 }
 
-export const StaggerContainer: React.FC<StaggerContainerProps> = ({
-    stagger = 100,
-    delay = 0,
-    children,
-}) => {
+export const StaggerContainer: React.FC<StaggerContainerProps> = ({ stagger = 100, delay = 0, children }) => {
     let index = 0;
 
     const recursiveMap = (childrenList: React.ReactNode): React.ReactNode => {
-        return React.Children.map(childrenList, child => {
+        return React.Children.map(childrenList, (child) => {
             if (!React.isValidElement(child)) {
                 return child;
             }
@@ -217,47 +206,27 @@ interface PresetProps {
 }
 
 export const FadeInDown: React.FC<PresetProps> = (props) => (
-    <Anime
-        {...props}
-        from={{ opacity: 0, translateY: 30 }}
-        to={{ opacity: 1, translateY: 0 }}
-    />
+    <Anime {...props} from={{ opacity: 0, translateY: 30 }} to={{ opacity: 1, translateY: 0 }} />
 );
 FadeInDown.displayName = 'Anime';
 
 export const FadeInUp: React.FC<PresetProps> = (props) => (
-    <Anime
-        {...props}
-        from={{ opacity: 0, translateY: -30 }}
-        to={{ opacity: 1, translateY: 0 }}
-    />
+    <Anime {...props} from={{ opacity: 0, translateY: -30 }} to={{ opacity: 1, translateY: 0 }} />
 );
 FadeInUp.displayName = 'Anime';
 
 export const FadeInLeft: React.FC<PresetProps> = (props) => (
-    <Anime
-        {...props}
-        from={{ opacity: 0, translateX: -30 }}
-        to={{ opacity: 1, translateX: 0 }}
-    />
+    <Anime {...props} from={{ opacity: 0, translateX: -30 }} to={{ opacity: 1, translateX: 0 }} />
 );
 FadeInLeft.displayName = 'Anime';
 
 export const FadeInRight: React.FC<PresetProps> = (props) => (
-    <Anime
-        {...props}
-        from={{ opacity: 0, translateX: 30 }}
-        to={{ opacity: 1, translateX: 0 }}
-    />
+    <Anime {...props} from={{ opacity: 0, translateX: 30 }} to={{ opacity: 1, translateX: 0 }} />
 );
 FadeInRight.displayName = 'Anime';
 
 export const ScaleIn: React.FC<PresetProps> = (props) => (
-    <Anime
-        {...props}
-        from={{ opacity: 0, scale: 0.7 }}
-        to={{ opacity: 1, scale: 1 }}
-    />
+    <Anime {...props} from={{ opacity: 0, scale: 0.7 }} to={{ opacity: 1, scale: 1 }} />
 );
 ScaleIn.displayName = 'Anime';
 

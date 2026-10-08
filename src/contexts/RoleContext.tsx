@@ -1,5 +1,6 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { me, clearToken, getToken, onTokenChanged } from '../services/api';
+import React, { createContext, useCallback, useContext, useEffect, useState, useRef } from 'react';
+import { saveOfflineSession, restoreOfflineSession, clearOfflineSession } from '../services/offlineSession';
+import { me, getToken, onTokenChanged, verifyOrganizationSession } from '../services/api';
 
 // ─────────────────────────────────────────────
 // Types & Constants
@@ -78,6 +79,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [ready, setReady] = useState(false);
     const [failed, setFailed] = useState(false);
     const [tick, setTick] = useState(0);
+    const generation = useRef(0);
 
     // Cached user profile fields
     const [userId, setUserId] = useState<number | null>(null);
@@ -85,14 +87,27 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const [userPhone, setUserPhone] = useState<string | null>(null);
 
-    const refresh = useCallback(() => setTick(t => t + 1), []);
+    const refresh = useCallback(() => setTick((t) => t + 1), []);
 
     useEffect(() => {
         const off = onTokenChanged((token) => {
+            generation.current++;
+            setRole(null);
+            setOrgRole(null);
+            setPlatformRole(null);
+            setOrgId(null);
+            setPermissions([]);
+            setUserId(null);
+            setUserName(null);
+            setUserEmail(null);
+            setUserPhone(null);
+            setProfileCompleted(false);
+            setReady(false);
             if (token) {
                 setFailed(false);
                 refresh();
             } else {
+                void clearOfflineSession().catch(() => {});
                 setRole(null);
                 setOrgRole(null);
                 setPlatformRole(null);
@@ -107,11 +122,19 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         let cancelled = false;
+        const version = generation.current;
+        const isCurrent = () => !cancelled && version === generation.current;
         (async () => {
             setReady(false);
-            const token = await getToken();
+            const token = await getToken().catch(() => null);
+            if (!isCurrent()) return;
             if (!token) {
                 if (!cancelled) {
+                    setUserId(null);
+                    setUserName(null);
+                    setUserEmail(null);
+                    setUserPhone(null);
+                    setProfileCompleted(false);
                     setRole(null);
                     setOrgRole(null);
                     setPlatformRole(null);
@@ -124,25 +147,40 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             try {
-                const res = await me();
+                let res;
+                let restored = false;
+                try {
+                    res = await me(token);
+                } catch (error: any) {
+                    if (error?.response) throw error;
+                    const data = await restoreOfflineSession(token);
+                    if (!data) throw error;
+                    res = { data };
+                    restored = true;
+                }
+                if (!isCurrent()) return;
                 const data = res?.data;
+                if (!restored) void saveOfflineSession(token, data).catch(() => {});
                 const rawRole = data?.role;
                 const rawOrgRole = data?.orgRole;
                 const rawOrgId = data?.organizationId;
                 const rawPerms = data?.permissions || [];
                 const completed = data?.profileCompleted ?? true;
+                verifyOrganizationSession(token, typeof rawOrgId === 'number' ? rawOrgId : null);
 
                 if (!cancelled) {
-                    const normalizedRole = (typeof rawRole === 'string'
-                        ? rawRole.toUpperCase().replace(/^ROLE_/, '')
-                        : rawRole) as RoleName;
-                    const normalizedOrgRole = (typeof rawOrgRole === 'string'
-                        ? rawOrgRole.toUpperCase().replace(/^ROLE_/, '')
-                        : normalizedRole) as RoleName;
+                    const normalizedRole = (
+                        typeof rawRole === 'string' ? rawRole.toUpperCase().replace(/^ROLE_/, '') : rawRole
+                    ) as RoleName;
+                    const normalizedOrgRole = (
+                        typeof rawOrgRole === 'string'
+                            ? rawOrgRole.toUpperCase().replace(/^ROLE_/, '')
+                            : normalizedRole
+                    ) as RoleName;
 
                     if (isKnownRole(normalizedRole)) {
                         setRole(normalizedRole);
-                        setOrgRole(isKnownRole(normalizedOrgRole) ? normalizedOrgRole : normalizedRole);
+                        setOrgRole(rawOrgRole && isKnownRole(normalizedOrgRole) ? normalizedOrgRole : null);
                         setPlatformRole(normalizedRole === 'MASTER_ADMIN' ? 'MASTER_ADMIN' : 'USER');
                         setOrgId(typeof rawOrgId === 'number' ? rawOrgId : null);
                         setPermissions(Array.isArray(rawPerms) ? rawPerms : []);
@@ -156,6 +194,10 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         setUserEmail(data?.email ?? null);
                         setUserPhone(data?.phoneNumber ?? null);
                     } else {
+                        setUserId(null);
+                        setUserName(null);
+                        setUserEmail(null);
+                        setUserPhone(null);
                         setRole('USER');
                         setOrgRole('USER');
                         setPlatformRole('USER');
@@ -167,8 +209,13 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
                 }
             } catch (error: any) {
+                if (!isCurrent()) return;
+                setUserId(null);
+                setUserName(null);
+                setUserEmail(null);
+                setUserPhone(null);
+                setProfileCompleted(false);
                 if (error?.response?.status === 401) {
-                    clearToken();
                     if (!cancelled) {
                         setRole(null);
                         setOrgRole(null);
@@ -180,8 +227,13 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
                 } else {
                     if (!cancelled) {
+                        setRole(null);
+                        setOrgRole(null);
+                        setPlatformRole(null);
+                        setOrgId(null);
+                        setPermissions([]);
                         setReady(true);
-                        setFailed(false);
+                        setFailed(true);
                     }
                 }
             }
@@ -192,25 +244,31 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [tick]);
 
-    const can = useCallback((permission: string): boolean => {
-        if (role === 'MASTER_ADMIN' || role === 'ADMIN') return true;
-        const PERMISSION_ALIASES: Record<string, string> = {
-            'sales:create': 'sale:create',
-            'users:manage': 'member:manage',
-            'ledger:view': 'payment:view',
-            'report:view': 'inventory:view',
-        };
-        const targetPerm = PERMISSION_ALIASES[permission] || permission;
-        return permissions.includes(targetPerm) || permissions.includes(permission);
-    }, [role, permissions]);
+    const can = useCallback(
+        (permission: string): boolean => {
+            if (!ready || failed) return false;
+            if (role === 'MASTER_ADMIN') return true;
+            const PERMISSION_ALIASES: Record<string, string> = {
+                'sales:create': 'sale:create',
+                'users:manage': 'member:manage',
+                'ledger:view': 'payment:view',
+            };
+            const targetPerm = PERMISSION_ALIASES[permission] || permission;
+            return permissions.includes(targetPerm) || permissions.includes(permission);
+        },
+        [role, permissions, ready, failed],
+    );
 
-    const hasRoleFn = useCallback((checkRole: RoleName | RoleName[]): boolean => {
-        if (!role) return false;
-        if (Array.isArray(checkRole)) {
-            return checkRole.includes(role);
-        }
-        return role === checkRole;
-    }, [role]);
+    const hasRoleFn = useCallback(
+        (checkRole: RoleName | RoleName[]): boolean => {
+            if (!role) return false;
+            if (Array.isArray(checkRole)) {
+                return checkRole.includes(role);
+            }
+            return role === checkRole;
+        },
+        [role],
+    );
 
     const value: RoleContextValue = {
         role,
@@ -230,11 +288,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userPhone,
     };
 
-    return (
-        <RoleContext.Provider value={value}>
-            {children}
-        </RoleContext.Provider>
-    );
+    return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
 };
 
 // ─────────────────────────────────────────────

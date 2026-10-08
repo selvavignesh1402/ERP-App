@@ -20,7 +20,7 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
     creditBalance,
     status,
     onPressStatusToggle,
-    onEditPress
+    onEditPress,
 }) => {
     const availableCredit = creditLimit - creditBalance;
     const creditPercent = creditLimit > 0 ? Math.min(100, (creditBalance / creditLimit) * 100) : 0;
@@ -37,9 +37,17 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
                 </View>
                 <TouchableOpacityActive
                     onPress={onPressStatusToggle}
-                    style={[styles.statusBadge, { backgroundColor: status === 'Active' ? '#E8F5E9' : '#ECEFF1' }]}
+                    style={[
+                        styles.statusBadge,
+                        { backgroundColor: status === 'Active' ? '#E8F5E9' : '#ECEFF1' },
+                    ]}
                 >
-                    <Text style={[styles.statusText, { color: status === 'Active' ? Colors.primary : Colors.textSecondary }]}>
+                    <Text
+                        style={[
+                            styles.statusText,
+                            { color: status === 'Active' ? Colors.primary : Colors.textSecondary },
+                        ]}
+                    >
                         {status}
                     </Text>
                 </TouchableOpacityActive>
@@ -61,11 +69,24 @@ export const CustomerCard: React.FC<CustomerCardProps> = ({
                 </View>
                 {/* Credit usage bar */}
                 <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: `${creditPercent}%`, backgroundColor: creditPercent > 80 ? Colors.error : Colors.primary }]} />
+                    <View
+                        style={[
+                            styles.progressBarFill,
+                            {
+                                width: `${creditPercent}%`,
+                                backgroundColor: creditPercent > 80 ? Colors.error : Colors.primary,
+                            },
+                        ]}
+                    />
                 </View>
                 <View style={styles.creditFooter}>
                     <Text style={styles.creditFooterText}>Available Limit: </Text>
-                    <Text style={[styles.creditFooterValue, { color: availableCredit < 5000 ? Colors.error : Colors.text }]}>
+                    <Text
+                        style={[
+                            styles.creditFooterValue,
+                            { color: availableCredit < 5000 ? Colors.error : Colors.text },
+                        ]}
+                    >
                         ₹{availableCredit}
                     </Text>
                 </View>
@@ -84,7 +105,7 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         padding: 20,
         marginBottom: 16,
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -187,5 +208,5 @@ const styles = StyleSheet.create({
     creditFooterValue: {
         fontSize: 12,
         fontFamily: 'Urbanist_700Bold',
-    }
+    },
 });

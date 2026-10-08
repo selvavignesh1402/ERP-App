@@ -1,8 +1,26 @@
 import { useEffect, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Text, Platform, useWindowDimensions } from 'react-native';
+import {
+    View,
+    TouchableOpacity,
+    StyleSheet,
+    ActivityIndicator,
+    Text,
+    Platform,
+    useWindowDimensions,
+} from 'react-native';
 import { Tabs, useRouter, Redirect } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
-import { LayoutGrid, Box, Plus, ShoppingCart, User, MapPin, Truck, BookOpen, Receipt } from 'lucide-react-native';
+import {
+    LayoutGrid,
+    Box,
+    Plus,
+    ShoppingCart,
+    User,
+    MapPin,
+    Truck,
+    BookOpen,
+    Receipt,
+} from 'lucide-react-native';
 import { onUnauthorized, getToken, clearToken, onTokenChanged } from '../../src/services/api';
 import { useCurrentRole, RoleName } from '../../src/hooks/useCurrentRole';
 
@@ -29,17 +47,19 @@ export default function TabLayout() {
                 setAuthChecked(true);
             }
         });
-        getToken().then(token => {
-            if (!cancelled) {
-                setHasToken(!!token);
-                setAuthChecked(true);
-            }
-        }).catch(() => {
-            if (!cancelled) {
-                setHasToken(false);
-                setAuthChecked(true);
-            }
-        });
+        getToken()
+            .then((token) => {
+                if (!cancelled) {
+                    setHasToken(!!token);
+                    setAuthChecked(true);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setHasToken(false);
+                    setAuthChecked(true);
+                }
+            });
         return () => {
             cancelled = true;
             offToken();
@@ -48,7 +68,14 @@ export default function TabLayout() {
 
     if (!authChecked) {
         return (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
+            <View
+                style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: Colors.background,
+                }}
+            >
                 <ActivityIndicator size="large" color={Colors.primary} />
             </View>
         );
@@ -60,7 +87,14 @@ export default function TabLayout() {
 
     if (!ready) {
         return (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
+            <View
+                style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: Colors.background,
+                }}
+            >
                 <ActivityIndicator size="large" color={Colors.primary} />
             </View>
         );
@@ -69,8 +103,17 @@ export default function TabLayout() {
     if (failed) {
         // Token exists but backend is unreachable or returned an auth error.
         // Clear the stale token so we don't get stuck in a redirect loop.
-        clearToken();
-        return <Redirect href="/(auth)/welcome" />;    
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+                <Text>
+                    Could not verify your account. Reconnect and reopen the app. Your saved session has been
+                    kept.
+                </Text>
+                <TouchableOpacity accessibilityRole="button" onPress={() => clearToken()}>
+                    <Text>Sign out</Text>
+                </TouchableOpacity>
+            </View>
+        );
     }
 
     if (role === 'MASTER_ADMIN') {
@@ -92,13 +135,21 @@ export default function TabLayout() {
     );
 }
 
-function CustomBottomDock({ state, navigation, role }: { state: any; navigation: any; role: RoleName | null }) {
+function CustomBottomDock({
+    state,
+    navigation,
+    role,
+}: {
+    state: any;
+    navigation: any;
+    role: RoleName | null;
+}) {
     const { width } = useWindowDimensions();
+    const router = useRouter();
     if (Platform.OS === 'web' && width >= 1024) {
         return null; // On desktop web, the Left Sidebar replaces the bottom dock
     }
 
-    const router = useRouter();
     const currentRoute = state.routes[state.index]?.name;
 
     const navigateTo = (routeName: string) => {
@@ -109,19 +160,39 @@ function CustomBottomDock({ state, navigation, role }: { state: any; navigation:
         }
     };
 
+    const isRouteActive = (route: string) => {
+        const clean = route.replace(/^\//, '');
+        return currentRoute === route || currentRoute === clean;
+    };
+
     // Define role-tailored configuration for Tab 2 and Tab 4
-    let tab2Config = { label: 'Stock', icon: Box, route: 'stock', isActive: currentRoute === 'stock' };
-    let tab4Config = { label: 'Sales', icon: ShoppingCart, route: 'sales', isActive: currentRoute === 'sales' };
+    let tab2Config = { label: 'Stock', icon: Box, route: 'stock', isActive: isRouteActive('stock') };
+    let tab4Config = {
+        label: 'Sales',
+        icon: ShoppingCart,
+        route: 'sales',
+        isActive: isRouteActive('sales'),
+    };
 
     if (role === 'SALES') {
-        tab2Config = { label: 'Route', icon: MapPin, route: '/field-sales', isActive: false };
-        tab4Config = { label: 'Sales', icon: ShoppingCart, route: 'sales', isActive: currentRoute === 'sales' };
+        tab2Config = { label: 'Route', icon: MapPin, route: '/field-sales', isActive: isRouteActive('/field-sales') };
+        tab4Config = {
+            label: 'Sales',
+            icon: ShoppingCart,
+            route: 'sales',
+            isActive: isRouteActive('sales'),
+        };
     } else if (role === 'WAREHOUSE') {
-        tab2Config = { label: 'Stock', icon: Box, route: 'stock', isActive: currentRoute === 'stock' };
-        tab4Config = { label: 'Purchases', icon: Truck, route: '/purchases', isActive: false };
+        tab2Config = { label: 'Stock', icon: Box, route: 'stock', isActive: isRouteActive('stock') };
+        tab4Config = { label: 'Purchases', icon: Truck, route: '/purchases', isActive: isRouteActive('/purchases') };
     } else if (role === 'ACCOUNTANT') {
-        tab2Config = { label: 'Ledger', icon: BookOpen, route: 'ledger', isActive: currentRoute === 'ledger' };
-        tab4Config = { label: 'Invoices', icon: Receipt, route: '/invoices', isActive: false };
+        tab2Config = {
+            label: 'Ledger',
+            icon: BookOpen,
+            route: 'ledger',
+            isActive: isRouteActive('ledger'),
+        };
+        tab4Config = { label: 'Invoices', icon: Receipt, route: '/invoices', isActive: isRouteActive('/invoices') };
     }
 
     const Tab2Icon = tab2Config.icon;
@@ -136,11 +207,10 @@ function CustomBottomDock({ state, navigation, role }: { state: any; navigation:
                     onPress={() => navigateTo('index')}
                     activeOpacity={0.7}
                 >
-                    <LayoutGrid
-                        size={22}
-                        color={currentRoute === 'index' ? '#1A1A1A' : '#8A8A8A'}
-                    />
-                    <Text style={[styles.tabLabel, currentRoute === 'index' && styles.tabLabelActive]}>Home</Text>
+                    <LayoutGrid size={22} color={currentRoute === 'index' ? '#1A1A1A' : '#8A8A8A'} />
+                    <Text style={[styles.tabLabel, currentRoute === 'index' && styles.tabLabelActive]}>
+                        Home
+                    </Text>
                 </TouchableOpacity>
 
                 {/* 2. Role-tailored Tab 2 (Stock / Route / Ledger) */}
@@ -149,11 +219,10 @@ function CustomBottomDock({ state, navigation, role }: { state: any; navigation:
                     onPress={() => navigateTo(tab2Config.route)}
                     activeOpacity={0.7}
                 >
-                    <Tab2Icon
-                        size={22}
-                        color={tab2Config.isActive ? '#1A1A1A' : '#8A8A8A'}
-                    />
-                    <Text style={[styles.tabLabel, tab2Config.isActive && styles.tabLabelActive]}>{tab2Config.label}</Text>
+                    <Tab2Icon size={22} color={tab2Config.isActive ? '#1A1A1A' : '#8A8A8A'} />
+                    <Text style={[styles.tabLabel, tab2Config.isActive && styles.tabLabelActive]}>
+                        {tab2Config.label}
+                    </Text>
                 </TouchableOpacity>
 
                 {/* 3. Center Elevated + FAB Button -> Navigates to Modules/Menu Screen */}
@@ -173,11 +242,10 @@ function CustomBottomDock({ state, navigation, role }: { state: any; navigation:
                     onPress={() => navigateTo(tab4Config.route)}
                     activeOpacity={0.7}
                 >
-                    <Tab4Icon
-                        size={22}
-                        color={tab4Config.isActive ? '#1A1A1A' : '#8A8A8A'}
-                    />
-                    <Text style={[styles.tabLabel, tab4Config.isActive && styles.tabLabelActive]}>{tab4Config.label}</Text>
+                    <Tab4Icon size={22} color={tab4Config.isActive ? '#1A1A1A' : '#8A8A8A'} />
+                    <Text style={[styles.tabLabel, tab4Config.isActive && styles.tabLabelActive]}>
+                        {tab4Config.label}
+                    </Text>
                 </TouchableOpacity>
 
                 {/* 5. Profile Tab -> Profile details, Settings, User Management (Admin), Log Out */}
@@ -186,11 +254,10 @@ function CustomBottomDock({ state, navigation, role }: { state: any; navigation:
                     onPress={() => navigateTo('profile')}
                     activeOpacity={0.7}
                 >
-                    <User
-                        size={22}
-                        color={currentRoute === 'profile' ? '#1A1A1A' : '#8A8A8A'}
-                    />
-                    <Text style={[styles.tabLabel, currentRoute === 'profile' && styles.tabLabelActive]}>Profile</Text>
+                    <User size={22} color={currentRoute === 'profile' ? '#1A1A1A' : '#8A8A8A'} />
+                    <Text style={[styles.tabLabel, currentRoute === 'profile' && styles.tabLabelActive]}>
+                        Profile
+                    </Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -258,5 +325,5 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 6,
-    }
+    },
 });

@@ -1,28 +1,89 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-    ScrollView, TextInput, Modal, ActivityIndicator, Alert,
-    Platform, Share, Switch
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    TouchableOpacity,
+    ScrollView,
+    TextInput,
+    Modal,
+    ActivityIndicator,
+    Alert,
+    Platform,
+    Share,
+    Switch,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    ArrowLeft, Plus, Users, UserCheck, UserX, Shield,
-    Phone, Trash2, Share2, Copy, Check, Lock, ChevronRight,
-    Briefcase, Sparkles, RefreshCw, X, ShieldAlert, Mail
+    ArrowLeft,
+    Plus,
+    Users,
+    UserCheck,
+    UserX,
+    Shield,
+    Phone,
+    Trash2,
+    Share2,
+    Copy,
+    Check,
+    Lock,
+    ChevronRight,
+    Briefcase,
+    Sparkles,
+    RefreshCw,
+    X,
+    ShieldAlert,
+    Mail,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../src/components/Anime';
 import { RoleGate } from '../src/components/RoleGate';
-import api from '../src/services/api';
+import { OrgScopedScreen } from '../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../src/services/api';
 
 const ROLES = [
-    { key: 'ADMIN', label: 'Admin / Owner', desc: 'Full access to sales, finances, purchases & staff settings', color: '#7C3AED', bg: '#EDE7F6' },
-    { key: 'SALES', label: 'Field Sales Rep', desc: 'Can visit stores, take orders & collect payments', color: '#F06A8C', bg: '#FBE8F0' },
-    { key: 'ACCOUNTANT', label: 'Accountant / Cashier', desc: 'Manages sales, supplier bills, payments & GST records', color: '#2E7D32', bg: '#E8F5E9' },
-    { key: 'WAREHOUSE', label: 'Warehouse Manager', desc: 'Manages product stock, goods receipt & supplier deliveries', color: '#E65100', bg: '#FFF3E0' },
+    {
+        key: 'ADMIN',
+        label: 'Admin / Owner',
+        desc: 'Full access to sales, finances, purchases & staff settings',
+        color: '#7C3AED',
+        bg: '#EDE7F6',
+    },
+    {
+        key: 'SALES',
+        label: 'Field Sales Rep',
+        desc: 'Can visit stores, take orders & collect payments',
+        color: '#F06A8C',
+        bg: '#FBE8F0',
+    },
+    {
+        key: 'ACCOUNTANT',
+        label: 'Accountant / Cashier',
+        desc: 'Manages sales, supplier bills, payments & GST records',
+        color: '#2E7D32',
+        bg: '#E8F5E9',
+    },
+    {
+        key: 'WAREHOUSE',
+        label: 'Warehouse Manager',
+        desc: 'Manages product stock, goods receipt & supplier deliveries',
+        color: '#E65100',
+        bg: '#FFF3E0',
+    },
 ];
 
 export default function TeamManagementScreen() {
+    return (
+        <RoleGate role={['ADMIN', 'MASTER_ADMIN']} permission="users:manage">
+            <OrgScopedScreen emptyMessage="Select a shop to manage your team.">
+                {(api) => <TeamManagementScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function TeamManagementScreenContent({ api }: { api: OrganizationApi }) {
     const [members, setMembers] = useState<any[]>([]);
     const [invites, setInvites] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -100,7 +161,11 @@ export default function TeamManagementScreen() {
                 fetchTeamData();
             }
         } catch (error: any) {
-            const msg = error.response?.data?.message || error.response?.data || error.message || 'Failed to process request';
+            const msg =
+                error.response?.data?.message ||
+                error.response?.data ||
+                error.message ||
+                'Failed to process request';
             Alert.alert('Failed', typeof msg === 'string' ? msg : 'Error creating staff');
         } finally {
             setSubmitting(false);
@@ -120,7 +185,9 @@ export default function TeamManagementScreen() {
             await api.put(`/api/organizations/members/${membershipId}/status`, {
                 isActive: !currentStatus,
             });
-            setMembers(prev => prev.map(m => m.membershipId === membershipId ? { ...m, isActive: !currentStatus } : m));
+            setMembers((prev) =>
+                prev.map((m) => (m.membershipId === membershipId ? { ...m, isActive: !currentStatus } : m)),
+            );
         } catch (error: any) {
             Alert.alert('Error', 'Could not update staff account status.');
         }
@@ -155,21 +222,21 @@ export default function TeamManagementScreen() {
                     onPress: async () => {
                         try {
                             await api.delete(`/api/organizations/members/${member.membershipId}`);
-                            setMembers(prev => prev.filter(m => m.membershipId !== member.membershipId));
+                            setMembers((prev) => prev.filter((m) => m.membershipId !== member.membershipId));
                             Alert.alert('Removed', 'Staff member removed from shop.');
                         } catch (error: any) {
                             Alert.alert('Error', 'Could not remove member.');
                         }
-                    }
-                }
-            ]
+                    },
+                },
+            ],
         );
     };
 
     const handleCancelInvite = async (inviteId: number) => {
         try {
             await api.delete(`/api/organizations/invites/${inviteId}`);
-            setInvites(prev => prev.filter(i => i.id !== inviteId));
+            setInvites((prev) => prev.filter((i) => i.id !== inviteId));
         } catch (error) {
             Alert.alert('Error', 'Could not cancel invite.');
         }
@@ -191,9 +258,8 @@ export default function TeamManagementScreen() {
     };
 
     return (
-        <RoleGate role={['ADMIN', 'MASTER_ADMIN']} permission="users:manage">
-            <SafeAreaView style={styles.container}>
-                <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={styles.container}>
+            <Stack.Screen options={{ headerShown: false }} />
 
             {/* Pastel SVG Background Blobs */}
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
@@ -212,12 +278,18 @@ export default function TeamManagementScreen() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* 1. Header */}
                 <FadeInDown delay={20} style={styles.header}>
-                    <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+                    <TouchableOpacity
+                        style={styles.backBtn}
+                        onPress={() => router.back()}
+                        activeOpacity={0.7}
+                    >
                         <ArrowLeft size={20} color="#1A1A1A" />
                     </TouchableOpacity>
                     <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={styles.headerTitle}>Team & Staff</Text>
-                        <Text style={styles.headerSubtitle}>Manage staff permissions, roles & invitations</Text>
+                        <Text style={styles.headerSubtitle}>
+                            Manage staff permissions, roles & invitations
+                        </Text>
                     </View>
                     <TouchableOpacity
                         style={styles.refreshBtn}
@@ -235,7 +307,9 @@ export default function TeamManagementScreen() {
                 <FadeInDown delay={40} style={styles.topBanner}>
                     <View style={styles.topBannerTextCol}>
                         <Text style={styles.topBannerHeading}>Shop Staff Directory</Text>
-                        <Text style={styles.topBannerSub}>Add team members with custom roles for POS, billing & field routes.</Text>
+                        <Text style={styles.topBannerSub}>
+                            Add team members with custom roles for POS, billing & field routes.
+                        </Text>
                     </View>
                     <TouchableOpacity
                         style={styles.addStaffBtn}
@@ -260,15 +334,13 @@ export default function TeamManagementScreen() {
                     <View style={styles.statCard}>
                         <UserCheck size={18} color="#2E7D32" />
                         <Text style={[styles.statVal, { color: '#2E7D32' }]}>
-                            {members.filter(m => m.isActive).length}
+                            {members.filter((m) => m.isActive).length}
                         </Text>
                         <Text style={styles.statLbl}>Active</Text>
                     </View>
                     <View style={styles.statCard}>
                         <UserX size={18} color="#E65100" />
-                        <Text style={[styles.statVal, { color: '#E65100' }]}>
-                            {invites.length}
-                        </Text>
+                        <Text style={[styles.statVal, { color: '#E65100' }]}>{invites.length}</Text>
                         <Text style={styles.statLbl}>Invites</Text>
                     </View>
                 </FadeInDown>
@@ -294,12 +366,22 @@ export default function TeamManagementScreen() {
                     ) : (
                         <StaggerContainer stagger={30} delay={100}>
                             {members.map((member) => {
-                                const roleMeta = ROLES.find(r => r.key === member.role) || ROLES[1];
+                                const roleMeta = ROLES.find((r) => r.key === member.role) || ROLES[1];
                                 return (
                                     <View key={member.membershipId} style={styles.memberCard}>
                                         <View style={styles.memberTopRow}>
-                                            <View style={[styles.memberAvatar, { backgroundColor: roleMeta.bg }]}>
-                                                <Text style={[styles.memberAvatarText, { color: roleMeta.color }]}>
+                                            <View
+                                                style={[
+                                                    styles.memberAvatar,
+                                                    { backgroundColor: roleMeta.bg },
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.memberAvatarText,
+                                                        { color: roleMeta.color },
+                                                    ]}
+                                                >
                                                     {(member.name || 'U').charAt(0).toUpperCase()}
                                                 </Text>
                                             </View>
@@ -307,26 +389,48 @@ export default function TeamManagementScreen() {
                                             <View style={styles.memberInfoCol}>
                                                 <View style={styles.memberNameRow}>
                                                     <Text style={styles.memberNameText}>{member.name}</Text>
-                                                    <View style={[styles.roleBadge, { backgroundColor: roleMeta.bg }]}>
-                                                        <Text style={[styles.roleBadgeText, { color: roleMeta.color }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.roleBadge,
+                                                            { backgroundColor: roleMeta.bg },
+                                                        ]}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.roleBadgeText,
+                                                                { color: roleMeta.color },
+                                                            ]}
+                                                        >
                                                             {roleMeta.label}
                                                         </Text>
                                                     </View>
                                                 </View>
                                                 <View style={styles.memberPhoneRow}>
                                                     <Phone size={12} color="#8A8A8A" />
-                                                    <Text style={styles.memberPhoneText}>{member.phoneNumber}</Text>
+                                                    <Text style={styles.memberPhoneText}>
+                                                        {member.phoneNumber}
+                                                    </Text>
                                                 </View>
                                             </View>
 
                                             <View style={styles.statusCol}>
                                                 <Switch
                                                     value={member.isActive}
-                                                    onValueChange={() => handleToggleStatus(member.membershipId, member.isActive)}
+                                                    onValueChange={() =>
+                                                        handleToggleStatus(
+                                                            member.membershipId,
+                                                            member.isActive,
+                                                        )
+                                                    }
                                                     trackColor={{ false: '#E0E0E0', true: '#C8E6C9' }}
                                                     thumbColor={member.isActive ? '#2E7D32' : '#9E9E9E'}
                                                 />
-                                                <Text style={[styles.statusLabel, { color: member.isActive ? '#2E7D32' : '#9E9E9E' }]}>
+                                                <Text
+                                                    style={[
+                                                        styles.statusLabel,
+                                                        { color: member.isActive ? '#2E7D32' : '#9E9E9E' },
+                                                    ]}
+                                                >
                                                     {member.isActive ? 'Active' : 'Disabled'}
                                                 </Text>
                                             </View>
@@ -349,12 +453,22 @@ export default function TeamManagementScreen() {
 
                                             {member.role !== 'ADMIN' && (
                                                 <TouchableOpacity
-                                                    style={[styles.memberActionBtn, { borderColor: '#FFCDD2' }]}
+                                                    style={[
+                                                        styles.memberActionBtn,
+                                                        { borderColor: '#FFCDD2' },
+                                                    ]}
                                                     onPress={() => handleRemoveMember(member)}
                                                     activeOpacity={0.7}
                                                 >
                                                     <Trash2 size={13} color="#C62828" />
-                                                    <Text style={[styles.memberActionBtnText, { color: '#C62828' }]}>Remove</Text>
+                                                    <Text
+                                                        style={[
+                                                            styles.memberActionBtnText,
+                                                            { color: '#C62828' },
+                                                        ]}
+                                                    >
+                                                        Remove
+                                                    </Text>
                                                 </TouchableOpacity>
                                             )}
                                         </View>
@@ -374,18 +488,31 @@ export default function TeamManagementScreen() {
                         </View>
 
                         {invites.map((invite) => {
-                            const roleMeta = ROLES.find(r => r.key === invite.role) || ROLES[1];
+                            const roleMeta = ROLES.find((r) => r.key === invite.role) || ROLES[1];
                             return (
                                 <View key={invite.id} style={styles.inviteCard}>
                                     <View style={styles.inviteInfoRow}>
                                         <View>
-                                            <Text style={styles.invitePhone}>{invite.inviteePhoneNumber}</Text>
-                                            <Text style={styles.inviteMeta}>Invited as <Text style={{ fontWeight: '700', color: roleMeta.color }}>{roleMeta.label}</Text></Text>
+                                            <Text style={styles.invitePhone}>
+                                                {invite.inviteePhoneNumber}
+                                            </Text>
+                                            <Text style={styles.inviteMeta}>
+                                                Invited as{' '}
+                                                <Text style={{ fontWeight: '700', color: roleMeta.color }}>
+                                                    {roleMeta.label}
+                                                </Text>
+                                            </Text>
                                         </View>
                                         <View style={styles.inviteActions}>
                                             <TouchableOpacity
                                                 style={styles.shareInviteBtn}
-                                                onPress={() => handleShareInvite(invite.inviteLink, invite.inviteePhoneNumber, roleMeta.label)}
+                                                onPress={() =>
+                                                    handleShareInvite(
+                                                        invite.inviteLink,
+                                                        invite.inviteePhoneNumber,
+                                                        roleMeta.label,
+                                                    )
+                                                }
                                                 activeOpacity={0.7}
                                             >
                                                 <Share2 size={13} color="#2E7D32" />
@@ -421,9 +548,14 @@ export default function TeamManagementScreen() {
                         <View style={styles.modalHeader}>
                             <View>
                                 <Text style={styles.modalTitle}>Add Staff Member</Text>
-                                <Text style={styles.modalSubtitle}>Provision user account or send WhatsApp invite</Text>
+                                <Text style={styles.modalSubtitle}>
+                                    Provision user account or send WhatsApp invite
+                                </Text>
                             </View>
-                            <TouchableOpacity style={styles.closeBtn} onPress={() => setAddModalVisible(false)}>
+                            <TouchableOpacity
+                                style={styles.closeBtn}
+                                onPress={() => setAddModalVisible(false)}
+                            >
                                 <X size={20} color="#1A1A1A" />
                             </TouchableOpacity>
                         </View>
@@ -437,7 +569,12 @@ export default function TeamManagementScreen() {
                                     setCreatedInviteLink(null);
                                 }}
                             >
-                                <Text style={[styles.modeTabText, activeTab === 'DIRECT' && styles.modeTabTextActive]}>
+                                <Text
+                                    style={[
+                                        styles.modeTabText,
+                                        activeTab === 'DIRECT' && styles.modeTabTextActive,
+                                    ]}
+                                >
                                     Direct Account
                                 </Text>
                             </TouchableOpacity>
@@ -448,28 +585,42 @@ export default function TeamManagementScreen() {
                                     setCreatedInviteLink(null);
                                 }}
                             >
-                                <Text style={[styles.modeTabText, activeTab === 'INVITE' && styles.modeTabTextActive]}>
+                                <Text
+                                    style={[
+                                        styles.modeTabText,
+                                        activeTab === 'INVITE' && styles.modeTabTextActive,
+                                    ]}
+                                >
                                     Invite Link / WhatsApp
                                 </Text>
                             </TouchableOpacity>
                         </View>
 
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                        <ScrollView
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={{ paddingBottom: 20 }}
+                        >
                             {createdInviteLink ? (
                                 <View style={styles.successInviteBox}>
                                     <View style={styles.successIconCircle}>
                                         <Check size={28} color="#2E7D32" strokeWidth={3} />
                                     </View>
                                     <Text style={styles.successTitle}>Invitation Link Ready!</Text>
-                                    <Text style={styles.successDesc}>Share this link via WhatsApp with your staff member to join.</Text>
+                                    <Text style={styles.successDesc}>
+                                        Share this link via WhatsApp with your staff member to join.
+                                    </Text>
 
                                     <View style={styles.linkDisplayBox}>
-                                        <Text style={styles.linkDisplayText} numberOfLines={1}>{createdInviteLink}</Text>
+                                        <Text style={styles.linkDisplayText} numberOfLines={1}>
+                                            {createdInviteLink}
+                                        </Text>
                                     </View>
 
                                     <TouchableOpacity
                                         style={styles.whatsAppShareBtn}
-                                        onPress={() => handleShareInvite(createdInviteLink, staffPhone, selectedRole)}
+                                        onPress={() =>
+                                            handleShareInvite(createdInviteLink, staffPhone, selectedRole)
+                                        }
                                         activeOpacity={0.85}
                                     >
                                         <Share2 size={16} color="#FFFFFF" />
@@ -529,7 +680,9 @@ export default function TeamManagementScreen() {
                                                 autoCapitalize="none"
                                                 autoCorrect={false}
                                             />
-                                            <Text style={styles.inputLabel}>Existing accounts keep their current password.</Text>
+                                            <Text style={styles.inputLabel}>
+                                                Existing accounts keep their current password.
+                                            </Text>
                                         </View>
                                     )}
 
@@ -542,13 +695,29 @@ export default function TeamManagementScreen() {
                                                 return (
                                                     <TouchableOpacity
                                                         key={r.key}
-                                                        style={[styles.roleOptionCard, selected && styles.roleOptionCardActive]}
+                                                        style={[
+                                                            styles.roleOptionCard,
+                                                            selected && styles.roleOptionCardActive,
+                                                        ]}
                                                         onPress={() => setSelectedRole(r.key)}
                                                         activeOpacity={0.8}
                                                     >
                                                         <View style={styles.roleOptionHeader}>
-                                                            <View style={[styles.roleOptionDot, { backgroundColor: r.color }]} />
-                                                            <Text style={[styles.roleOptionTitle, selected && { color: r.color, fontWeight: '700' }]}>
+                                                            <View
+                                                                style={[
+                                                                    styles.roleOptionDot,
+                                                                    { backgroundColor: r.color },
+                                                                ]}
+                                                            />
+                                                            <Text
+                                                                style={[
+                                                                    styles.roleOptionTitle,
+                                                                    selected && {
+                                                                        color: r.color,
+                                                                        fontWeight: '700',
+                                                                    },
+                                                                ]}
+                                                            >
                                                                 {r.label}
                                                             </Text>
                                                         </View>
@@ -570,7 +739,9 @@ export default function TeamManagementScreen() {
                                             <ActivityIndicator size="small" color="#FFFFFF" />
                                         ) : (
                                             <Text style={styles.submitBtnText}>
-                                                {activeTab === 'DIRECT' ? 'Add Staff Member' : 'Generate Invite Link'}
+                                                {activeTab === 'DIRECT'
+                                                    ? 'Add Staff Member'
+                                                    : 'Generate Invite Link'}
                                             </Text>
                                         )}
                                     </TouchableOpacity>
@@ -595,9 +766,14 @@ export default function TeamManagementScreen() {
                         <View style={styles.modalHeader}>
                             <View>
                                 <Text style={styles.modalTitle}>Change Role</Text>
-                                <Text style={styles.modalSubtitle}>{selectedMember?.name} ({selectedMember?.phoneNumber})</Text>
+                                <Text style={styles.modalSubtitle}>
+                                    {selectedMember?.name} ({selectedMember?.phoneNumber})
+                                </Text>
                             </View>
-                            <TouchableOpacity style={styles.closeBtn} onPress={() => setEditRoleModalVisible(false)}>
+                            <TouchableOpacity
+                                style={styles.closeBtn}
+                                onPress={() => setEditRoleModalVisible(false)}
+                            >
                                 <X size={20} color="#1A1A1A" />
                             </TouchableOpacity>
                         </View>
@@ -613,8 +789,15 @@ export default function TeamManagementScreen() {
                                         activeOpacity={0.8}
                                     >
                                         <View style={styles.roleOptionHeader}>
-                                            <View style={[styles.roleOptionDot, { backgroundColor: r.color }]} />
-                                            <Text style={[styles.roleOptionTitle, active && { color: r.color, fontWeight: '700' }]}>
+                                            <View
+                                                style={[styles.roleOptionDot, { backgroundColor: r.color }]}
+                                            />
+                                            <Text
+                                                style={[
+                                                    styles.roleOptionTitle,
+                                                    active && { color: r.color, fontWeight: '700' },
+                                                ]}
+                                            >
                                                 {r.label}
                                             </Text>
                                         </View>
@@ -638,8 +821,7 @@ export default function TeamManagementScreen() {
                     </View>
                 </View>
             </Modal>
-            </SafeAreaView>
-        </RoleGate>
+        </SafeAreaView>
     );
 }
 

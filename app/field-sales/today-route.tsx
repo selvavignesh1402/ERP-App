@@ -1,18 +1,37 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Linking, Platform
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    RefreshControl,
+    Linking,
+    Platform,
+    Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    MapPin, ChevronRight, AlertCircle, CheckCircle2, Clock,
-    ArrowLeft, Phone, Store, Navigation, Calendar,
-    Play
+    MapPin,
+    ChevronRight,
+    AlertCircle,
+    CheckCircle2,
+    Clock,
+    ArrowLeft,
+    Phone,
+    Store,
+    Navigation,
+    Calendar,
+    Play,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../../src/components/Anime';
-import api from '../../src/services/api';
+import { RoleGate } from '../../src/components/RoleGate';
+import { OrgScopedScreen } from '../../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../../src/services/api';
 
 interface RouteItem {
     scheduleId: number;
@@ -73,6 +92,16 @@ const statusConfig = {
 type FilterTab = 'ALL' | 'PENDING' | 'COMPLETED' | 'MISSED';
 
 export default function TodayRouteScreen() {
+    return (
+        <RoleGate permission="beat-plan:view">
+            <OrgScopedScreen emptyMessage="Select a shop to view today's route.">
+                {(api) => <TodayRouteScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function TodayRouteScreenContent({ api }: { api: OrganizationApi }) {
     const router = useRouter();
     const [route, setRoute] = useState<RouteItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -82,7 +111,12 @@ export default function TodayRouteScreen() {
     const todayDateFormatted = useMemo(() => {
         const d = new Date();
         return {
-            full: d.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }),
+            full: d.toLocaleDateString('en-IN', {
+                weekday: 'long',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+            }),
             day: d.toLocaleDateString('en-IN', { weekday: 'short' }),
             dateStr: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
         };
@@ -93,17 +127,19 @@ export default function TodayRouteScreen() {
             setLoading(true);
             const res = await api.get('/beat-plans/my-route');
             const raw: any[] = res.data || [];
-            
+
             // Check active check-in persistence for every route stop
-            const checkedStops = await Promise.all(raw.map(async (item) => {
-                if (item.status === 'PENDING') {
-                    const localSaved = await AsyncStorage.getItem(`active_visit_${item.scheduleId}`);
-                    if (localSaved || item.checkInId) {
-                        return { ...item, status: 'IN_PROGRESS' as const };
+            const checkedStops = await Promise.all(
+                raw.map(async (item) => {
+                    if (item.status === 'PENDING') {
+                        const localSaved = await AsyncStorage.getItem(`active_visit_${item.scheduleId}`);
+                        if (localSaved || item.checkInId) {
+                            return { ...item, status: 'IN_PROGRESS' as const };
+                        }
                     }
-                }
-                return item;
-            }));
+                    return item;
+                }),
+            );
 
             setRoute(checkedStops);
         } catch (err) {
@@ -114,28 +150,47 @@ export default function TodayRouteScreen() {
         }
     }, []);
 
-    useFocusEffect(useCallback(() => {
-        fetchRoute();
-    }, [fetchRoute]));
+    useFocusEffect(
+        useCallback(() => {
+            fetchRoute();
+        }, [fetchRoute]),
+    );
 
     const stats = useMemo(() => {
         const total = route.length;
-        const completed = route.filter(r => r.status === 'COMPLETED').length;
-        const pending = route.filter(r => r.status === 'PENDING').length;
-        const missed = route.filter(r => r.status === 'MISSED').length;
+        const completed = route.filter((r) => r.status === 'COMPLETED').length;
+        const pending = route.filter((r) => r.status === 'PENDING').length;
+        const missed = route.filter((r) => r.status === 'MISSED').length;
         const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
         return { total, completed, pending, missed, pct };
     }, [route]);
 
     const filteredRoute = useMemo(() => {
         if (activeFilter === 'ALL') return route;
-        return route.filter(r => r.status === activeFilter);
+        return route.filter((r) => r.status === activeFilter);
     }, [route, activeFilter]);
 
     const handleCallCustomer = (phone: string) => {
         if (!phone) return;
         const cleanPhone = phone.replace(/[^0-9+]/g, '');
         Linking.openURL(`tel:${cleanPhone}`).catch(() => {});
+    };
+
+    const handleOpenMap = (customerName: string, customerAddress?: string) => {
+        const query = [customerName, customerAddress].filter(Boolean).join(', ');
+        if (!query) {
+            Alert.alert('Location Unavailable', 'No address listed for this store.');
+            return;
+        }
+        const encoded = encodeURIComponent(query);
+        const mapUrl = Platform.select({
+            ios: `maps:0,0?q=${encoded}`,
+            android: `geo:0,0?q=${encoded}`,
+            default: `https://www.google.com/maps/search/?api=1&query=${encoded}`,
+        });
+        Linking.openURL(mapUrl).catch(() => {
+            Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
+        });
     };
 
     return (
@@ -159,7 +214,7 @@ export default function TodayRouteScreen() {
                     <Path
                         d="M-50 160 C30 180, 120 120, 160 230 C200 340, 80 380, -10 350 C-90 310, -120 140, -50 160 Z"
                         fill="#FFE0B2"
-                        opacity={0.30}
+                        opacity={0.3}
                     />
 
                     {/* Route GPS Trajectory Dashed Path Illustration */}
@@ -177,7 +232,7 @@ export default function TodayRouteScreen() {
 
                     {/* Soft Lavender & Sage Ambience Blobs */}
                     <Circle cx="340" cy="480" r="85" fill="#E1BEE7" opacity={0.22} />
-                    <Circle cx="30" cy="700" r="80" fill="#DCEDC8" opacity={0.30} />
+                    <Circle cx="30" cy="700" r="80" fill="#DCEDC8" opacity={0.3} />
                 </Svg>
             </View>
 
@@ -200,7 +255,7 @@ export default function TodayRouteScreen() {
                     <View style={styles.headerTopRow}>
                         <TouchableOpacity
                             style={styles.backBtn}
-                            onPress={() => router.canGoBack() ? router.back() : router.push('/field-sales')}
+                            onPress={() => (router.canGoBack() ? router.back() : router.push('/field-sales'))}
                             activeOpacity={0.7}
                         >
                             <ArrowLeft size={20} color="#1A1A1A" />
@@ -208,9 +263,7 @@ export default function TodayRouteScreen() {
 
                         <View style={styles.headerTitleCol}>
                             <Text style={styles.headerTitle}>Today's Route</Text>
-                            <Text style={styles.headerSubtitle}>
-                                Live Field Check-ins & Stores
-                            </Text>
+                            <Text style={styles.headerSubtitle}>Live Field Check-ins & Stores</Text>
                         </View>
 
                         <View style={styles.liveGpsPill}>
@@ -250,11 +303,17 @@ export default function TodayRouteScreen() {
                             <View style={styles.heroStatMiniCol}>
                                 <View style={[styles.heroMiniTag, { backgroundColor: '#E8F5E9' }]}>
                                     <CheckCircle2 size={12} color="#2E7D32" />
-                                    <Text style={[styles.heroMiniTagText, { color: '#2E7D32' }]}>{stats.completed} Done</Text>
+                                    <Text style={[styles.heroMiniTagText, { color: '#2E7D32' }]}>
+                                        {stats.completed} Done
+                                    </Text>
                                 </View>
-                                <View style={[styles.heroMiniTag, { backgroundColor: '#FFF3E0', marginTop: 4 }]}>
+                                <View
+                                    style={[styles.heroMiniTag, { backgroundColor: '#FFF3E0', marginTop: 4 }]}
+                                >
                                     <Clock size={12} color="#E65100" />
-                                    <Text style={[styles.heroMiniTagText, { color: '#E65100' }]}>{stats.pending} Left</Text>
+                                    <Text style={[styles.heroMiniTagText, { color: '#E65100' }]}>
+                                        {stats.pending} Left
+                                    </Text>
                                 </View>
                             </View>
                         </View>
@@ -264,7 +323,9 @@ export default function TodayRouteScreen() {
                             <View
                                 style={[
                                     styles.progressBarFill,
-                                    { width: `${Math.min(100, Math.max(stats.pct, stats.total > 0 ? 4 : 0))}%` }
+                                    {
+                                        width: `${Math.min(100, Math.max(stats.pct, stats.total > 0 ? 4 : 0))}%`,
+                                    },
                                 ]}
                             />
                         </View>
@@ -288,11 +349,23 @@ export default function TodayRouteScreen() {
                                     onPress={() => setActiveFilter(tab)}
                                     activeOpacity={0.8}
                                 >
-                                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                                    <Text
+                                        style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                                    >
                                         {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
                                     </Text>
-                                    <View style={[styles.filterCountBadge, active && styles.filterCountBadgeActive]}>
-                                        <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>
+                                    <View
+                                        style={[
+                                            styles.filterCountBadge,
+                                            active && styles.filterCountBadgeActive,
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.filterCountText,
+                                                active && styles.filterCountTextActive,
+                                            ]}
+                                        >
                                             {count}
                                         </Text>
                                     </View>
@@ -315,11 +388,13 @@ export default function TodayRouteScreen() {
                                 <Store size={36} color="#888888" />
                             </View>
                             <Text style={styles.emptyTitle}>
-                                {activeFilter === 'ALL' ? 'No Stores Scheduled' : `No ${activeFilter.toLowerCase()} visits`}
+                                {activeFilter === 'ALL'
+                                    ? 'No Stores Scheduled'
+                                    : `No ${activeFilter.toLowerCase()} visits`}
                             </Text>
                             <Text style={styles.emptySubtitle}>
                                 {activeFilter === 'ALL'
-                                    ? "There are no stores assigned to your beat plan for today. Check the weekly Beat Plan to schedule visits."
+                                    ? 'There are no stores assigned to your beat plan for today. Check the weekly Beat Plan to schedule visits.'
                                     : `There are currently no stops with status "${activeFilter.toLowerCase()}".`}
                             </Text>
                             {activeFilter === 'ALL' && (
@@ -346,18 +421,30 @@ export default function TodayRouteScreen() {
                                     <AnimatedPressable
                                         key={item.scheduleId}
                                         style={styles.stopCard}
-                                        onPress={() => router.push({
-                                            pathname: '/field-sales/visit/[id]',
-                                            params: { id: item.scheduleId, customerName: item.customerName }
-                                        } as any)}
+                                        onPress={() =>
+                                            router.push({
+                                                pathname: '/field-sales/visit/[id]',
+                                                params: {
+                                                    id: item.scheduleId,
+                                                    customerName: item.customerName,
+                                                },
+                                            } as any)
+                                        }
                                     >
                                         {/* Card Top Row: Stop Badge, Status Badge */}
                                         <View style={styles.stopCardHeader}>
                                             <View style={styles.stopOrderPill}>
-                                                <Text style={styles.stopOrderText}>STOP #{item.visitOrder || (idx + 1)}</Text>
+                                                <Text style={styles.stopOrderText}>
+                                                    STOP #{item.visitOrder || idx + 1}
+                                                </Text>
                                             </View>
 
-                                            <View style={[styles.statusBadge, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
+                                            <View
+                                                style={[
+                                                    styles.statusBadge,
+                                                    { backgroundColor: cfg.bg, borderColor: cfg.border },
+                                                ]}
+                                            >
                                                 <StatusIcon size={12} color={cfg.color} />
                                                 <Text style={[styles.statusBadgeText, { color: cfg.color }]}>
                                                     {cfg.label}
@@ -367,32 +454,64 @@ export default function TodayRouteScreen() {
 
                                         {/* Shop Info Block */}
                                         <View style={styles.shopInfoRow}>
-                                            <View style={[styles.shopAvatarBox, { backgroundColor: isCompleted ? '#E8F5E9' : '#FFF3E0' }]}>
-                                                <Store size={22} color={isCompleted ? '#2E7D32' : '#E65100'} />
+                                            <View
+                                                style={[
+                                                    styles.shopAvatarBox,
+                                                    { backgroundColor: isCompleted ? '#E8F5E9' : '#FFF3E0' },
+                                                ]}
+                                            >
+                                                <Store
+                                                    size={22}
+                                                    color={isCompleted ? '#2E7D32' : '#E65100'}
+                                                />
                                             </View>
 
                                             <View style={{ flex: 1 }}>
                                                 <Text style={styles.shopNameText} numberOfLines={1}>
                                                     {item.customerName}
                                                 </Text>
-                                                <View style={styles.shopAddressRow}>
-                                                    <MapPin size={12} color="#777777" />
+                                                <TouchableOpacity
+                                                    style={styles.shopAddressRow}
+                                                    onPress={() =>
+                                                        handleOpenMap(item.customerName, item.customerAddress)
+                                                    }
+                                                    activeOpacity={0.7}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Open Google Maps for ${item.customerName}`}
+                                                >
+                                                    <MapPin size={12} color="#1565C0" />
                                                     <Text style={styles.shopAddressText} numberOfLines={1}>
-                                                        {item.customerAddress || 'Address not listed'}
+                                                        {item.customerAddress || 'View on Google Maps'}
                                                     </Text>
-                                                </View>
+                                                </TouchableOpacity>
                                             </View>
 
-                                            {/* Instant Call Button */}
-                                            {item.customerPhone ? (
+                                            {/* Action Buttons: Navigate Map + Call */}
+                                            <View style={styles.quickActionsGroup}>
                                                 <TouchableOpacity
-                                                    style={styles.quickCallBtn}
-                                                    onPress={() => handleCallCustomer(item.customerPhone)}
+                                                    style={styles.quickMapBtn}
+                                                    onPress={() =>
+                                                        handleOpenMap(item.customerName, item.customerAddress)
+                                                    }
                                                     activeOpacity={0.75}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Open Google Maps directions for ${item.customerName}`}
                                                 >
-                                                    <Phone size={15} color="#2E7D32" />
+                                                    <Navigation size={15} color="#1565C0" />
                                                 </TouchableOpacity>
-                                            ) : null}
+
+                                                {item.customerPhone ? (
+                                                    <TouchableOpacity
+                                                        style={styles.quickCallBtn}
+                                                        onPress={() => handleCallCustomer(item.customerPhone)}
+                                                        activeOpacity={0.75}
+                                                        accessibilityRole="button"
+                                                        accessibilityLabel={`Call ${item.customerName}`}
+                                                    >
+                                                        <Phone size={15} color="#2E7D32" />
+                                                    </TouchableOpacity>
+                                                ) : null}
+                                            </View>
                                         </View>
 
                                         {/* Financial / History Snapshot Grid */}
@@ -400,7 +519,9 @@ export default function TodayRouteScreen() {
                                             <View style={styles.statCol}>
                                                 <Text style={styles.statLabel}>LAST ORDER</Text>
                                                 <Text style={styles.statValue}>
-                                                    {item.lastOrderAmount ? `₹${item.lastOrderAmount.toLocaleString('en-IN')}` : '—'}
+                                                    {item.lastOrderAmount
+                                                        ? `₹${item.lastOrderAmount.toLocaleString('en-IN')}`
+                                                        : '—'}
                                                 </Text>
                                             </View>
 
@@ -408,7 +529,12 @@ export default function TodayRouteScreen() {
 
                                             <View style={styles.statCol}>
                                                 <Text style={styles.statLabel}>OUTSTANDING</Text>
-                                                <Text style={[styles.statValue, item.outstandingBalance > 0 && { color: '#E53935' }]}>
+                                                <Text
+                                                    style={[
+                                                        styles.statValue,
+                                                        item.outstandingBalance > 0 && { color: '#E53935' },
+                                                    ]}
+                                                >
                                                     {item.outstandingBalance > 0
                                                         ? `₹${item.outstandingBalance.toLocaleString('en-IN')}`
                                                         : '₹0'}
@@ -421,7 +547,10 @@ export default function TodayRouteScreen() {
                                                 <Text style={styles.statLabel}>LAST VISIT</Text>
                                                 <Text style={styles.statValue}>
                                                     {item.lastVisitDate
-                                                        ? new Date(item.lastVisitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                        ? new Date(item.lastVisitDate).toLocaleDateString(
+                                                              'en-IN',
+                                                              { day: '2-digit', month: 'short' },
+                                                          )
                                                         : '—'}
                                                 </Text>
                                             </View>
@@ -429,11 +558,19 @@ export default function TodayRouteScreen() {
 
                                         {/* Action Button: Start / Summary */}
                                         <TouchableOpacity
-                                            style={[styles.visitActionBtn, isCompleted && styles.visitActionBtnCompleted]}
-                                            onPress={() => router.push({
-                                                pathname: '/field-sales/visit/[id]',
-                                                params: { id: item.scheduleId, customerName: item.customerName }
-                                            } as any)}
+                                            style={[
+                                                styles.visitActionBtn,
+                                                isCompleted && styles.visitActionBtnCompleted,
+                                            ]}
+                                            onPress={() =>
+                                                router.push({
+                                                    pathname: '/field-sales/visit/[id]',
+                                                    params: {
+                                                        id: item.scheduleId,
+                                                        customerName: item.customerName,
+                                                    },
+                                                } as any)
+                                            }
                                             activeOpacity={0.85}
                                         >
                                             {isCompleted ? (
@@ -441,10 +578,18 @@ export default function TodayRouteScreen() {
                                             ) : (
                                                 <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
                                             )}
-                                            <Text style={[styles.visitActionText, isCompleted && styles.visitActionTextCompleted]}>
+                                            <Text
+                                                style={[
+                                                    styles.visitActionText,
+                                                    isCompleted && styles.visitActionTextCompleted,
+                                                ]}
+                                            >
                                                 {cfg.btnLabel}
                                             </Text>
-                                            <ChevronRight size={16} color={isCompleted ? '#2E7D32' : '#FFFFFF'} />
+                                            <ChevronRight
+                                                size={16}
+                                                color={isCompleted ? '#2E7D32' : '#FFFFFF'}
+                                            />
                                         </TouchableOpacity>
                                     </AnimatedPressable>
                                 );
@@ -750,12 +895,28 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
+        paddingVertical: 2,
     },
     shopAddressText: {
         fontSize: 12,
         fontWeight: '500',
-        color: '#777777',
+        color: '#555555',
         flex: 1,
+    },
+    quickActionsGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    quickMapBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#EAF2FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#C5DCFA',
     },
     quickCallBtn: {
         width: 36,

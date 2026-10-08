@@ -1,19 +1,50 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Platform
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    RefreshControl,
+    Platform,
 } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    ArrowLeft, CheckCircle2, AlertCircle, Clock, TrendingUp,
-    AlertTriangle, Users, IndianRupee, Store, Navigation,
-    ChevronRight, BarChart2, ShieldCheck, Sparkles, RefreshCw
+    ArrowLeft,
+    CheckCircle2,
+    AlertCircle,
+    Clock,
+    TrendingUp,
+    AlertTriangle,
+    Users,
+    IndianRupee,
+    Store,
+    Navigation,
+    ChevronRight,
+    BarChart2,
+    ShieldCheck,
+    Sparkles,
+    RefreshCw,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../../src/components/Anime';
-import api from '../../src/services/api';
+import { RoleGate } from '../../src/components/RoleGate';
+import { OrgScopedScreen } from '../../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../../src/services/api';
 
 export default function ManagerDashboardScreen() {
+    return (
+        <RoleGate permission="beat-plan:manage">
+            <OrgScopedScreen emptyMessage="Select a shop to view the team dashboard.">
+                {(api) => <ManagerDashboardScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function ManagerDashboardScreenContent({ api }: { api: OrganizationApi }) {
     const router = useRouter();
     const [dashboard, setDashboard] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -22,7 +53,12 @@ export default function ManagerDashboardScreen() {
     const todayDateFormatted = useMemo(() => {
         const d = new Date();
         return {
-            full: d.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }),
+            full: d.toLocaleDateString('en-IN', {
+                weekday: 'long',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+            }),
             timeStr: d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
         };
     }, []);
@@ -40,17 +76,31 @@ export default function ManagerDashboardScreen() {
         }
     }, []);
 
-    useFocusEffect(useCallback(() => {
-        fetchDashboard();
-    }, [fetchDashboard]));
+    useFocusEffect(
+        useCallback(() => {
+            fetchDashboard();
+        }, [fetchDashboard]),
+    );
 
     const team: any[] = dashboard?.team || [];
     const alerts: any[] = dashboard?.alerts || [];
 
-    const totalVisits = useMemo(() => team.reduce((s: number, m: any) => s + (m.totalScheduled || 0), 0), [team]);
-    const totalCompleted = useMemo(() => team.reduce((s: number, m: any) => s + (m.completed || 0), 0), [team]);
-    const totalOrders = useMemo(() => team.reduce((s: number, m: any) => s + (m.totalOrders || 0), 0), [team]);
-    const totalCollections = useMemo(() => team.reduce((s: number, m: any) => s + (m.totalCollections || 0), 0), [team]);
+    const totalVisits = useMemo(
+        () => team.reduce((s: number, m: any) => s + (m.totalScheduled || 0), 0),
+        [team],
+    );
+    const totalCompleted = useMemo(
+        () => team.reduce((s: number, m: any) => s + (m.completed || 0), 0),
+        [team],
+    );
+    const totalOrders = useMemo(
+        () => team.reduce((s: number, m: any) => s + (m.totalOrders || 0), 0),
+        [team],
+    );
+    const totalCollections = useMemo(
+        () => team.reduce((s: number, m: any) => s + (m.totalCollections || 0), 0),
+        [team],
+    );
     const completionPct = totalVisits > 0 ? Math.round((totalCompleted / totalVisits) * 100) : 0;
 
     const formatCompact = (amount: number) => {
@@ -100,7 +150,7 @@ export default function ManagerDashboardScreen() {
 
                     {/* Soft Ambience Rings */}
                     <Circle cx="340" cy="460" r="80" fill="#FFE0B2" opacity={0.25} />
-                    <Circle cx="40" cy="680" r="75" fill="#D1C4E9" opacity={0.30} />
+                    <Circle cx="40" cy="680" r="75" fill="#D1C4E9" opacity={0.3} />
                 </Svg>
             </View>
 
@@ -123,7 +173,7 @@ export default function ManagerDashboardScreen() {
                     <View style={styles.headerTopRow}>
                         <TouchableOpacity
                             style={styles.backBtn}
-                            onPress={() => router.canGoBack() ? router.back() : router.push('/field-sales')}
+                            onPress={() => (router.canGoBack() ? router.back() : router.push('/field-sales'))}
                             activeOpacity={0.7}
                         >
                             <ArrowLeft size={20} color="#1A1A1A" />
@@ -131,9 +181,7 @@ export default function ManagerDashboardScreen() {
 
                         <View style={styles.headerTitleCol}>
                             <Text style={styles.headerTitle}>Team Dashboard</Text>
-                            <Text style={styles.headerSubtitle}>
-                                Field Sales Performance & Operations
-                            </Text>
+                            <Text style={styles.headerSubtitle}>Field Sales Performance & Operations</Text>
                         </View>
 
                         <View style={styles.liveManagerPill}>
@@ -174,7 +222,9 @@ export default function ManagerDashboardScreen() {
                                     <Text style={styles.kpiTagText}>{completionPct}%</Text>
                                 </View>
                             </View>
-                            <Text style={styles.kpiValueText}>{totalCompleted}/{totalVisits}</Text>
+                            <Text style={styles.kpiValueText}>
+                                {totalCompleted}/{totalVisits}
+                            </Text>
                             <Text style={styles.kpiLabelText}>Visits Completed</Text>
                         </View>
 
@@ -236,13 +286,10 @@ export default function ManagerDashboardScreen() {
                                     key={i}
                                     style={[
                                         styles.alertCard,
-                                        isDanger ? styles.alertCardDanger : styles.alertCardWarn
+                                        isDanger ? styles.alertCardDanger : styles.alertCardWarn,
                                     ]}
                                 >
-                                    <AlertCircle
-                                        size={16}
-                                        color={isDanger ? '#D32F2F' : '#F57F17'}
-                                    />
+                                    <AlertCircle size={16} color={isDanger ? '#D32F2F' : '#F57F17'} />
                                     <Text style={[styles.alertCardText, isDanger && { color: '#C62828' }]}>
                                         {alert.message}
                                     </Text>
@@ -273,7 +320,8 @@ export default function ManagerDashboardScreen() {
                             </View>
                             <Text style={styles.emptyTitle}>No Sales Visits Scheduled Today</Text>
                             <Text style={styles.emptySubtitle}>
-                                There are no active beat plans scheduled for today. Assign stores in the weekly Beat Plan to start live tracking.
+                                There are no active beat plans scheduled for today. Assign stores in the
+                                weekly Beat Plan to start live tracking.
                             </Text>
                             <TouchableOpacity
                                 style={styles.emptyActionBtn}
@@ -300,9 +348,11 @@ export default function ManagerDashboardScreen() {
                                     <AnimatedPressable
                                         key={member.salespersonId}
                                         style={styles.repCard}
-                                        onPress={() => router.push({
-                                            pathname: '/field-sales/today-route',
-                                        } as any)}
+                                        onPress={() =>
+                                            router.push({
+                                                pathname: '/field-sales/today-route',
+                                            } as any)
+                                        }
                                     >
                                         {/* Card Top Row: Rep Avatar, Name, Pct Badge */}
                                         <View style={styles.repHeaderRow}>
@@ -312,7 +362,9 @@ export default function ManagerDashboardScreen() {
 
                                             <View style={{ flex: 1 }}>
                                                 <View style={styles.repNameRow}>
-                                                    <Text style={styles.repNameText}>{member.salespersonName}</Text>
+                                                    <Text style={styles.repNameText}>
+                                                        {member.salespersonName}
+                                                    </Text>
                                                     <View style={styles.repRolePill}>
                                                         <Text style={styles.repRoleText}>Sales Rep</Text>
                                                     </View>
@@ -322,8 +374,18 @@ export default function ManagerDashboardScreen() {
                                                 </Text>
                                             </View>
 
-                                            <View style={[styles.repPctBadge, pct === 100 && styles.repPctBadgeDone]}>
-                                                <Text style={[styles.repPctText, pct === 100 && styles.repPctTextDone]}>
+                                            <View
+                                                style={[
+                                                    styles.repPctBadge,
+                                                    pct === 100 && styles.repPctBadgeDone,
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.repPctText,
+                                                        pct === 100 && styles.repPctTextDone,
+                                                    ]}
+                                                >
                                                     {pct}%
                                                 </Text>
                                             </View>
@@ -336,8 +398,8 @@ export default function ManagerDashboardScreen() {
                                                     styles.repProgressFill,
                                                     {
                                                         width: `${Math.min(100, Math.max(pct, scheduled > 0 ? 5 : 0))}%`,
-                                                        backgroundColor: pct === 100 ? '#2E7D32' : '#8E24AA'
-                                                    }
+                                                        backgroundColor: pct === 100 ? '#2E7D32' : '#8E24AA',
+                                                    },
                                                 ]}
                                             />
                                         </View>
@@ -359,7 +421,9 @@ export default function ManagerDashboardScreen() {
                                             </View>
 
                                             {missed > 0 && (
-                                                <View style={[styles.repChip, { backgroundColor: '#FFEBEE' }]}>
+                                                <View
+                                                    style={[styles.repChip, { backgroundColor: '#FFEBEE' }]}
+                                                >
                                                     <AlertCircle size={13} color="#C62828" />
                                                     <Text style={[styles.repChipText, { color: '#C62828' }]}>
                                                         {missed} Missed

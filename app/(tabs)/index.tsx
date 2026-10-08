@@ -4,15 +4,34 @@ import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Colors } from '../../src/theme/colors';
 import {
-    ShoppingBag, Box, Clock,
-    Plus, BarChart2, Sparkles, MapPin, Users, Truck, Receipt, BookOpen, ChevronRight
+    ShoppingBag,
+    Box,
+    Clock,
+    Plus,
+    BarChart2,
+    Sparkles,
+    MapPin,
+    Users,
+    Truck,
+    Receipt,
+    BookOpen,
+    ChevronRight,
 } from 'lucide-react-native';
 import { DashboardHeader } from '../../src/components/DashboardHeader';
 import { StaggerContainer, FadeInDown, AnimatedPressable } from '../../src/components/Anime';
-import api, { me } from '../../src/services/api';
+import { OrgScopedScreen } from '../../src/components/OrgScopedScreen';
+import { me, OrganizationApi } from '../../src/services/api';
 import { useCurrentRole } from '../../src/hooks/useCurrentRole';
 
 export default function Home() {
+    return (
+        <OrgScopedScreen emptyMessage="Select a shop to see your dashboard.">
+            {(api) => <HomeContent api={api} />}
+        </OrgScopedScreen>
+    );
+}
+
+function HomeContent({ api }: { api: OrganizationApi }) {
     const router = useRouter();
     const { role } = useCurrentRole();
     const [loading, setLoading] = useState(false);
@@ -25,7 +44,7 @@ export default function Home() {
         todayPurchase: 0,
         pendingCredit: 0,
         activeSuppliers: 0,
-        recentSales: [] as any[]
+        recentSales: [] as any[],
     });
 
     // Fail closed: sales KPIs/actions hidden until a non-WAREHOUSE role is confirmed.
@@ -57,7 +76,7 @@ export default function Home() {
     useFocusEffect(
         useCallback(() => {
             fetchDashboard();
-        }, [fetchDashboard])
+        }, [fetchDashboard]),
     );
 
     const formatCurrency = (amount: number) => {
@@ -79,7 +98,7 @@ export default function Home() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    
+
                     {/* Top Pastel Blobs */}
                     <Path
                         d="M150 -50 C240 -20, 390 -30, 400 120 C410 270, 310 240, 240 220 C170 200, 70 300, 0 200 C-70 100, 70 -80, 150 -50 Z"
@@ -110,17 +129,23 @@ export default function Home() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
                 {/* 1. Header Card */}
                 <FadeInDown delay={40}>
                     <DashboardHeader
-                        date={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: '2-digit' })}
+                        date={new Date().toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            month: 'short',
+                            day: '2-digit',
+                        })}
                         greeting={`${greeting()}, ${userName} 👋`}
                         subtext={
-                            role === 'SALES' ? "Here's your beat route & sales performance today." :
-                            role === 'WAREHOUSE' ? "Here's your warehouse stock & inward deliveries today." :
-                            role === 'ACCOUNTANT' ? "Here's your financial ledgers & cashflow status today." :
-                            "Here's what's happening with your rice stock today."
+                            role === 'SALES'
+                                ? "Here's your beat route & sales performance today."
+                                : role === 'WAREHOUSE'
+                                  ? "Here's your warehouse stock & inward deliveries today."
+                                  : role === 'ACCOUNTANT'
+                                    ? "Here's your financial ledgers & cashflow status today."
+                                    : "Here's what's happening with your rice stock today."
                         }
                         onSearch={(txt) => {}}
                     />
@@ -129,7 +154,7 @@ export default function Home() {
                 {/* 2. Primary Actions — 2x2 Centered Grid */}
                 <FadeInDown delay={90} style={styles.section}>
                     <Text style={styles.sectionTitleHeader}>Primary Actions</Text>
-                    
+
                     {role === 'SALES' ? (
                         <>
                             <View style={styles.gridRow}>
@@ -138,12 +163,18 @@ export default function Home() {
                                     onPress={() => router.push('/sales')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}
+                                        >
                                             <Plus size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>New Sale</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Create POS Bill</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                New Sale
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Create POS Bill
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -153,12 +184,18 @@ export default function Home() {
                                     onPress={() => router.push('/field-sales')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}
+                                        >
                                             <MapPin size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Field Route</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Beat Check-In</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Field Route
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Beat Check-In
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -170,12 +207,18 @@ export default function Home() {
                                     onPress={() => router.push('/customers')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#36B37E' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#36B37E' }]}
+                                        >
                                             <Users size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Customers</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Store Directory</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Customers
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Store Directory
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -185,12 +228,18 @@ export default function Home() {
                                     onPress={() => router.push('/invoices')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}
+                                        >
                                             <Receipt size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Invoices</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Billing History</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Invoices
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Billing History
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -204,12 +253,18 @@ export default function Home() {
                                     onPress={() => router.push('/stock')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}
+                                        >
                                             <Box size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Add Stock</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Inventory Counts</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Add Stock
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Inventory Counts
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -219,12 +274,18 @@ export default function Home() {
                                     onPress={() => router.push('/purchases')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F0574E' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#F0574E' }]}
+                                        >
                                             <Truck size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Purchases</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Goods Receipt</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Purchases
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Goods Receipt
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -236,12 +297,18 @@ export default function Home() {
                                     onPress={() => router.push('/suppliers')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}
+                                        >
                                             <Users size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Suppliers</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Vendor Directory</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Suppliers
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Vendor Directory
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -251,12 +318,18 @@ export default function Home() {
                                     onPress={() => router.push('/stock')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5BC27A' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#5BC27A' }]}
+                                        >
                                             <Box size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Stock Audit</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Shortage Check</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Stock Audit
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Shortage Check
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -270,12 +343,18 @@ export default function Home() {
                                     onPress={() => router.push('/(tabs)/ledger')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}
+                                        >
                                             <BookOpen size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Ledgers</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Accounts & Cash</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Ledgers
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Accounts & Cash
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -285,12 +364,18 @@ export default function Home() {
                                     onPress={() => router.push('/invoices')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}
+                                        >
                                             <Receipt size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Invoices</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Customer Billing</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Invoices
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Customer Billing
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -302,12 +387,18 @@ export default function Home() {
                                     onPress={() => router.push('/purchases')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}
+                                        >
                                             <Box size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Purchases</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Supplier Bills</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Purchases
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Supplier Bills
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -317,12 +408,18 @@ export default function Home() {
                                     onPress={() => router.push('/customers')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}
+                                        >
                                             <Users size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Customers</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Balances & Ledgers</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Customers
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Balances & Ledgers
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -337,12 +434,18 @@ export default function Home() {
                                     onPress={() => router.push('/sales')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#F06A8C' }]}
+                                        >
                                             <Plus size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>New Sale</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Create POS Bill</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                New Sale
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Create POS Bill
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -352,12 +455,18 @@ export default function Home() {
                                     onPress={() => router.push('/stock')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#F0A93C' }]}
+                                        >
                                             <Box size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Add Stock</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Inventory</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Add Stock
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Inventory
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -370,12 +479,18 @@ export default function Home() {
                                     onPress={() => router.push('/field-sales')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#5B8DEF' }]}
+                                        >
                                             <MapPin size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Field Sales</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Beat Route</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Field Sales
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Beat Route
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -385,12 +500,18 @@ export default function Home() {
                                     onPress={() => router.push('/reports')}
                                 >
                                     <View style={styles.centeredCardContent}>
-                                        <View style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}>
+                                        <View
+                                            style={[styles.actionIconBadge, { backgroundColor: '#7B6FE0' }]}
+                                        >
                                             <BarChart2 size={18} color="#FFFFFF" />
                                         </View>
                                         <View style={styles.actionTextFlex}>
-                                            <Text style={styles.actionTitle} numberOfLines={1}>Reports</Text>
-                                            <Text style={styles.actionSub} numberOfLines={1}>Insights</Text>
+                                            <Text style={styles.actionTitle} numberOfLines={1}>
+                                                Reports
+                                            </Text>
+                                            <Text style={styles.actionSub} numberOfLines={1}>
+                                                Insights
+                                            </Text>
                                         </View>
                                     </View>
                                 </AnimatedPressable>
@@ -410,10 +531,13 @@ export default function Home() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                         <Sparkles size={16} color="#2D3E32" />
                                         <Text style={styles.overviewTitle}>
-                                            {role === 'SALES' ? 'Field Sales Overview' :
-                                             role === 'WAREHOUSE' ? 'Warehouse Overview' :
-                                             role === 'ACCOUNTANT' ? 'Financial Overview' :
-                                             'Business Overview'}
+                                            {role === 'SALES'
+                                                ? 'Field Sales Overview'
+                                                : role === 'WAREHOUSE'
+                                                  ? 'Warehouse Overview'
+                                                  : role === 'ACCOUNTANT'
+                                                    ? 'Financial Overview'
+                                                    : 'Business Overview'}
                                         </Text>
                                     </View>
                                     <Text style={styles.overviewDots}>•••</Text>
@@ -428,13 +552,22 @@ export default function Home() {
                                         >
                                             <View style={styles.overviewTileInner}>
                                                 <View style={styles.tileHeaderRow}>
-                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#E8F5E9' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.tileIconCircle,
+                                                            { backgroundColor: '#E8F5E9' },
+                                                        ]}
+                                                    >
                                                         <Box size={16} color="#5BC27A" />
                                                     </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Stock Available</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{metrics.totalStock.toLocaleString('en-IN')} kg</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>
+                                                        Stock Available
+                                                    </Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>
+                                                        {metrics.totalStock.toLocaleString('en-IN')} kg
+                                                    </Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -445,13 +578,22 @@ export default function Home() {
                                         >
                                             <View style={styles.overviewTileInner}>
                                                 <View style={styles.tileHeaderRow}>
-                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#DFF3E3' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.tileIconCircle,
+                                                            { backgroundColor: '#DFF3E3' },
+                                                        ]}
+                                                    >
                                                         <ShoppingBag size={16} color="#2FAE55" />
                                                     </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Today's Sales</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayRevenue)}</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>
+                                                        Today's Sales
+                                                    </Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>
+                                                        {formatCurrency(metrics.todayRevenue)}
+                                                    </Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -464,13 +606,22 @@ export default function Home() {
                                         >
                                             <View style={styles.overviewTileInner}>
                                                 <View style={styles.tileHeaderRow}>
-                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#FBE1DE' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.tileIconCircle,
+                                                            { backgroundColor: '#FBE1DE' },
+                                                        ]}
+                                                    >
                                                         <Box size={16} color="#E5493F" />
                                                     </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Low Stock Alerts</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{metrics.lowStockCount} items</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>
+                                                        Low Stock Alerts
+                                                    </Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>
+                                                        {metrics.lowStockCount} items
+                                                    </Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -481,13 +632,22 @@ export default function Home() {
                                         >
                                             <View style={styles.overviewTileInner}>
                                                 <View style={styles.tileHeaderRow}>
-                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#FBE1DE' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.tileIconCircle,
+                                                            { backgroundColor: '#FBE1DE' },
+                                                        ]}
+                                                    >
                                                         <Box size={16} color="#E5493F" />
                                                     </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Today's Purchase</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayPurchase)}</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>
+                                                        Today's Purchase
+                                                    </Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>
+                                                        {formatCurrency(metrics.todayPurchase)}
+                                                    </Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -503,13 +663,22 @@ export default function Home() {
                                         >
                                             <View style={styles.overviewTileInner}>
                                                 <View style={styles.tileHeaderRow}>
-                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#FFF3E0' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.tileIconCircle,
+                                                            { backgroundColor: '#FFF3E0' },
+                                                        ]}
+                                                    >
                                                         <Truck size={16} color="#F2A93B" />
                                                     </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Today's Inward</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.todayPurchase)}</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>
+                                                        Today's Inward
+                                                    </Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>
+                                                        {formatCurrency(metrics.todayPurchase)}
+                                                    </Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -520,13 +689,22 @@ export default function Home() {
                                         >
                                             <View style={styles.overviewTileInner}>
                                                 <View style={styles.tileHeaderRow}>
-                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#FFF3E0' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.tileIconCircle,
+                                                            { backgroundColor: '#FFF3E0' },
+                                                        ]}
+                                                    >
                                                         <Clock size={16} color="#F2A93B" />
                                                     </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Pending Credit</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{formatCurrency(metrics.pendingCredit)}</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>
+                                                        Pending Credit
+                                                    </Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>
+                                                        {formatCurrency(metrics.pendingCredit)}
+                                                    </Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -539,13 +717,22 @@ export default function Home() {
                                         >
                                             <View style={styles.overviewTileInner}>
                                                 <View style={styles.tileHeaderRow}>
-                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#EAF2FF' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.tileIconCircle,
+                                                            { backgroundColor: '#EAF2FF' },
+                                                        ]}
+                                                    >
                                                         <Users size={16} color="#5B8DEF" />
                                                     </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Active Suppliers</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{metrics.activeSuppliers} vendors</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>
+                                                        Active Suppliers
+                                                    </Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>
+                                                        {metrics.activeSuppliers} vendors
+                                                    </Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -556,13 +743,22 @@ export default function Home() {
                                         >
                                             <View style={styles.overviewTileInner}>
                                                 <View style={styles.tileHeaderRow}>
-                                                    <View style={[styles.tileIconCircle, { backgroundColor: '#E8F5E9' }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.tileIconCircle,
+                                                            { backgroundColor: '#E8F5E9' },
+                                                        ]}
+                                                    >
                                                         <Box size={16} color="#5BC27A" />
                                                     </View>
                                                 </View>
                                                 <View>
-                                                    <Text style={styles.tileLabel} numberOfLines={1}>Stock Available</Text>
-                                                    <Text style={styles.tileValue} numberOfLines={1}>{metrics.totalStock.toLocaleString('en-IN')} kg</Text>
+                                                    <Text style={styles.tileLabel} numberOfLines={1}>
+                                                        Stock Available
+                                                    </Text>
+                                                    <Text style={styles.tileValue} numberOfLines={1}>
+                                                        {metrics.totalStock.toLocaleString('en-IN')} kg
+                                                    </Text>
                                                 </View>
                                             </View>
                                         </AnimatedPressable>
@@ -587,7 +783,9 @@ export default function Home() {
                                             style={styles.moduleListItem}
                                             onPress={() => router.push('/customers')}
                                         >
-                                            <View style={[styles.moduleIconBox, { backgroundColor: '#EAF2FF' }]}>
+                                            <View
+                                                style={[styles.moduleIconBox, { backgroundColor: '#EAF2FF' }]}
+                                            >
                                                 <Users size={18} color="#5B8DEF" />
                                             </View>
                                             <View style={styles.moduleTextFlex}>
@@ -617,7 +815,9 @@ export default function Home() {
                                             style={styles.moduleListItem}
                                             onPress={() => router.push('/invoices')}
                                         >
-                                            <View style={[styles.moduleIconBox, { backgroundColor: '#F0ECFA' }]}>
+                                            <View
+                                                style={[styles.moduleIconBox, { backgroundColor: '#F0ECFA' }]}
+                                            >
                                                 <Receipt size={18} color="#8B7FD6" />
                                             </View>
                                             <View style={styles.moduleTextFlex}>
@@ -633,12 +833,16 @@ export default function Home() {
                                             style={styles.moduleListItem}
                                             onPress={() => router.push('/field-sales')}
                                         >
-                                            <View style={[styles.moduleIconBox, { backgroundColor: '#FBE8F0' }]}>
+                                            <View
+                                                style={[styles.moduleIconBox, { backgroundColor: '#FBE8F0' }]}
+                                            >
                                                 <MapPin size={18} color="#F06A8C" />
                                             </View>
                                             <View style={styles.moduleTextFlex}>
                                                 <Text style={styles.moduleTitle}>Field Sales & Route</Text>
-                                                <Text style={styles.moduleSub}>GPS Check-In & Spot Orders</Text>
+                                                <Text style={styles.moduleSub}>
+                                                    GPS Check-In & Spot Orders
+                                                </Text>
                                             </View>
                                             <ChevronRight size={18} color="#B0B0B0" />
                                         </AnimatedPressable>
@@ -649,12 +853,16 @@ export default function Home() {
                                             style={styles.moduleListItem}
                                             onPress={() => router.push('/team-management')}
                                         >
-                                            <View style={[styles.moduleIconBox, { backgroundColor: '#EDE7F6' }]}>
+                                            <View
+                                                style={[styles.moduleIconBox, { backgroundColor: '#EDE7F6' }]}
+                                            >
                                                 <Users size={18} color="#7C3AED" />
                                             </View>
                                             <View style={styles.moduleTextFlex}>
                                                 <Text style={styles.moduleTitle}>Team & Staff</Text>
-                                                <Text style={styles.moduleSub}>Roles, Access & WhatsApp Invites</Text>
+                                                <Text style={styles.moduleSub}>
+                                                    Roles, Access & WhatsApp Invites
+                                                </Text>
                                             </View>
                                             <ChevronRight size={18} color="#B0B0B0" />
                                         </AnimatedPressable>
@@ -665,7 +873,9 @@ export default function Home() {
                                             style={styles.moduleListItem}
                                             onPress={() => router.push('/(tabs)/ledger')}
                                         >
-                                            <View style={[styles.moduleIconBox, { backgroundColor: '#E8F5E9' }]}>
+                                            <View
+                                                style={[styles.moduleIconBox, { backgroundColor: '#E8F5E9' }]}
+                                            >
                                                 <BookOpen size={18} color="#5BC27A" />
                                             </View>
                                             <View style={styles.moduleTextFlex}>
@@ -680,7 +890,6 @@ export default function Home() {
                         </FadeInDown>
                     </>
                 )}
-
             </ScrollView>
         </SafeAreaView>
     );
@@ -900,5 +1109,5 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontFamily: 'Urbanist_500Medium',
         color: '#8A8A8A',
-    }
+    },
 });

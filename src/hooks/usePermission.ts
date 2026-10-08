@@ -1,6 +1,5 @@
 import { useRoleContext } from '../contexts/RoleContext';
-import type { RoleName } from '../contexts/RoleContext';
-
+/** Use for permission/role decisions and action visibility; shares RoleProvider's single lookup. */
 export function usePermission() {
     const current = useRoleContext();
 

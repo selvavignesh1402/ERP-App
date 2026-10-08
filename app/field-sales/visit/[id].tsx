@@ -1,21 +1,62 @@
+import { styles } from '../../../src/features/fieldSales/styles';
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-    ActivityIndicator, Alert, TextInput, Modal, Linking, Platform
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    Alert,
+    TextInput,
+    Modal,
+    Linking,
+    Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    Phone, MapPin, CreditCard, ShoppingCart,
-    ClipboardList, MessageSquare, CheckCircle2, ArrowLeft,
-    AlertTriangle, ShieldCheck, Clock, Lock, Check,
-    Navigation, IndianRupee, Store, FileText, ChevronRight, X
+    Phone,
+    MapPin,
+    CreditCard,
+    ShoppingCart,
+    ClipboardList,
+    MessageSquare,
+    CheckCircle2,
+    ArrowLeft,
+    AlertTriangle,
+    ShieldCheck,
+    Clock,
+    Lock,
+    Check,
+    Navigation,
+    IndianRupee,
+    Store,
+    FileText,
+    ChevronRight,
+    X,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../../../src/components/Anime';
-import api from '../../../src/services/api';
+import { RoleGate } from '../../../src/components/RoleGate';
+import { OrgScopedScreen } from '../../../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../../../src/services/api';
+import {
+    collectCustomerPayment,
+    getPendingCustomerPayment,
+    PendingCollection,
+} from '../../../src/services/paymentCollection';
+import { useRoleContext } from '../../../src/contexts/RoleContext';
 
-type VisitOutcome = 'ORDER_PLACED' | 'PAYMENT_COLLECTED' | 'BOTH' | 'NO_ORDER' | 'SHOP_CLOSED' | 'CUSTOMER_UNAVAILABLE' | 'FOLLOW_UP';
+type VisitOutcome =
+    | 'ORDER_PLACED'
+    | 'PAYMENT_COLLECTED'
+    | 'BOTH'
+    | 'NO_ORDER'
+    | 'SHOP_CLOSED'
+    | 'CUSTOMER_UNAVAILABLE'
+    | 'FOLLOW_UP';
 
 const OUTCOMES: { value: VisitOutcome; label: string; color: string; bg: string }[] = [
     { value: 'ORDER_PLACED', label: 'Order Placed', color: '#2E7D32', bg: '#E8F5E9' },
@@ -28,6 +69,17 @@ const OUTCOMES: { value: VisitOutcome; label: string; color: string; bg: string 
 ];
 
 export default function VisitScreen() {
+    return (
+        <RoleGate permission="visit:execute">
+            <OrgScopedScreen emptyMessage="Select a shop to record visits.">
+                {(api) => <VisitScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function VisitScreenContent({ api }: { api: OrganizationApi }) {
+    const { orgId, userId } = useRoleContext();
     const { id, customerName } = useLocalSearchParams<{ id: string; customerName: string }>();
     const router = useRouter();
 
@@ -48,6 +100,9 @@ export default function VisitScreen() {
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI'>('CASH');
     const [submittingPayment, setSubmittingPayment] = useState(false);
+    const [pendingPayment, setPendingPayment] = useState<PendingCollection | null>(null);
+    const [pendingCustomerName, setPendingCustomerName] = useState('');
+    const [paymentError, setPaymentError] = useState('');
 
     const fetchData = useCallback(async () => {
         try {
@@ -69,11 +124,16 @@ export default function VisitScreen() {
                 if (latestBalance > 0) {
                     setPaymentAmount(String(latestBalance));
                 }
-                const histRes = await api.get(`/visits/customer/${found.customerId}/history`).catch(() => ({ data: [] }));
+                const histRes = await api
+                    .get(`/visits/customer/${found.customerId}/history`)
+                    .catch(() => ({ data: [] }));
                 setVisitHistory(histRes.data || []);
                 if (found.checkInId) {
                     setCheckInRecord({ id: found.checkInId, checkInTime: found.checkInTime });
-                    await AsyncStorage.setItem(`active_visit_${id}`, JSON.stringify({ id: found.checkInId, checkInTime: found.checkInTime }));
+                    await AsyncStorage.setItem(
+                        `active_visit_${id}`,
+                        JSON.stringify({ id: found.checkInId, checkInTime: found.checkInTime }),
+                    );
                 } else {
                     const localSaved = await AsyncStorage.getItem(`active_visit_${id}`);
                     if (localSaved) {
@@ -98,9 +158,11 @@ export default function VisitScreen() {
         }
     }, [id]);
 
-    useFocusEffect(useCallback(() => {
-        fetchData();
-    }, [fetchData]));
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [fetchData]),
+    );
 
     const isCompleted = scheduleDetails?.status === 'COMPLETED';
     const isCheckedIn = !!checkInRecord?.id;
@@ -118,22 +180,31 @@ export default function VisitScreen() {
         try {
             setCheckingIn(true);
             const res = await api.post(`/visits/${id}/check-in`, { latitude: null, longitude: null });
-            const record = res.data || { id: Date.now(), checkInTime: new Date().toISOString() };
+            const record = res.data;
+            if (!record?.id) throw new Error('The server did not confirm the check-in.');
             setCheckInRecord(record);
             await AsyncStorage.setItem(`active_visit_${id}`, JSON.stringify(record));
-            Alert.alert('Checked In Successfully', `You are now checked in at ${customerName || 'the store'}.`);
+            Alert.alert(
+                'Checked In Successfully',
+                `You are now checked in at ${customerName || 'the store'}.`,
+            );
             fetchData();
         } catch (err: any) {
-            const fallbackRecord = { id: Date.now(), checkInTime: new Date().toISOString() };
-            setCheckInRecord(fallbackRecord);
-            await AsyncStorage.setItem(`active_visit_${id}`, JSON.stringify(fallbackRecord));
-            Alert.alert('Checked In', `Checked in at ${customerName || 'the store'}.`);
+            Alert.alert(
+                'Check-in Failed',
+                err?.response?.data?.message ||
+                    'Check-in was not confirmed. Please refresh the visit and try again.',
+            );
         } finally {
             setCheckingIn(false);
         }
     };
 
     const handleCheckOut = async () => {
+        if (!checkInRecord?.id) {
+            Alert.alert('Check-In Required', 'Check in successfully before completing this visit.');
+            return;
+        }
         if (!selectedOutcome) {
             Alert.alert('Outcome Required', 'Please select what happened during this store visit.');
             return;
@@ -148,9 +219,11 @@ export default function VisitScreen() {
             Alert.alert('Visit Finalized', 'Store visit recorded and marked as completed.');
             fetchData();
         } catch (err: any) {
-            await AsyncStorage.removeItem(`active_visit_${id}`);
-            setShowCheckOut(false);
-            Alert.alert('Visit Finalized', 'Store visit recorded and marked as completed.');
+            Alert.alert(
+                'Check-out Failed',
+                err?.response?.data?.message ||
+                    'Completion was not confirmed. Please refresh the visit and try again.',
+            );
         } finally {
             setCheckingOut(false);
         }
@@ -167,8 +240,8 @@ export default function VisitScreen() {
                 `Please check in at ${customerName || 'the store'} first before creating orders.`,
                 [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Check In Now', onPress: handleCheckIn }
-                ]
+                    { text: 'Check In Now', onPress: handleCheckIn },
+                ],
             );
             return;
         }
@@ -180,46 +253,73 @@ export default function VisitScreen() {
                 customerId: String(scheduleDetails?.customerId || ''),
                 customerName: scheduleDetails?.customerName || customerName || '',
                 customerPhone: scheduleDetails?.customerPhone || '',
-            }
+            },
         });
     };
 
     const handleCollectPaymentSubmit = async () => {
-        const amt = parseFloat(paymentAmount);
-        if (!amt || amt <= 0) {
+        const amt = pendingPayment?.amount ?? Number(paymentAmount);
+        if (!Number.isFinite(amt) || amt <= 0 || !/^\d+(\.\d{1,2})?$/.test(paymentAmount.trim())) {
             Alert.alert('Invalid Amount', 'Please enter a valid payment amount.');
+            return;
+        }
+        if (orgId === null || userId === null || !scheduleDetails?.customerId) {
+            Alert.alert('Payment Unavailable', 'Refresh the visit before collecting a payment.');
             return;
         }
 
         setSubmittingPayment(true);
+        setPaymentError('');
         try {
-            await api.post('/payments', {
-                referenceType: 'CUSTOMER',
-                referenceId: scheduleDetails?.customerId,
-                amount: amt,
-                paymentMode: paymentMode,
-                paymentDate: new Date().toISOString(),
-            });
+            await collectCustomerPayment(
+                orgId,
+                userId,
+                pendingPayment ?? {
+                    referenceType: 'CUSTOMER',
+                    referenceId: scheduleDetails?.customerId,
+                    amount: amt,
+                    paymentMode: paymentMode,
+                },
+            );
 
-            // Immediately reduce outstandingBalance in UI
-            setScheduleDetails((prev: any) => {
-                if (!prev) return prev;
-                const newBal = Math.max(0, (Number(prev.outstandingBalance) || 0) - amt);
-                return { ...prev, outstandingBalance: newBal };
-            });
-
-            Alert.alert('Payment Recorded', `Received ₹${amt.toLocaleString('en-IN')} via ${paymentMode} from ${scheduleDetails?.customerName || customerName}.`);
+            Alert.alert(
+                'Payment Recorded',
+                `Confirmed ₹${amt.toLocaleString('en-IN')} via ${pendingPayment?.paymentMode || paymentMode} from ${pendingPayment ? pendingCustomerName : scheduleDetails?.customerName || customerName}.`,
+            );
+            setPendingPayment(null);
             setShowPaymentModal(false);
             fetchData();
         } catch (error: any) {
-            Alert.alert('Payment Saved', `₹${amt.toLocaleString('en-IN')} payment logged successfully.`);
-            setShowPaymentModal(false);
+            setPaymentError(
+                error?.response?.data?.message ||
+                    error?.message ||
+                    'Payment not confirmed. Retry this saved payment; do not collect the money again.',
+            );
+            try {
+                const saved = await getPendingCustomerPayment(orgId, userId);
+                setPendingPayment(saved);
+                if (saved) {
+                    setPaymentAmount(String(saved.amount));
+                    setPaymentMode(saved.paymentMode);
+                    setPendingCustomerName(
+                        String(saved.referenceId) === String(scheduleDetails?.customerId)
+                            ? scheduleDetails?.customerName ||
+                                  customerName ||
+                                  `Customer #${saved.referenceId}`
+                            : `Customer #${saved.referenceId}`,
+                    );
+                }
+            } catch {
+                setPaymentError(
+                    'Could not read the saved payment. Close and reopen this screen before retrying.',
+                );
+            }
         } finally {
             setSubmittingPayment(false);
         }
     };
 
-    const handleActionClick = (actionName: string, path: string) => {
+    const handleActionClick = async (actionName: string, path: string) => {
         if (actionName === 'Create Order') {
             handleCreateOrder();
             return;
@@ -234,7 +334,28 @@ export default function VisitScreen() {
                 Alert.alert('Check-In Required', 'Please check in first before collecting payment.');
                 return;
             }
-            setShowPaymentModal(true);
+            if (orgId === null || userId === null) return;
+            try {
+                const pending = await getPendingCustomerPayment(orgId, userId);
+                setPendingPayment(pending);
+                setPaymentError('');
+                setPendingCustomerName(scheduleDetails?.customerName || customerName || '');
+                if (pending) {
+                    setPaymentAmount(String(pending.amount));
+                    setPaymentMode(pending.paymentMode);
+                    if (String(pending.referenceId) !== String(scheduleDetails?.customerId)) {
+                        setPendingCustomerName(`Customer #${pending.referenceId}`);
+                        const result = await api.get(`/customers/${pending.referenceId}`).catch(() => null);
+                        if (result?.data?.customerName) setPendingCustomerName(result.data.customerName);
+                    }
+                } else {
+                    setPaymentAmount(String(scheduleDetails?.outstandingBalance || ''));
+                    setPaymentMode('CASH');
+                }
+                setShowPaymentModal(true);
+            } catch {
+                Alert.alert('Payment Unavailable', 'Could not load the saved payment. Please try again.');
+            }
             return;
         }
 
@@ -245,6 +366,23 @@ export default function VisitScreen() {
         if (!phone) return;
         const cleanPhone = phone.replace(/[^0-9+]/g, '');
         Linking.openURL(`tel:${cleanPhone}`).catch(() => {});
+    };
+
+    const handleOpenMap = (customerName?: string, customerAddress?: string) => {
+        const query = [customerName, customerAddress].filter(Boolean).join(', ');
+        if (!query) {
+            Alert.alert('Location Unavailable', 'No address listed for this store.');
+            return;
+        }
+        const encoded = encodeURIComponent(query);
+        const mapUrl = Platform.select({
+            ios: `maps:0,0?q=${encoded}`,
+            android: `geo:0,0?q=${encoded}`,
+            default: `https://www.google.com/maps/search/?api=1&query=${encoded}`,
+        });
+        Linking.openURL(mapUrl).catch(() => {
+            Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
+        });
     };
 
     if (loading && !scheduleDetails) {
@@ -280,7 +418,7 @@ export default function VisitScreen() {
                     <Path
                         d="M-50 150 C30 170, 120 110, 160 220 C200 330, 80 370, -10 340 C-90 300, -120 130, -50 150 Z"
                         fill="#FFE0B2"
-                        opacity={0.30}
+                        opacity={0.3}
                     />
 
                     {/* Ambient Lavender & Sage circles */}
@@ -294,7 +432,9 @@ export default function VisitScreen() {
                 <View style={styles.headerTopRow}>
                     <TouchableOpacity
                         style={styles.backBtn}
-                        onPress={() => router.canGoBack() ? router.back() : router.push('/field-sales/today-route')}
+                        onPress={() =>
+                            router.canGoBack() ? router.back() : router.push('/field-sales/today-route')
+                        }
                         activeOpacity={0.7}
                     >
                         <ArrowLeft size={20} color="#1A1A1A" />
@@ -309,7 +449,16 @@ export default function VisitScreen() {
                         </Text>
                     </View>
 
-                    <View style={[styles.statusPill, isCompleted ? styles.statusPillCompleted : isCheckedIn ? styles.statusPillActive : styles.statusPillPending]}>
+                    <View
+                        style={[
+                            styles.statusPill,
+                            isCompleted
+                                ? styles.statusPillCompleted
+                                : isCheckedIn
+                                  ? styles.statusPillActive
+                                  : styles.statusPillPending,
+                        ]}
+                    >
                         {isCompleted ? (
                             <>
                                 <CheckCircle2 size={12} color="#2E7D32" />
@@ -330,38 +479,71 @@ export default function VisitScreen() {
                 </View>
             </FadeInDown>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* 3. Store Info Hero Card */}
                 {scheduleDetails && (
                     <FadeInDown delay={50}>
                         <View style={styles.storeCard}>
                             <View style={styles.storeHeaderRow}>
-                                <View style={[styles.storeAvatarBox, { backgroundColor: isCompleted ? '#E8F5E9' : '#FFF3E0' }]}>
+                                <View
+                                    style={[
+                                        styles.storeAvatarBox,
+                                        { backgroundColor: isCompleted ? '#E8F5E9' : '#FFF3E0' },
+                                    ]}
+                                >
                                     <Store size={26} color={isCompleted ? '#2E7D32' : '#E65100'} />
                                 </View>
 
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.storeNameText}>{scheduleDetails.customerName}</Text>
-                                    <View style={styles.storeMetaRow}>
-                                        <MapPin size={13} color="#777777" />
+                                    <TouchableOpacity
+                                        style={styles.storeMetaRow}
+                                        onPress={() =>
+                                            handleOpenMap(
+                                                scheduleDetails.customerName,
+                                                scheduleDetails.customerAddress,
+                                            )
+                                        }
+                                        activeOpacity={0.7}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Open Google Maps for ${scheduleDetails.customerName}`}
+                                    >
+                                        <MapPin size={13} color="#1565C0" />
                                         <Text style={styles.storeMetaText} numberOfLines={1}>
-                                            {scheduleDetails.customerAddress || 'Address not listed'}
+                                            {scheduleDetails.customerAddress || 'View on Google Maps'}
                                         </Text>
-                                    </View>
+                                    </TouchableOpacity>
                                 </View>
 
-                                {scheduleDetails.customerPhone ? (
+                                {/* Action Buttons: Navigate Map + Call */}
+                                <View style={styles.quickActionsGroup}>
                                     <TouchableOpacity
-                                        style={styles.quickCallBtn}
-                                        onPress={() => handleCallCustomer(scheduleDetails.customerPhone)}
+                                        style={styles.quickMapBtn}
+                                        onPress={() =>
+                                            handleOpenMap(
+                                                scheduleDetails.customerName,
+                                                scheduleDetails.customerAddress,
+                                            )
+                                        }
                                         activeOpacity={0.75}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Open Google Maps directions for ${scheduleDetails.customerName}`}
                                     >
-                                        <Phone size={16} color="#2E7D32" />
+                                        <Navigation size={16} color="#1565C0" />
                                     </TouchableOpacity>
-                                ) : null}
+
+                                    {scheduleDetails.customerPhone ? (
+                                        <TouchableOpacity
+                                            style={styles.quickCallBtn}
+                                            onPress={() => handleCallCustomer(scheduleDetails.customerPhone)}
+                                            activeOpacity={0.75}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`Call ${scheduleDetails.customerName}`}
+                                        >
+                                            <Phone size={16} color="#2E7D32" />
+                                        </TouchableOpacity>
+                                    ) : null}
+                                </View>
                             </View>
 
                             {/* Financial Matrix */}
@@ -377,7 +559,12 @@ export default function VisitScreen() {
 
                                 <View style={styles.finCol}>
                                     <Text style={styles.finLabel}>OUTSTANDING</Text>
-                                    <Text style={[styles.finValue, scheduleDetails.outstandingBalance > 0 && { color: '#E53935' }]}>
+                                    <Text
+                                        style={[
+                                            styles.finValue,
+                                            scheduleDetails.outstandingBalance > 0 && { color: '#E53935' },
+                                        ]}
+                                    >
                                         ₹{(scheduleDetails.outstandingBalance || 0).toLocaleString('en-IN')}
                                     </Text>
                                 </View>
@@ -388,7 +575,10 @@ export default function VisitScreen() {
                                     <Text style={styles.finLabel}>LAST VISIT</Text>
                                     <Text style={styles.finValue}>
                                         {scheduleDetails.lastVisitDate
-                                            ? new Date(scheduleDetails.lastVisitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                            ? new Date(scheduleDetails.lastVisitDate).toLocaleDateString(
+                                                  'en-IN',
+                                                  { day: '2-digit', month: 'short' },
+                                              )
                                             : '—'}
                                     </Text>
                                 </View>
@@ -399,7 +589,8 @@ export default function VisitScreen() {
                                 <View style={styles.outstandingWarning}>
                                     <AlertTriangle size={14} color="#E65100" />
                                     <Text style={styles.outstandingWarningText}>
-                                        ₹{scheduleDetails.outstandingBalance.toLocaleString('en-IN')} balance pending — collect payment on this visit.
+                                        ₹{scheduleDetails.outstandingBalance.toLocaleString('en-IN')} balance
+                                        pending — collect payment on this visit.
                                     </Text>
                                 </View>
                             )}
@@ -436,7 +627,8 @@ export default function VisitScreen() {
                                     <View style={styles.outcomeBadge}>
                                         <CheckCircle2 size={12} color="#2E7D32" />
                                         <Text style={styles.outcomeBadgeText}>
-                                            {currentCompletedRecord?.outcome?.replace(/_/g, ' ') || 'Visit Completed'}
+                                            {currentCompletedRecord?.outcome?.replace(/_/g, ' ') ||
+                                                'Visit Completed'}
                                         </Text>
                                     </View>
                                 </View>
@@ -445,13 +637,18 @@ export default function VisitScreen() {
                                     <View style={styles.summaryRow}>
                                         <Text style={styles.summaryRowLabel}>Check-In Time</Text>
                                         <Text style={styles.summaryRowVal}>
-                                            {new Date(currentCompletedRecord.checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(currentCompletedRecord.checkInTime).toLocaleTimeString(
+                                                'en-IN',
+                                                { hour: '2-digit', minute: '2-digit' },
+                                            )}
                                         </Text>
                                     </View>
                                 )}
 
                                 {currentCompletedRecord?.notes ? (
-                                    <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingTop: 6 }]}>
+                                    <View
+                                        style={[styles.summaryRow, { borderBottomWidth: 0, paddingTop: 6 }]}
+                                    >
                                         <Text style={styles.summaryRowLabel}>Visit Notes</Text>
                                         <Text style={styles.summaryNotesText}>
                                             "{currentCompletedRecord.notes}"
@@ -464,7 +661,8 @@ export default function VisitScreen() {
                             <View style={styles.lockNoticeRow}>
                                 <Lock size={13} color="#888888" />
                                 <Text style={styles.lockNoticeText}>
-                                    Actions are restricted because this store visit has ended. Orders & payments are recorded in the ledger.
+                                    Actions are restricted because this store visit has ended. Orders &
+                                    payments are recorded in the ledger.
                                 </Text>
                             </View>
                         </View>
@@ -486,17 +684,24 @@ export default function VisitScreen() {
                         <View style={styles.actionsGrid}>
                             {/* 1. Create Order */}
                             <TouchableOpacity
-                                style={[
-                                    styles.actionCard,
-                                    isCompleted && styles.actionCardDisabled
-                                ]}
+                                style={[styles.actionCard, isCompleted && styles.actionCardDisabled]}
                                 onPress={() => handleActionClick('Create Order', '/sales')}
                                 activeOpacity={isCompleted ? 1 : 0.75}
                             >
-                                <View style={[styles.actionIconBox, { backgroundColor: isCompleted ? '#F0EFEA' : '#E8F5E9' }]}>
+                                <View
+                                    style={[
+                                        styles.actionIconBox,
+                                        { backgroundColor: isCompleted ? '#F0EFEA' : '#E8F5E9' },
+                                    ]}
+                                >
                                     <ShoppingCart size={22} color={isCompleted ? '#888888' : '#2E7D32'} />
                                 </View>
-                                <Text style={[styles.actionTitleText, isCompleted && styles.actionTitleTextDisabled]}>
+                                <Text
+                                    style={[
+                                        styles.actionTitleText,
+                                        isCompleted && styles.actionTitleTextDisabled,
+                                    ]}
+                                >
                                     Create Order
                                 </Text>
                                 <Text style={styles.actionDescText}>
@@ -506,17 +711,24 @@ export default function VisitScreen() {
 
                             {/* 2. Collect Payment */}
                             <TouchableOpacity
-                                style={[
-                                    styles.actionCard,
-                                    isCompleted && styles.actionCardDisabled
-                                ]}
+                                style={[styles.actionCard, isCompleted && styles.actionCardDisabled]}
                                 onPress={() => handleActionClick('Collect Payment', '/sales')}
                                 activeOpacity={isCompleted ? 1 : 0.75}
                             >
-                                <View style={[styles.actionIconBox, { backgroundColor: isCompleted ? '#F0EFEA' : '#E3F2FD' }]}>
+                                <View
+                                    style={[
+                                        styles.actionIconBox,
+                                        { backgroundColor: isCompleted ? '#F0EFEA' : '#E3F2FD' },
+                                    ]}
+                                >
                                     <IndianRupee size={22} color={isCompleted ? '#888888' : '#1565C0'} />
                                 </View>
-                                <Text style={[styles.actionTitleText, isCompleted && styles.actionTitleTextDisabled]}>
+                                <Text
+                                    style={[
+                                        styles.actionTitleText,
+                                        isCompleted && styles.actionTitleTextDisabled,
+                                    ]}
+                                >
                                     Collect Payment
                                 </Text>
                                 <Text style={styles.actionDescText}>
@@ -527,30 +739,48 @@ export default function VisitScreen() {
                             {/* 3. Retail History / Order Ledger (Filtered for this store) */}
                             <TouchableOpacity
                                 style={styles.actionCard}
-                                onPress={() => router.push({
-                                    pathname: '/(tabs)/sales',
-                                    params: { searchCustomer: scheduleDetails?.customerName || customerName || '' }
-                                })}
+                                disabled={!scheduleDetails?.customerId}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '/field-sales/store-ledger/[customerId]',
+                                        params: {
+                                            customerId: String(scheduleDetails?.customerId || ''),
+                                            customerName: scheduleDetails?.customerName || customerName || '',
+                                            customerPhone: scheduleDetails?.customerPhone || '',
+                                            customerAddress: scheduleDetails?.customerAddress || '',
+                                            creditLimit: String(scheduleDetails?.creditLimit || '0'),
+                                            outstandingBalance: String(
+                                                scheduleDetails?.outstandingBalance || '0',
+                                            ),
+                                            visitId: String(id || ''),
+                                        },
+                                    })
+                                }
                                 activeOpacity={0.75}
                             >
                                 <View style={[styles.actionIconBox, { backgroundColor: '#F3E5F5' }]}>
-                                    <ClipboardList size={22} color='#8E24AA' />
+                                    <ClipboardList size={22} color="#8E24AA" />
                                 </View>
                                 <Text style={styles.actionTitleText}>Store Ledger</Text>
-                                <Text style={styles.actionDescText}>Invoices for this shop</Text>
+                                <Text style={styles.actionDescText}>Invoices, payments & balance</Text>
                             </TouchableOpacity>
 
                             {/* 4. Customer Profile / Store Directory (Filtered for this store) */}
                             <TouchableOpacity
                                 style={styles.actionCard}
-                                onPress={() => router.push({
-                                    pathname: '/customers',
-                                    params: { searchCustomer: scheduleDetails?.customerName || customerName || '' }
-                                })}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '/customers',
+                                        params: {
+                                            searchCustomer:
+                                                scheduleDetails?.customerName || customerName || '',
+                                        },
+                                    })
+                                }
                                 activeOpacity={0.75}
                             >
                                 <View style={[styles.actionIconBox, { backgroundColor: '#FFF3E0' }]}>
-                                    <Store size={22} color='#E65100' />
+                                    <Store size={22} color="#E65100" />
                                 </View>
                                 <Text style={styles.actionTitleText}>Shop Profile</Text>
                                 <Text style={styles.actionDescText}>Credit & contact details</Text>
@@ -575,7 +805,9 @@ export default function VisitScreen() {
                                     ) : (
                                         <>
                                             <MapPin size={20} color="#FFFFFF" />
-                                            <Text style={styles.checkInMainBtnText}>Check In at this Store</Text>
+                                            <Text style={styles.checkInMainBtnText}>
+                                                Check In at this Store
+                                            </Text>
                                             <ChevronRight size={18} color="#FFFFFF" />
                                         </>
                                     )}
@@ -585,9 +817,14 @@ export default function VisitScreen() {
                                     <View style={styles.inProgressBanner}>
                                         <View style={styles.inProgressPulse} />
                                         <Text style={styles.inProgressText}>
-                                            Checked in at {checkInRecord?.checkInTime
-                                                ? new Date(checkInRecord.checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-                                                : 'Store'} • In Progress
+                                            Checked in at{' '}
+                                            {checkInRecord?.checkInTime
+                                                ? new Date(checkInRecord.checkInTime).toLocaleTimeString(
+                                                      'en-IN',
+                                                      { hour: '2-digit', minute: '2-digit' },
+                                                  )
+                                                : 'Store'}{' '}
+                                            • In Progress
                                         </Text>
                                     </View>
 
@@ -597,7 +834,9 @@ export default function VisitScreen() {
                                         activeOpacity={0.85}
                                     >
                                         <CheckCircle2 size={20} color="#FFFFFF" />
-                                        <Text style={styles.completeVisitBtnText}>Complete Visit & Record Outcome</Text>
+                                        <Text style={styles.completeVisitBtnText}>
+                                            Complete Visit & Record Outcome
+                                        </Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -612,23 +851,44 @@ export default function VisitScreen() {
                         {visitHistory.length === 0 ? (
                             <View style={styles.emptyHistoryCard}>
                                 <Clock size={28} color="#888888" />
-                                <Text style={styles.emptyHistoryText}>No past visits recorded for this store.</Text>
+                                <Text style={styles.emptyHistoryText}>
+                                    No past visits recorded for this store.
+                                </Text>
                             </View>
                         ) : (
                             <View style={styles.historyList}>
                                 {visitHistory.slice(0, 5).map((v: any, index: number) => {
-                                    const outcome = OUTCOMES.find(o => o.value === v.outcome);
+                                    const outcome = OUTCOMES.find((o) => o.value === v.outcome);
                                     return (
                                         <View key={v.id || index} style={styles.historyCard}>
                                             <View style={styles.historyCardHeader}>
                                                 <Text style={styles.historyDateText}>
                                                     {v.checkInTime
-                                                        ? new Date(v.checkInTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                        ? new Date(v.checkInTime).toLocaleDateString(
+                                                              'en-IN',
+                                                              {
+                                                                  day: '2-digit',
+                                                                  month: 'short',
+                                                                  year: 'numeric',
+                                                              },
+                                                          )
                                                         : 'Recent Visit'}
                                                 </Text>
-                                                <View style={[styles.historyOutcomePill, { backgroundColor: outcome?.bg || '#F5F5F0' }]}>
-                                                    <Text style={[styles.historyOutcomeText, { color: outcome?.color || '#555555' }]}>
-                                                        {outcome?.label || v.outcome?.replace(/_/g, ' ') || 'Completed'}
+                                                <View
+                                                    style={[
+                                                        styles.historyOutcomePill,
+                                                        { backgroundColor: outcome?.bg || '#F5F5F0' },
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.historyOutcomeText,
+                                                            { color: outcome?.color || '#555555' },
+                                                        ]}
+                                                    >
+                                                        {outcome?.label ||
+                                                            v.outcome?.replace(/_/g, ' ') ||
+                                                            'Completed'}
                                                     </Text>
                                                 </View>
                                             </View>
@@ -648,13 +908,20 @@ export default function VisitScreen() {
             </ScrollView>
 
             {/* 8. Check-Out Modal Drawer */}
-            <Modal visible={showCheckOut} animationType="slide" transparent>
+            <Modal
+                visible={showCheckOut}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setShowCheckOut(false)}
+            >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalSheet}>
                         <View style={styles.modalHeaderRow}>
                             <View>
                                 <Text style={styles.modalTitle}>Complete Store Visit</Text>
-                                <Text style={styles.modalSub}>Select outcome for {scheduleDetails?.customerName || customerName}</Text>
+                                <Text style={styles.modalSub}>
+                                    Select outcome for {scheduleDetails?.customerName || customerName}
+                                </Text>
                             </View>
                             <TouchableOpacity
                                 style={styles.modalCloseBtn}
@@ -666,19 +933,24 @@ export default function VisitScreen() {
 
                         <Text style={styles.modalLabel}>VISIT OUTCOME</Text>
                         <View style={styles.outcomeGrid}>
-                            {OUTCOMES.map(o => {
+                            {OUTCOMES.map((o) => {
                                 const selected = selectedOutcome === o.value;
                                 return (
                                     <TouchableOpacity
                                         key={o.value}
                                         style={[
                                             styles.outcomeChip,
-                                            selected && { backgroundColor: o.color, borderColor: o.color }
+                                            selected && { backgroundColor: o.color, borderColor: o.color },
                                         ]}
                                         onPress={() => setSelectedOutcome(o.value)}
                                         activeOpacity={0.8}
                                     >
-                                        <Text style={[styles.outcomeChipText, selected && { color: '#FFFFFF', fontWeight: '700' }]}>
+                                        <Text
+                                            style={[
+                                                styles.outcomeChipText,
+                                                selected && { color: '#FFFFFF', fontWeight: '700' },
+                                            ]}
+                                        >
                                             {o.label}
                                         </Text>
                                     </TouchableOpacity>
@@ -717,13 +989,22 @@ export default function VisitScreen() {
             </Modal>
 
             {/* 9. Spot Payment Collection Modal Drawer */}
-            <Modal visible={showPaymentModal} animationType="fade" transparent>
+            <Modal
+                visible={showPaymentModal}
+                animationType="fade"
+                transparent
+                onRequestClose={() => setShowPaymentModal(false)}
+            >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalSheet}>
                         <View style={styles.modalHeaderRow}>
                             <View>
                                 <Text style={styles.modalTitle}>Collect Payment</Text>
-                                <Text style={styles.modalSub}>{scheduleDetails?.customerName || customerName}</Text>
+                                <Text style={styles.modalSub}>
+                                    {pendingPayment
+                                        ? pendingCustomerName
+                                        : scheduleDetails?.customerName || customerName}
+                                </Text>
                             </View>
                             <TouchableOpacity
                                 style={styles.modalCloseBtn}
@@ -733,6 +1014,18 @@ export default function VisitScreen() {
                             </TouchableOpacity>
                         </View>
 
+                        {pendingPayment && (
+                            <Text style={{ color: '#805500', marginBottom: 16 }}>
+                                An earlier payment for {pendingCustomerName} needs confirmation. Its original
+                                amount and method are restored below. Retry to confirm it without creating a
+                                duplicate. Do not collect the money again.
+                            </Text>
+                        )}
+                        {!!paymentError && (
+                            <Text accessibilityRole="alert" style={{ color: '#B91C1C', marginBottom: 16 }}>
+                                {paymentError}
+                            </Text>
+                        )}
                         <View style={{ marginBottom: 16 }}>
                             <Text style={styles.modalLabel}>PAYMENT AMOUNT (₹)</Text>
                             <TextInput
@@ -742,6 +1035,7 @@ export default function VisitScreen() {
                                 keyboardType="numeric"
                                 value={paymentAmount}
                                 onChangeText={setPaymentAmount}
+                                editable={!pendingPayment && !submittingPayment}
                             />
                         </View>
 
@@ -750,23 +1044,38 @@ export default function VisitScreen() {
                             <TouchableOpacity
                                 style={[styles.payModeBtn, paymentMode === 'CASH' && styles.payModeBtnActive]}
                                 onPress={() => setPaymentMode('CASH')}
+                                disabled={!!pendingPayment || submittingPayment}
                             >
-                                <Text style={[styles.payModeBtnText, paymentMode === 'CASH' && styles.payModeBtnTextActive]}>
+                                <Text
+                                    style={[
+                                        styles.payModeBtnText,
+                                        paymentMode === 'CASH' && styles.payModeBtnTextActive,
+                                    ]}
+                                >
                                     💵 Cash
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.payModeBtn, paymentMode === 'UPI' && styles.payModeBtnActive]}
                                 onPress={() => setPaymentMode('UPI')}
+                                disabled={!!pendingPayment || submittingPayment}
                             >
-                                <Text style={[styles.payModeBtnText, paymentMode === 'UPI' && styles.payModeBtnTextActive]}>
+                                <Text
+                                    style={[
+                                        styles.payModeBtnText,
+                                        paymentMode === 'UPI' && styles.payModeBtnTextActive,
+                                    ]}
+                                >
                                     📱 UPI / QR
                                 </Text>
                             </TouchableOpacity>
                         </View>
 
                         <TouchableOpacity
-                            style={[styles.confirmBtn, { backgroundColor: '#1565C0', borderColor: '#1565C0' }]}
+                            style={[
+                                styles.confirmBtn,
+                                { backgroundColor: '#1565C0', borderColor: '#1565C0' },
+                            ]}
                             onPress={handleCollectPaymentSubmit}
                             disabled={submittingPayment}
                             activeOpacity={0.85}
@@ -776,7 +1085,9 @@ export default function VisitScreen() {
                             ) : (
                                 <>
                                     <Check size={18} color="#FFFFFF" />
-                                    <Text style={styles.confirmBtnText}>Record Payment Receipt</Text>
+                                    <Text style={styles.confirmBtnText}>
+                                        {pendingPayment ? 'Retry Saved Payment' : 'Record Payment Receipt'}
+                                    </Text>
                                 </>
                             )}
                         </TouchableOpacity>
@@ -786,647 +1097,3 @@ export default function VisitScreen() {
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#FAF7F2',
-    },
-    loadingBox: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#666666',
-    },
-    scrollContent: {
-        paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'android' ? 24 : 12,
-        paddingBottom: 40,
-    },
-
-    // Header
-    header: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        marginBottom: 8,
-    },
-    headerTopRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    backBtn: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        backgroundColor: '#FFFFFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#EBEBEB',
-        elevation: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-    },
-    headerTitleCol: {
-        flex: 1,
-        marginLeft: 12,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#1A1A1A',
-        letterSpacing: -0.3,
-    },
-    headerSubtitle: {
-        fontSize: 12,
-        fontWeight: '500',
-        color: '#777777',
-        marginTop: 1,
-    },
-    statusPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 999,
-        borderWidth: 1,
-    },
-    statusPillCompleted: {
-        backgroundColor: '#E8F5E9',
-        borderColor: '#C8E6C9',
-    },
-    statusPillActive: {
-        backgroundColor: '#FFF3E0',
-        borderColor: '#FFE0B2',
-    },
-    statusPillPending: {
-        backgroundColor: '#FAF7F2',
-        borderColor: '#ECEAE4',
-    },
-    statusPillText: {
-        fontSize: 11,
-        fontWeight: '700',
-    },
-    pulseDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#E65100',
-    },
-
-    // Store Card
-    storeCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 18,
-        borderWidth: 1,
-        borderColor: '#EDEBE6',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        marginBottom: 16,
-    },
-    storeHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: 14,
-    },
-    storeAvatarBox: {
-        width: 48,
-        height: 48,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    storeNameText: {
-        fontSize: 17,
-        fontWeight: '800',
-        color: '#1A1A1A',
-        marginBottom: 2,
-    },
-    storeMetaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    storeMetaText: {
-        fontSize: 12,
-        fontWeight: '500',
-        color: '#777777',
-        flex: 1,
-    },
-    quickCallBtn: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        backgroundColor: '#E8F5E9',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#C8E6C9',
-    },
-    financialMatrix: {
-        flexDirection: 'row',
-        backgroundColor: '#FAF7F2',
-        borderRadius: 14,
-        paddingVertical: 10,
-        paddingHorizontal: 8,
-        borderWidth: 1,
-        borderColor: '#F0EFEA',
-    },
-    finCol: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    finDivider: {
-        width: 1,
-        height: '80%',
-        backgroundColor: '#E2E0D8',
-        alignSelf: 'center',
-    },
-    finLabel: {
-        fontSize: 9.5,
-        fontWeight: '800',
-        color: '#888888',
-        marginBottom: 3,
-    },
-    finValue: {
-        fontSize: 13.5,
-        fontWeight: '700',
-        color: '#1A1A1A',
-    },
-    outstandingWarning: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: '#FFF8E1',
-        borderRadius: 10,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        marginTop: 12,
-        borderWidth: 1,
-        borderColor: '#FFE082',
-    },
-    outstandingWarningText: {
-        flex: 1,
-        fontSize: 11.5,
-        fontWeight: '600',
-        color: '#E65100',
-    },
-
-    // Completed Summary Card
-    completedSummaryCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 18,
-        borderWidth: 1,
-        borderColor: '#C8E6C9',
-        elevation: 2,
-        shadowColor: '#2E7D32',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        marginBottom: 16,
-    },
-    completedHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: 14,
-    },
-    completedShieldBox: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: '#E8F5E9',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    completedTitle: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#2E7D32',
-    },
-    completedSub: {
-        fontSize: 11.5,
-        fontWeight: '500',
-        color: '#666666',
-        marginTop: 1,
-    },
-    lockedPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        backgroundColor: '#F5F5F0',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
-    },
-    lockedPillText: {
-        fontSize: 10,
-        fontWeight: '700',
-        color: '#777777',
-    },
-    summaryDetailsBox: {
-        backgroundColor: '#FAF7F2',
-        borderRadius: 14,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: '#EDEBE6',
-        marginBottom: 12,
-    },
-    summaryRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 6,
-        borderBottomWidth: 1,
-        borderBottomColor: '#EDEBE6',
-    },
-    summaryRowLabel: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#777777',
-    },
-    summaryRowVal: {
-        fontSize: 12.5,
-        fontWeight: '700',
-        color: '#1A1A1A',
-    },
-    outcomeBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        backgroundColor: '#E8F5E9',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
-    },
-    outcomeBadgeText: {
-        fontSize: 11.5,
-        fontWeight: '700',
-        color: '#2E7D32',
-    },
-    summaryNotesText: {
-        fontSize: 12,
-        fontWeight: '500',
-        color: '#1A1A1A',
-        fontStyle: 'italic',
-        maxWidth: '65%',
-        textAlign: 'right',
-    },
-    lockNoticeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 4,
-    },
-    lockNoticeText: {
-        fontSize: 11,
-        fontWeight: '500',
-        color: '#888888',
-        flex: 1,
-        lineHeight: 15,
-    },
-
-    // Section
-    section: {
-        marginBottom: 16,
-    },
-    sectionHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 10,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#1A1A1A',
-    },
-    sectionRestrictedText: {
-        fontSize: 11,
-        fontWeight: '700',
-        color: '#888888',
-    },
-    sectionHintText: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: '#E65100',
-    },
-    actionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-    },
-    actionCard: {
-        flex: 1,
-        minWidth: '47%',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: '#EDEBE6',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-    },
-    actionCardDisabled: {
-        backgroundColor: '#FAF7F2',
-        borderColor: '#E8E6E0',
-        opacity: 0.7,
-    },
-    actionIconBox: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    actionTitleText: {
-        fontSize: 14,
-        fontWeight: '800',
-        color: '#1A1A1A',
-        marginBottom: 2,
-    },
-    actionTitleTextDisabled: {
-        color: '#888888',
-    },
-    actionDescText: {
-        fontSize: 11,
-        fontWeight: '500',
-        color: '#777777',
-    },
-
-    // Check In / Check Out Buttons
-    checkInOutSection: {
-        marginBottom: 16,
-    },
-    checkInMainBtn: {
-        backgroundColor: '#2E7D32',
-        borderRadius: 16,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-        elevation: 2,
-    },
-    checkInMainBtnText: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#FFFFFF',
-    },
-    inProgressContainer: {
-        gap: 8,
-    },
-    inProgressBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        backgroundColor: '#FFF3E0',
-        borderRadius: 10,
-        paddingVertical: 8,
-        borderWidth: 1,
-        borderColor: '#FFE0B2',
-    },
-    inProgressPulse: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#E65100',
-    },
-    inProgressText: {
-        fontSize: 11.5,
-        fontWeight: '700',
-        color: '#E65100',
-    },
-    completeVisitBtn: {
-        backgroundColor: '#2E7D32',
-        borderRadius: 16,
-        paddingVertical: 14,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-        elevation: 2,
-    },
-    completeVisitBtnText: {
-        fontSize: 14.5,
-        fontWeight: '800',
-        color: '#FFFFFF',
-    },
-
-    // History
-    emptyHistoryCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 18,
-        padding: 24,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#EDEBE6',
-        gap: 8,
-    },
-    emptyHistoryText: {
-        fontSize: 12.5,
-        fontWeight: '500',
-        color: '#777777',
-    },
-    historyList: {
-        gap: 8,
-    },
-    historyCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: '#EDEBE6',
-    },
-    historyCardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 4,
-    },
-    historyDateText: {
-        fontSize: 12.5,
-        fontWeight: '700',
-        color: '#1A1A1A',
-    },
-    historyOutcomePill: {
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
-    },
-    historyOutcomeText: {
-        fontSize: 10.5,
-        fontWeight: '700',
-    },
-    historyNoteText: {
-        fontSize: 11.5,
-        fontWeight: '500',
-        color: '#666666',
-        fontStyle: 'italic',
-        marginTop: 4,
-    },
-
-    // Modal Sheet
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-    },
-    modalSheet: {
-        width: '100%',
-        maxWidth: 580,
-        backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        padding: 22,
-        paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    },
-    modalHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#1A1A1A',
-    },
-    modalSub: {
-        fontSize: 12,
-        fontWeight: '500',
-        color: '#777777',
-        marginTop: 2,
-    },
-    modalCloseBtn: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: '#F5F5F0',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalCloseText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#777777',
-    },
-    modalLabel: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: '#888888',
-        letterSpacing: 0.3,
-        marginBottom: 8,
-    },
-    outcomeGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        marginBottom: 16,
-    },
-    outcomeChip: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#E2E0D8',
-        backgroundColor: '#FAF7F2',
-    },
-    outcomeChipText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#1A1A1A',
-    },
-    notesInput: {
-        borderWidth: 1,
-        borderColor: '#E2E0D8',
-        borderRadius: 12,
-        padding: 12,
-        fontSize: 13,
-        color: '#1A1A1A',
-        backgroundColor: '#FAF7F2',
-        textAlignVertical: 'top',
-        minHeight: 70,
-        marginBottom: 16,
-    },
-    confirmBtn: {
-        backgroundColor: '#2E7D32',
-        borderRadius: 14,
-        paddingVertical: 14,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-        elevation: 2,
-    },
-    confirmBtnDisabled: {
-        backgroundColor: '#CCCCCC',
-        elevation: 0,
-    },
-    confirmBtnText: {
-        fontSize: 14.5,
-        fontWeight: '800',
-        color: '#FFFFFF',
-    },
-    paymentInput: {
-        borderWidth: 1,
-        borderColor: '#E2E0D8',
-        borderRadius: 12,
-        paddingHorizontal: 14,
-        height: 48,
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#1A1A1A',
-        backgroundColor: '#FAF7F2',
-    },
-    payModeRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginBottom: 16,
-    },
-    payModeBtn: {
-        flex: 1,
-        paddingVertical: 12,
-        borderRadius: 12,
-        backgroundColor: '#FAF7F2',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E2E0D8',
-    },
-    payModeBtnActive: {
-        backgroundColor: '#E3F2FD',
-        borderColor: '#1565C0',
-        borderWidth: 1.5,
-    },
-    payModeBtnText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#777777',
-    },
-    payModeBtnTextActive: {
-        color: '#1565C0',
-        fontWeight: '700',
-    },
-});

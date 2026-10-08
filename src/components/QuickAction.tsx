@@ -15,37 +15,20 @@ export const QuickAction: React.FC<QuickActionProps> = ({
     title,
     icon: Icon,
     onPress,
-    variant = 'secondary'
+    variant = 'secondary',
 }) => {
     const isPrimary = variant === 'primary';
     const { pressHandlers, animatedStyle } = useAnimePress(0.96);
 
     return (
-        <Pressable
-            onPress={onPress}
-            {...pressHandlers}
-            style={{ flex: 1 }}
-        >
+        <Pressable onPress={onPress} {...pressHandlers} style={{ flex: 1 }}>
             <Animated.View
-                style={[
-                    styles.container,
-                    isPrimary ? styles.primaryBg : styles.secondaryBg,
-                    animatedStyle
-                ]}
+                style={[styles.container, isPrimary ? styles.primaryBg : styles.secondaryBg, animatedStyle]}
             >
-                <View style={[
-                    styles.iconContainer,
-                    isPrimary ? styles.iconPrimary : styles.iconSecondary
-                ]}>
-                    <Icon
-                        size={24}
-                        color={isPrimary ? Colors.card : Colors.primary}
-                    />
+                <View style={[styles.iconContainer, isPrimary ? styles.iconPrimary : styles.iconSecondary]}>
+                    <Icon size={24} color={isPrimary ? Colors.card : Colors.primary} />
                 </View>
-                <Text style={[
-                    styles.title,
-                    isPrimary ? styles.textPrimary : styles.textSecondary
-                ]}>
+                <Text style={[styles.title, isPrimary ? styles.textPrimary : styles.textSecondary]}>
                     {title}
                 </Text>
             </Animated.View>
@@ -62,7 +45,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 12,
         // Shadow
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: {
             width: 0,
             height: 4,

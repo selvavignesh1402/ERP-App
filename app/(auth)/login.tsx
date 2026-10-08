@@ -1,22 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
+    ActivityIndicator,
+    Alert,
+    AppState,
+    KeyboardAvoidingView,
+    Platform,
     SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
     TextInput,
     TouchableOpacity,
-    Alert,
-    ImageBackground,
-    ActivityIndicator,
-    Platform,
+    View,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
-import { Colors } from '../../src/theme/colors';
-import { Leaf, ArrowRight, Eye, EyeOff, KeyRound, Smartphone } from 'lucide-react-native';
-import api, { setToken, firebaseLogin, sendBackendOtp, verifyBackendOtp } from '../../src/services/api';
-import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../../src/services/firebase';
+import { Stack, useRouter } from 'expo-router';
+import Svg, { Circle, Path } from 'react-native-svg';
+import {
+    AlertCircle,
+    ArrowRight,
+    CheckCircle2,
+    Eye,
+    EyeOff,
+    KeyRound,
+    Leaf,
+    Lock,
+    Phone,
+    ShieldCheck,
+    Smartphone,
+    Sparkles,
+    UserCheck,
+} from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
+import { FadeInDown, StaggerContainer } from '../../src/components/Anime';
+import api, { firebaseLogin, sendBackendOtp, setToken, verifyBackendOtp } from '../../src/services/api';
+import { sendFirebasePhoneOtp, verifyFirebasePhoneOtp } from '../../src/services/firebase';
 
 type LoginMode = 'otp' | 'password';
 type OtpStage = 'phone' | 'code';
@@ -30,7 +47,38 @@ export default function LoginScreen() {
     const [otpStage, setOtpStage] = useState<OtpStage>('phone');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
     const [firebaseSessionInfo, setFirebaseSessionInfo] = useState<string | null>(null);
+
+    // Resend OTP countdown timer
+    const [countdown, setCountdown] = useState(0);
+    const [targetExpiryTime, setTargetExpiryTime] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!targetExpiryTime) return;
+
+        const updateCountdown = () => {
+            const diff = Math.max(0, Math.ceil((targetExpiryTime - Date.now()) / 1000));
+            setCountdown(diff);
+            if (diff === 0) {
+                setTargetExpiryTime(null);
+            }
+        };
+
+        updateCountdown();
+        const interval = setInterval(updateCountdown, 1000);
+
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                updateCountdown();
+            }
+        });
+
+        return () => {
+            clearInterval(interval);
+            subscription.remove();
+        };
+    }, [targetExpiryTime]);
 
     // Format phone number with country code for Firebase/SMS
     const getFormattedPhone = (rawPhone: string) => {
@@ -56,28 +104,33 @@ export default function LoginScreen() {
                 pendingToken = window.localStorage.getItem('pending_invite_token');
                 if (pendingToken) window.localStorage.removeItem('pending_invite_token');
             }
-            
+
             if (pendingToken) {
                 router.replace(`/invite?token=${pendingToken}` as any);
             } else {
                 router.replace('/(tabs)');
             }
-        } catch (e) {
+        } catch {
             router.replace('/(tabs)');
         }
     };
 
     // -------- PASSWORD LOGIN --------
     const handlePasswordLogin = async () => {
-        if (!phone || !password) {
-            Alert.alert('Error', 'Please enter phone and password');
+        setErrorMessage('');
+        const cleanPhone = phone
+            .trim()
+            .replace(/^(\+91|91)/, '')
+            .replace(/\D/g, '');
+        if (!cleanPhone || !password) {
+            setErrorMessage('Please enter your phone number and password');
             return;
         }
 
         setLoading(true);
         try {
             const response = await api.post('/auth/login-password', {
-                phoneNumber: phone.trim(),
+                phoneNumber: cleanPhone,
                 password: password,
             });
 
@@ -85,12 +138,12 @@ export default function LoginScreen() {
                 setToken(response.data.token);
                 await handlePostLoginRedirect(response.data.profileCompleted, response.data.role);
             } else {
-                Alert.alert('Error', 'Invalid login response');
+                setErrorMessage('Invalid login response from server');
             }
         } catch (error: any) {
-            console.error('Password login error:', error);
-            const errMsg = error.response?.data?.message || 'Failed to authenticate. Please check your credentials.';
-            Alert.alert('Login Failed', errMsg);
+            const errMsg =
+                error.response?.data?.message || 'Authentication failed. Please check your credentials.';
+            setErrorMessage(errMsg);
         } finally {
             setLoading(false);
         }
@@ -98,13 +151,18 @@ export default function LoginScreen() {
 
     // -------- SEND OTP --------
     const handleSendOtp = async () => {
-        if (!phone || phone.trim().length < 10) {
-            Alert.alert('Invalid Phone', 'Please enter a valid 10-digit mobile number');
+        setErrorMessage('');
+        setOtpCode('');
+        const clean10Digit = phone
+            .trim()
+            .replace(/^(\+91|91)/, '')
+            .replace(/\D/g, '');
+        if (!clean10Digit || clean10Digit.length < 10) {
+            setErrorMessage('Please enter a valid 10-digit mobile number');
             return;
         }
 
         const formatted = getFormattedPhone(phone);
-        const clean10DigitPhone = phone.trim().replace(/^(\+91|91)/, '').replace(/\D/g, '');
         setLoading(true);
 
         try {
@@ -113,21 +171,23 @@ export default function LoginScreen() {
             if (result && result.sessionInfo) {
                 setFirebaseSessionInfo(result.sessionInfo);
                 setOtpStage('code');
-                Alert.alert('OTP Sent', `Verification code sent to ${formatted}`);
+                setCountdown(30);
+                setTargetExpiryTime(Date.now() + 30000);
             } else {
                 throw new Error('No session returned from Firebase');
             }
-        } catch (error: any) {
-            console.warn('Firebase send OTP error, attempting backend OTP fallback:', error?.response?.data || error);
+        } catch {
             try {
                 // 2. Fallback to direct backend OTP service
-                await sendBackendOtp(clean10DigitPhone);
+                await sendBackendOtp(clean10Digit);
                 setFirebaseSessionInfo(null);
                 setOtpStage('code');
-                Alert.alert('OTP Sent', `Verification code sent for ${clean10DigitPhone}`);
+                setCountdown(30);
+                setTargetExpiryTime(Date.now() + 30000);
             } catch (backendErr: any) {
-                const msg = backendErr.response?.data?.message || error.response?.data?.error?.message || error.message || 'Failed to send OTP';
-                Alert.alert('Error', msg);
+                const msg =
+                    backendErr.response?.data?.message || 'Failed to send OTP code. Please try again.';
+                setErrorMessage(msg);
             }
         } finally {
             setLoading(false);
@@ -136,12 +196,16 @@ export default function LoginScreen() {
 
     // -------- VERIFY OTP & LOGIN --------
     const handleVerifyOtp = async () => {
-        if (!otpCode || otpCode.trim().length < 4) {
-            Alert.alert('Invalid OTP', 'Please enter the verification code received');
+        setErrorMessage('');
+        if (!otpCode || !/^\d{6}$/.test(otpCode.trim())) {
+            setErrorMessage('Please enter the 6-digit verification code');
             return;
         }
 
-        const clean10DigitPhone = phone.trim().replace(/^(\+91|91)/, '').replace(/\D/g, '');
+        const clean10Digit = phone
+            .trim()
+            .replace(/^(\+91|91)/, '')
+            .replace(/\D/g, '');
         setLoading(true);
         try {
             if (firebaseSessionInfo) {
@@ -157,402 +221,690 @@ export default function LoginScreen() {
                     setToken(response.data.token);
                     await handlePostLoginRedirect(response.data.profileCompleted, response.data.role);
                 } else {
-                    Alert.alert('Login Error', 'Failed to retrieve ERP session');
+                    setErrorMessage('Failed to retrieve active session');
                 }
             } else {
                 // Backend verification fallback
-                const response = await verifyBackendOtp(clean10DigitPhone, otpCode.trim());
+                const response = await verifyBackendOtp(clean10Digit, otpCode.trim());
                 if (response.data && response.data.token) {
                     setToken(response.data.token);
                     await handlePostLoginRedirect(response.data.profileCompleted, response.data.role);
                 } else {
-                    Alert.alert('Login Error', 'Invalid verification response');
+                    setErrorMessage('Invalid verification response');
                 }
             }
         } catch (error: any) {
-            console.error('OTP Verification error:', error);
-            const msg = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Invalid or expired OTP';
-            Alert.alert('Verification Failed', msg);
+            const msg =
+                error.response?.data?.error?.message ||
+                error.response?.data?.message ||
+                'Invalid or expired OTP code';
+            setErrorMessage(msg);
         } finally {
             setLoading(false);
         }
     };
 
+    // Fill demo credentials
+    const fillDemoAdmin = () => {
+        setLoginMode('password');
+        setPhone('9994645285');
+        setPassword('Sam123');
+        setErrorMessage('');
+    };
+
     return (
-        <ImageBackground
-            source={require('../../assets/header_bg.png')}
-            style={styles.backgroundImage}
-            imageStyle={{ borderRadius: 24, opacity: 0.1 }}
-            resizeMode="cover"
-        >
-            <SafeAreaView style={styles.container}>
-                <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={styles.container}>
+            <Stack.Screen options={{ headerShown: false }} />
 
-                <View style={styles.content}>
-                    <View style={styles.header}>
-                        <View style={styles.logoBox}>
-                            <Leaf size={32} color={Colors.primary} />
-                        </View>
-                        <Text style={styles.title}>Rice Business ERP</Text>
-                        <Text style={styles.subtitle}>Welcome back! Sign in to access your shop.</Text>
-                    </View>
+            {/* Signature Pastel Background Art */}
+            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
+                    <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
 
-                    <View style={styles.form}>
-                        {/* Mode Selector Tabs */}
-                        <View style={styles.modeTabs}>
-                            <TouchableOpacity
-                                style={[styles.modeTab, loginMode === 'otp' && styles.activeTab]}
-                                onPress={() => {
-                                    setLoginMode('otp');
-                                    setOtpStage('phone');
-                                }}
-                            >
-                                <Smartphone size={16} color={loginMode === 'otp' ? '#fff' : Colors.textSecondary} />
-                                <Text style={[styles.modeTabText, loginMode === 'otp' && styles.activeTabText]}>
-                                    Phone OTP
-                                </Text>
-                            </TouchableOpacity>
+                    {/* Top Mint Flow Blob */}
+                    <Path
+                        d="M100 -50 C210 -60, 390 -30, 400 90 C410 210, 340 270, 200 240 C110 220, 20 140, 100 -50 Z"
+                        fill="#C8E6C9"
+                        opacity={0.38}
+                    />
+                    <Circle cx="330" cy="80" r="75" fill="#81C784" opacity={0.18} />
 
-                            <TouchableOpacity
-                                style={[styles.modeTab, loginMode === 'password' && styles.activeTab]}
-                                onPress={() => setLoginMode('password')}
-                            >
-                                <KeyRound size={16} color={loginMode === 'password' ? '#fff' : Colors.textSecondary} />
-                                <Text style={[styles.modeTabText, loginMode === 'password' && styles.activeTabText]}>
-                                    Password
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                    {/* Warm Peach & Wheat Glow */}
+                    <Path
+                        d="M-60 160 C30 180, 120 120, 160 240 C200 360, 70 400, -20 360 C-100 320, -130 140, -60 160 Z"
+                        fill="#FFE0B2"
+                        opacity={0.34}
+                    />
+                    <Circle cx="40" cy="710" r="85" fill="#F7E6B8" opacity={0.3} />
+                    <Circle cx="340" cy="500" r="80" fill="#E1BEE7" opacity={0.25} />
+                </Svg>
+            </View>
 
-                        {/* --- OTP LOGIN MODE --- */}
-                        {loginMode === 'otp' && (
-                            <>
-                                {otpStage === 'phone' ? (
-                                    <>
-                                        <View style={styles.inputGroup}>
-                                            <Text style={styles.label}>MOBILE NUMBER</Text>
-                                            <TextInput
-                                                style={styles.input}
-                                                placeholder="e.g. 98765 43210"
-                                                value={phone}
-                                                onChangeText={setPhone}
-                                                keyboardType="phone-pad"
-                                                autoFocus
-                                            />
-                                        </View>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={styles.keyboardView}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.centerWrapper}>
+                        {/* 1. Brand Logo & Header */}
+                        <FadeInDown delay={20} style={styles.brandSection}>
+                            <View style={styles.logoBadgeBox}>
+                                <View style={styles.logoInnerCircle}>
+                                    <Leaf size={30} color="#2E7D32" />
+                                </View>
+                            </View>
+                            <Text style={styles.brandTitle}>Rice Business ERP</Text>
+                            <Text style={styles.brandSubtitle}>
+                                Milling, Wholesale Trading & Field Sales Hub
+                            </Text>
+                        </FadeInDown>
 
-                                        <TouchableOpacity
-                                            style={styles.actionBtn}
-                                            onPress={handleSendOtp}
-                                            disabled={loading}
+                        {/* 2. Floating Auth Card */}
+                        <FadeInDown delay={60} style={styles.cardContainer}>
+                            <View style={styles.card}>
+                                {/* Auth Mode Segmented Tab Switcher */}
+                                <View style={styles.modeTabs}>
+                                    <TouchableOpacity
+                                        style={[styles.modeTab, loginMode === 'otp' && styles.activeTab]}
+                                        onPress={() => {
+                                            setLoginMode('otp');
+                                            setOtpStage('phone');
+                                            setErrorMessage('');
+                                        }}
+                                        activeOpacity={0.75}
+                                    >
+                                        <Smartphone
+                                            size={15}
+                                            color={loginMode === 'otp' ? '#2E7D32' : '#666666'}
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.modeTabText,
+                                                loginMode === 'otp' && styles.activeTabText,
+                                            ]}
                                         >
-                                            {loading ? (
-                                                <ActivityIndicator size="small" color="#fff" />
-                                            ) : (
-                                                <>
-                                                    <Text style={styles.actionBtnText}>Send Verification Code</Text>
-                                                    <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
-                                                </>
-                                            )}
-                                        </TouchableOpacity>
-                                    </>
-                                ) : (
-                                    <>
-                                        <View style={styles.inputGroup}>
-                                            <View style={styles.phoneBadgeRow}>
-                                                <Text style={styles.label}>ENTER 6-DIGIT OTP</Text>
-                                                <TouchableOpacity onPress={() => setOtpStage('phone')}>
-                                                    <Text style={styles.changePhoneText}>Change ({phone})</Text>
+                                            Mobile OTP
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.modeTab, loginMode === 'password' && styles.activeTab]}
+                                        onPress={() => {
+                                            setLoginMode('password');
+                                            setErrorMessage('');
+                                        }}
+                                        activeOpacity={0.75}
+                                    >
+                                        <KeyRound
+                                            size={15}
+                                            color={loginMode === 'password' ? '#2E7D32' : '#666666'}
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.modeTabText,
+                                                loginMode === 'password' && styles.activeTabText,
+                                            ]}
+                                        >
+                                            Password
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* In-line Error Banner */}
+                                {errorMessage ? (
+                                    <View style={styles.errorBanner}>
+                                        <AlertCircle size={15} color="#C62828" />
+                                        <Text style={styles.errorBannerText}>{errorMessage}</Text>
+                                    </View>
+                                ) : null}
+
+                                {/* --- OTP LOGIN WORKFLOW --- */}
+                                {loginMode === 'otp' ? (
+                                    otpStage === 'phone' ? (
+                                        <View style={styles.formGroup}>
+                                            <Text style={styles.inputLabel}>MOBILE NUMBER</Text>
+                                            <View style={styles.phoneInputRow}>
+                                                <View style={styles.countryCodeBox}>
+                                                    <Text style={styles.countryFlag}>🇮🇳</Text>
+                                                    <Text style={styles.countryCodeText}>+91</Text>
+                                                </View>
+                                                <TextInput
+                                                    style={styles.phoneTextInput}
+                                                    placeholder="98765 43210"
+                                                    placeholderTextColor="#9E9E9E"
+                                                    value={phone}
+                                                    onChangeText={setPhone}
+                                                    keyboardType="phone-pad"
+                                                    maxLength={10}
+                                                    autoFocus
+                                                />
+                                            </View>
+                                            <Text style={styles.inputHelperText}>
+                                                We will send a 6-digit verification code to this number.
+                                            </Text>
+
+                                            <TouchableOpacity
+                                                style={styles.primaryBtn}
+                                                onPress={handleSendOtp}
+                                                disabled={loading}
+                                                activeOpacity={0.85}
+                                            >
+                                                {loading ? (
+                                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                                ) : (
+                                                    <>
+                                                        <Text style={styles.primaryBtnText}>
+                                                            Send Verification Code
+                                                        </Text>
+                                                        <ArrowRight size={18} color="#FFFFFF" />
+                                                    </>
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.formGroup}>
+                                            <View style={styles.otpHeaderRow}>
+                                                <Text style={styles.inputLabel}>VERIFICATION CODE</Text>
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        setOtpStage('phone');
+                                                        setOtpCode('');
+                                                        setErrorMessage('');
+                                                    }}
+                                                >
+                                                    <Text style={styles.changePhoneText}>Edit ({phone})</Text>
                                                 </TouchableOpacity>
                                             </View>
+
                                             <TextInput
-                                                style={[styles.input, styles.otpInput]}
-                                                placeholder="• • • • • •"
+                                                style={styles.otpTextInput}
+                                                placeholder="••••••"
+                                                placeholderTextColor="#BDBDBD"
                                                 value={otpCode}
                                                 onChangeText={setOtpCode}
                                                 keyboardType="number-pad"
                                                 maxLength={6}
                                                 autoFocus
                                             />
+
+                                            <TouchableOpacity
+                                                style={styles.primaryBtn}
+                                                onPress={handleVerifyOtp}
+                                                disabled={loading}
+                                                activeOpacity={0.85}
+                                            >
+                                                {loading ? (
+                                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                                ) : (
+                                                    <>
+                                                        <ShieldCheck size={18} color="#FFFFFF" />
+                                                        <Text style={styles.primaryBtnText}>
+                                                            Verify & Sign In
+                                                        </Text>
+                                                    </>
+                                                )}
+                                            </TouchableOpacity>
+
+                                            <View style={styles.resendRow}>
+                                                {countdown > 0 ? (
+                                                    <Text style={styles.countdownText}>
+                                                        Resend OTP code in{' '}
+                                                        <Text style={{ fontWeight: '700', color: '#1A1A1A' }}>
+                                                            {countdown}s
+                                                        </Text>
+                                                    </Text>
+                                                ) : (
+                                                    <TouchableOpacity
+                                                        onPress={handleSendOtp}
+                                                        disabled={loading}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.resendActionText}>
+                                                            Didn't receive code? Resend OTP
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        </View>
+                                    )
+                                ) : (
+                                    /* --- PASSWORD LOGIN WORKFLOW --- */
+                                    <View style={styles.formGroup}>
+                                        <Text style={styles.inputLabel}>REGISTERED PHONE NUMBER</Text>
+                                        <View style={styles.inputFieldBox}>
+                                            <Phone size={17} color="#777777" />
+                                            <TextInput
+                                                style={styles.textInput}
+                                                placeholder="e.g. 9876543210"
+                                                placeholderTextColor="#9E9E9E"
+                                                value={phone}
+                                                onChangeText={setPhone}
+                                                keyboardType="phone-pad"
+                                            />
+                                        </View>
+
+                                        <Text style={[styles.inputLabel, { marginTop: 14 }]}>PASSWORD</Text>
+                                        <View style={styles.inputFieldBox}>
+                                            <Lock size={17} color="#777777" />
+                                            <TextInput
+                                                style={styles.textInput}
+                                                placeholder="Enter account password"
+                                                placeholderTextColor="#9E9E9E"
+                                                value={password}
+                                                onChangeText={setPassword}
+                                                secureTextEntry={!showPassword}
+                                            />
+                                            <TouchableOpacity
+                                                onPress={() => setShowPassword(!showPassword)}
+                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            >
+                                                {showPassword ? (
+                                                    <EyeOff size={18} color="#777777" />
+                                                ) : (
+                                                    <Eye size={18} color="#777777" />
+                                                )}
+                                            </TouchableOpacity>
                                         </View>
 
                                         <TouchableOpacity
-                                            style={styles.actionBtn}
-                                            onPress={handleVerifyOtp}
+                                            style={styles.primaryBtn}
+                                            onPress={handlePasswordLogin}
                                             disabled={loading}
+                                            activeOpacity={0.85}
                                         >
                                             {loading ? (
-                                                <ActivityIndicator size="small" color="#fff" />
+                                                <ActivityIndicator size="small" color="#FFFFFF" />
                                             ) : (
                                                 <>
-                                                    <Text style={styles.actionBtnText}>Verify & Sign In</Text>
-                                                    <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
+                                                    <Text style={styles.primaryBtnText}>
+                                                        Sign In to Workspace
+                                                    </Text>
+                                                    <ArrowRight size={18} color="#FFFFFF" />
                                                 </>
                                             )}
                                         </TouchableOpacity>
 
-                                        <TouchableOpacity
-                                            onPress={handleSendOtp}
-                                            style={styles.resendBtn}
-                                            disabled={loading}
-                                        >
-                                            <Text style={styles.resendText}>Didn't get code? Resend OTP</Text>
-                                        </TouchableOpacity>
-                                    </>
-                                )}
-                            </>
-                        )}
-
-                        {/* --- PASSWORD LOGIN MODE --- */}
-                        {loginMode === 'password' && (
-                            <>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>PHONE NUMBER</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="e.g. 98765 43210"
-                                        value={phone}
-                                        onChangeText={setPhone}
-                                        keyboardType="phone-pad"
-                                    />
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>PASSWORD</Text>
-                                    <View style={styles.passwordContainer}>
-                                        <TextInput
-                                            style={styles.passwordInput}
-                                            placeholder="Enter your password"
-                                            value={password}
-                                            onChangeText={setPassword}
-                                            secureTextEntry={!showPassword}
-                                        />
-                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                                            {showPassword ? <EyeOff size={20} color={Colors.textSecondary} /> : <Eye size={20} color={Colors.textSecondary} />}
-                                        </TouchableOpacity>
+                                        {/* Quick demo helper chip for local testing */}
+                                        <View style={styles.demoFillBox}>
+                                            <TouchableOpacity
+                                                style={styles.demoChip}
+                                                onPress={fillDemoAdmin}
+                                                activeOpacity={0.7}
+                                            >
+                                                <UserCheck size={13} color="#2E7D32" />
+                                                <Text style={styles.demoChipText}>Quick Fill Demo Admin</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
+                                )}
+
+                                {/* Footer Link to Signup */}
+                                <View style={styles.cardFooter}>
+                                    <Text style={styles.footerPromptText}>New to Rice ERP? </Text>
+                                    <TouchableOpacity
+                                        onPress={() => router.push('/(auth)/signup')}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.footerActionText}>Register Business</Text>
+                                    </TouchableOpacity>
                                 </View>
+                            </View>
+                        </FadeInDown>
 
-                                <TouchableOpacity
-                                    style={styles.actionBtn}
-                                    onPress={handlePasswordLogin}
-                                    disabled={loading}
-                                >
-                                    {loading ? (
-                                        <ActivityIndicator size="small" color="#fff" />
-                                    ) : (
-                                        <>
-                                            <Text style={styles.actionBtnText}>Sign In</Text>
-                                            <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                            </>
-                        )}
-
-                        <View style={styles.footer}>
-                            <Text style={styles.footerText}>Don't have an account? </Text>
-                            <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
-                                <Text style={styles.linkText}>Sign up for free</Text>
-                            </TouchableOpacity>
-                        </View>
+                        {/* 3. Security & Trust Badge */}
+                        <FadeInDown delay={90} style={styles.trustBadgeRow}>
+                            <ShieldCheck size={14} color="#57665D" />
+                            <Text style={styles.trustBadgeText}>
+                                256-Bit Encrypted Multi-Tenant ERP Cloud
+                            </Text>
+                        </FadeInDown>
                     </View>
-                </View>
-            </SafeAreaView>
-        </ImageBackground>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    backgroundImage: {
-        flex: 1,
-        width: '100%',
-        height: '100%',
-    },
     container: {
         flex: 1,
+        backgroundColor: '#FAF7F2',
     },
-    content: {
+    keyboardView: {
         flex: 1,
-        padding: 24,
-        paddingTop: 40,
+    },
+    scrollContent: {
+        flexGrow: 1,
         justifyContent: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 32,
     },
-    header: {
+    centerWrapper: {
+        width: '100%',
+        maxWidth: 440,
+        alignSelf: 'center',
+    },
+
+    // Brand Section
+    brandSection: {
         alignItems: 'center',
-        marginBottom: 28,
+        marginBottom: 24,
     },
-    logoBox: {
-        width: 64,
-        height: 64,
-        borderRadius: 20,
+    logoBadgeBox: {
+        width: 68,
+        height: 68,
+        borderRadius: 22,
         backgroundColor: '#E8F5E9',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
-        shadowColor: "#769F83",
+        marginBottom: 14,
+        borderWidth: 1.5,
+        borderColor: '#C8E6C9',
+        elevation: 3,
+        shadowColor: '#2E7D32',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 2,
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
     },
-    title: {
-        fontSize: 24,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.text,
-        marginBottom: 6,
+    logoInnerCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 16,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    brandTitle: {
+        fontSize: 26,
+        fontWeight: '800',
+        color: '#1A1A1A',
+        letterSpacing: -0.5,
+        marginBottom: 4,
         textAlign: 'center',
     },
-    subtitle: {
-        fontSize: 14,
-        fontFamily: 'Urbanist_400Regular',
-        color: Colors.textSecondary,
+    brandSubtitle: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#57665D',
         textAlign: 'center',
+        lineHeight: 18,
     },
-    form: {
-        backgroundColor: '#fff',
-        borderRadius: 30,
-        padding: 24,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
+
+    // Floating Card
+    cardContainer: {
+        marginBottom: 18,
+    },
+    card: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 28,
+        padding: 22,
+        borderWidth: 1,
+        borderColor: '#E8ECE9',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.05,
-        shadowRadius: 20,
-        elevation: 5,
+        shadowRadius: 16,
     },
+
+    // Segmented Mode Switcher
     modeTabs: {
         flexDirection: 'row',
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#F0EFEA',
         borderRadius: 14,
         padding: 4,
-        marginBottom: 20,
+        gap: 4,
+        marginBottom: 18,
     },
     modeTab: {
         flex: 1,
+        height: 38,
+        borderRadius: 10,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 10,
-        borderRadius: 10,
         gap: 6,
     },
     activeTab: {
-        backgroundColor: '#769F83',
-        shadowColor: '#769F83',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 2,
+        backgroundColor: '#FFFFFF',
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
     },
     modeTabText: {
         fontSize: 13,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: Colors.textSecondary,
+        fontWeight: '600',
+        color: '#666666',
     },
     activeTabText: {
-        color: '#fff',
-        fontFamily: 'Urbanist_700Bold',
+        color: '#2E7D32',
+        fontWeight: '700',
     },
-    inputGroup: {
-        marginBottom: 18,
+
+    // Error banner
+    errorBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: '#FFEBEE',
+        paddingHorizontal: 12,
+        paddingVertical: 9,
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#FFCDD2',
     },
-    phoneBadgeRow: {
+    errorBannerText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#C62828',
+        flex: 1,
+        lineHeight: 16,
+    },
+
+    // Form inputs
+    formGroup: {
+        gap: 6,
+    },
+    inputLabel: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: '#777777',
+        letterSpacing: 0.6,
+        marginBottom: 2,
+    },
+    phoneInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FAF9F6',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: '#E5E8E5',
+        overflow: 'hidden',
+    },
+    countryCodeBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        backgroundColor: '#F0EFEA',
+        borderRightWidth: 1,
+        borderRightColor: '#E5E8E5',
+    },
+    countryFlag: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#2E7D32',
+    },
+    countryCodeText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1A1A1A',
+    },
+    phoneTextInput: {
+        flex: 1,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#1A1A1A',
+        borderWidth: 0,
+        ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
+    },
+    inputHelperText: {
+        fontSize: 11.5,
+        color: '#888888',
+        marginTop: 4,
+        marginBottom: 8,
+        lineHeight: 16,
+    },
+
+    // General text input box
+    inputFieldBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: '#FAF9F6',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: '#E5E8E5',
+        paddingHorizontal: 14,
+        paddingVertical: 11,
+    },
+    textInput: {
+        flex: 1,
+        fontSize: 14.5,
+        fontWeight: '600',
+        color: '#1A1A1A',
+        paddingVertical: 0,
+        borderWidth: 0,
+        ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
+    },
+
+    // OTP Input
+    otpHeaderRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 8,
-    },
-    label: {
-        fontSize: 11,
-        fontFamily: 'Urbanist_700Bold',
-        color: Colors.textSecondary,
-        marginBottom: 8,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        marginBottom: 4,
     },
     changePhoneText: {
         fontSize: 12,
-        fontFamily: 'Urbanist_600SemiBold',
-        color: '#769F83',
+        fontWeight: '700',
+        color: '#2E7D32',
     },
-    input: {
-        backgroundColor: '#FAFAFA',
-        borderWidth: 1,
-        borderColor: '#F0F0F0',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 13,
-        fontSize: 16,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.text,
-    },
-    otpInput: {
-        textAlign: 'center',
-        letterSpacing: 8,
-        fontSize: 22,
-        fontFamily: 'Urbanist_700Bold',
-    },
-    actionBtn: {
-        backgroundColor: '#769F83',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 15,
+    otpTextInput: {
+        backgroundColor: '#FAF9F6',
         borderRadius: 14,
-        marginTop: 6,
-        marginBottom: 16,
-        shadowColor: "#769F83",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
+        borderWidth: 1.5,
+        borderColor: '#C8E6C9',
+        paddingVertical: 12,
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#1A1A1A',
+        textAlign: 'center',
+        letterSpacing: 12,
+        marginBottom: 6,
+        ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
     },
-    actionBtnText: {
-        color: '#fff',
-        fontSize: 15,
-        fontFamily: 'Urbanist_700Bold',
-    },
-    resendBtn: {
+
+    // Buttons
+    primaryBtn: {
+        height: 48,
+        backgroundColor: '#2E7D32',
+        borderRadius: 14,
+        flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 16,
+        justifyContent: 'center',
+        gap: 8,
+        marginTop: 12,
+        elevation: 2,
+        shadowColor: '#2E7D32',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
     },
-    resendText: {
-        fontSize: 13,
-        color: '#769F83',
-        fontFamily: 'Urbanist_600SemiBold',
+    primaryBtnText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#FFFFFF',
     },
-    footer: {
+
+    // Resend OTP
+    resendRow: {
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 4,
+    },
+    countdownText: {
+        fontSize: 12,
+        color: '#777777',
+    },
+    resendActionText: {
+        fontSize: 12.5,
+        fontWeight: '700',
+        color: '#2E7D32',
+    },
+
+    // Demo fill helper
+    demoFillBox: {
+        alignItems: 'center',
+        marginTop: 12,
+    },
+    demoChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#E8F5E9',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#C8E6C9',
+    },
+    demoChipText: {
+        fontSize: 11.5,
+        fontWeight: '700',
+        color: '#2E7D32',
+    },
+
+    // Card Footer
+    cardFooter: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: 4,
+        alignItems: 'center',
+        marginTop: 18,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F0EFEA',
     },
-    footerText: {
-        color: Colors.textSecondary,
-        fontFamily: 'Urbanist_500Medium',
+    footerPromptText: {
         fontSize: 13,
+        color: '#666666',
     },
-    linkText: {
-        color: '#769F83',
-        fontFamily: 'Urbanist_700Bold',
+    footerActionText: {
         fontSize: 13,
+        fontWeight: '800',
+        color: '#2E7D32',
     },
-    passwordContainer: {
+
+    // Trust badge
+    trustBadgeRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FAFAFA',
-        borderWidth: 1,
-        borderColor: '#F0F0F0',
-        borderRadius: 12,
-        paddingRight: 14,
+        justifyContent: 'center',
+        gap: 6,
     },
-    passwordInput: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingVertical: 13,
-        fontSize: 16,
-        fontFamily: 'Urbanist_500Medium',
-        color: Colors.text,
+    trustBadgeText: {
+        fontSize: 11.5,
+        fontWeight: '600',
+        color: '#57665D',
     },
-    eyeBtn: {
-        padding: 4,
-    }
 });

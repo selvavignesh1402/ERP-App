@@ -10,13 +10,15 @@ export default function WelcomeScreen() {
     const router = useRouter();
 
     React.useEffect(() => {
-        getToken().then(token => {
-            if (token) {
-                router.replace('/(tabs)');
-            }
-        }).catch(err => {
-            console.error('Error checking token on welcome screen:', err);
-        });
+        getToken()
+            .then((token) => {
+                if (token) {
+                    router.replace('/(tabs)');
+                }
+            })
+            .catch((err) => {
+                console.error('Error checking token on welcome screen:', err);
+            });
     }, []);
 
     return (
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#E8F5E9',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         alignItems: 'center',
         width: '100%',
-        shadowColor: "#769F83",
+        shadowColor: '#769F83',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
@@ -174,5 +176,5 @@ const styles = StyleSheet.create({
         color: Colors.text,
         fontFamily: 'Urbanist_700Bold',
         fontSize: 16,
-    }
+    },
 });

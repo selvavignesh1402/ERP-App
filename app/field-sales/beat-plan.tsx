@@ -1,22 +1,54 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-    ActivityIndicator, Alert, Modal, TextInput, Platform
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    TextInput,
+    Platform,
 } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    Plus, ArrowLeft, ChevronRight, Trash2, CalendarDays,
-    MapPin, User, CheckCircle2, Clock, Sparkles, X,
-    Store, Navigation, ShieldCheck
+    Plus,
+    ArrowLeft,
+    ChevronRight,
+    Trash2,
+    CalendarDays,
+    MapPin,
+    User,
+    CheckCircle2,
+    Clock,
+    Sparkles,
+    X,
+    Store,
+    Navigation,
+    ShieldCheck,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer } from '../../src/components/Anime';
-import api from '../../src/services/api';
+import { RoleGate } from '../../src/components/RoleGate';
+import { OrgScopedScreen } from '../../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../../src/services/api';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function BeatPlanScreen() {
+    return (
+        <RoleGate permission="beat-plan:manage">
+            <OrgScopedScreen emptyMessage="Select a shop to manage beat plans.">
+                {(api) => <BeatPlanScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function BeatPlanScreenContent({ api }: { api: OrganizationApi }) {
     const router = useRouter();
     const [plans, setPlans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -64,7 +96,7 @@ export default function BeatPlanScreen() {
                 api.get('/users').catch(() => ({ data: [] })),
             ]);
             setCustomers(cRes.data || []);
-            
+
             let staffList: any[] = [];
             if (Array.isArray(mRes.data) && mRes.data.length > 0) {
                 staffList = mRes.data
@@ -74,10 +106,10 @@ export default function BeatPlanScreen() {
                         name: m.name || `Staff #${m.userId || m.id}`,
                         phoneNumber: m.phoneNumber,
                         role: m.role,
-                        active: m.isActive !== false
+                        active: m.isActive !== false,
                     }));
             }
-            
+
             if (staffList.length === 0 && Array.isArray(uRes.data) && uRes.data.length > 0) {
                 staffList = uRes.data
                     .filter((u: any) => u.active !== false)
@@ -86,7 +118,7 @@ export default function BeatPlanScreen() {
                         name: u.name || `User #${u.id}`,
                         phoneNumber: u.phoneNumber,
                         role: u.role,
-                        active: u.active !== false
+                        active: u.active !== false,
                     }));
             }
 
@@ -95,13 +127,15 @@ export default function BeatPlanScreen() {
                 try {
                     const meRes = await api.get('/auth/me');
                     if (meRes.data?.id) {
-                        staffList = [{
-                            id: meRes.data.id,
-                            name: meRes.data.name || 'Current User',
-                            phoneNumber: meRes.data.phoneNumber,
-                            role: meRes.data.role || 'SALES',
-                            active: true
-                        }];
+                        staffList = [
+                            {
+                                id: meRes.data.id,
+                                name: meRes.data.name || 'Current User',
+                                phoneNumber: meRes.data.phoneNumber,
+                                role: meRes.data.role || 'SALES',
+                                active: true,
+                            },
+                        ];
                     }
                 } catch (err) {
                     console.error('Failed to get current user fallback:', err);
@@ -110,17 +144,21 @@ export default function BeatPlanScreen() {
 
             setSalesStaff(staffList);
             if (staffList.length > 0) {
-                setSelectedSalespersonId(prev => (prev && staffList.some((s: any) => s.id === prev) ? prev : staffList[0].id));
+                setSelectedSalespersonId((prev) =>
+                    prev && staffList.some((s: any) => s.id === prev) ? prev : staffList[0].id,
+                );
             }
         } catch (e) {
             console.error('Failed to load prerequisites for beat plan', e);
         }
     }, []);
 
-    useFocusEffect(useCallback(() => {
-        fetchPlans();
-        loadPrerequisites();
-    }, [fetchPlans, loadPrerequisites]));
+    useFocusEffect(
+        useCallback(() => {
+            fetchPlans();
+            loadPrerequisites();
+        }, [fetchPlans, loadPrerequisites]),
+    );
 
     const openCreateModal = () => {
         loadPrerequisites();
@@ -131,14 +169,14 @@ export default function BeatPlanScreen() {
         const activeDay = DAYS[modalDayIndex];
         const currentList = dayShopMap[activeDay] || [];
         if (currentList.includes(customerId)) {
-            setDayShopMap(prev => ({
+            setDayShopMap((prev) => ({
                 ...prev,
-                [activeDay]: currentList.filter(id => id !== customerId)
+                [activeDay]: currentList.filter((id) => id !== customerId),
             }));
         } else {
-            setDayShopMap(prev => ({
+            setDayShopMap((prev) => ({
                 ...prev,
-                [activeDay]: [...currentList, customerId]
+                [activeDay]: [...currentList, customerId],
             }));
         }
     };
@@ -154,19 +192,22 @@ export default function BeatPlanScreen() {
         }
 
         const entries: any[] = [];
-        DAYS.forEach(day => {
+        DAYS.forEach((day) => {
             const ids = dayShopMap[day] || [];
             ids.forEach((cid, idx) => {
                 entries.push({
                     dayOfWeek: day,
                     customerId: cid,
-                    visitOrder: idx + 1
+                    visitOrder: idx + 1,
                 });
             });
         });
 
         if (entries.length === 0) {
-            Alert.alert('Store Stops Required', 'Please assign at least one retail store to any day of the week.');
+            Alert.alert(
+                'Store Stops Required',
+                'Please assign at least one retail store to any day of the week.',
+            );
             return;
         }
 
@@ -176,9 +217,12 @@ export default function BeatPlanScreen() {
                 name: planName.trim(),
                 salespersonId: selectedSalespersonId,
                 isActive: true,
-                entries
+                entries,
             });
-            Alert.alert('Beat Plan Created!', `Route "${planName.trim()}" successfully created with ${entries.length} weekly stops.`);
+            Alert.alert(
+                'Beat Plan Created!',
+                `Route "${planName.trim()}" successfully created with ${entries.length} weekly stops.`,
+            );
             setShowPlanModal(false);
             setPlanName('');
             setDayShopMap({
@@ -203,11 +247,11 @@ export default function BeatPlanScreen() {
     // ─────────────────────────────────────────────
     const metrics = useMemo(() => {
         const totalPlans = plans.length;
-        const activePlans = plans.filter(p => p.isActive !== false).length;
+        const activePlans = plans.filter((p) => p.isActive !== false).length;
         let totalAssignedShops = 0;
         let todayShops = 0;
 
-        plans.forEach(p => {
+        plans.forEach((p) => {
             (p.entries || []).forEach((e: any) => {
                 totalAssignedShops++;
                 if (e.dayOfWeek === DAYS[selectedDay]) {
@@ -235,19 +279,23 @@ export default function BeatPlanScreen() {
         Alert.alert('Generate Week Schedules', `Generate visit schedules for the week of ${weekStart}?`, [
             { text: 'Cancel', style: 'cancel' },
             {
-                text: 'Generate', onPress: async () => {
+                text: 'Generate',
+                onPress: async () => {
                     setGeneratingWeek(true);
                     try {
                         const res = await api.post(`/beat-plans/generate-week?weekStart=${weekStart}`);
-                        Alert.alert('Success', `${res.data.schedulesCreated || 0} visit schedules created for this week!`);
+                        Alert.alert(
+                            'Success',
+                            `${res.data.schedulesCreated || 0} visit schedules created for this week!`,
+                        );
                         fetchPlans();
                     } catch (err: any) {
                         Alert.alert('Error', err.response?.data?.message || 'Failed to generate schedules');
                     } finally {
                         setGeneratingWeek(false);
                     }
-                }
-            }
+                },
+            },
         ]);
     };
 
@@ -259,7 +307,7 @@ export default function BeatPlanScreen() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    
+
                     {/* Top Right Signature Soft Pink Blob */}
                     <Path
                         d="M100 -50 C200 -50, 385 -40, 395 60 C410 180, 360 250, 220 230 C120 210, 40 140, 100 -50 Z"
@@ -281,16 +329,13 @@ export default function BeatPlanScreen() {
                 </Svg>
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* 1. Header with Back Button */}
                 <FadeInDown delay={20} style={styles.header}>
                     <View style={styles.headerTopRow}>
                         <TouchableOpacity
                             style={styles.backBtn}
-                            onPress={() => router.canGoBack() ? router.back() : router.push('/field-sales')}
+                            onPress={() => (router.canGoBack() ? router.back() : router.push('/field-sales'))}
                             activeOpacity={0.7}
                         >
                             <ArrowLeft size={20} color="#1A1A1A" />
@@ -298,9 +343,7 @@ export default function BeatPlanScreen() {
 
                         <View style={styles.headerTitleCol}>
                             <Text style={styles.headerTitle}>Beat Plans</Text>
-                            <Text style={styles.headerSubtitle}>
-                                Weekly Salesperson Route Schedules
-                            </Text>
+                            <Text style={styles.headerSubtitle}>Weekly Salesperson Route Schedules</Text>
                         </View>
                     </View>
                 </FadeInDown>
@@ -346,7 +389,9 @@ export default function BeatPlanScreen() {
                             </View>
                         </View>
                         <Text style={styles.kpiLabel}>Total Beat Plans</Text>
-                        <Text style={styles.kpiValue} numberOfLines={1}>{metrics.totalPlans} Routes</Text>
+                        <Text style={styles.kpiValue} numberOfLines={1}>
+                            {metrics.totalPlans} Routes
+                        </Text>
                     </View>
 
                     {/* KPI 2 */}
@@ -383,7 +428,9 @@ export default function BeatPlanScreen() {
                             </View>
                         </View>
                         <Text style={styles.kpiLabel}>Coverage Days</Text>
-                        <Text style={[styles.kpiValue, { color: '#E65100' }]} numberOfLines={1}>6 Days/Wk</Text>
+                        <Text style={[styles.kpiValue, { color: '#E65100' }]} numberOfLines={1}>
+                            6 Days/Wk
+                        </Text>
                     </View>
                 </FadeInDown>
 
@@ -415,9 +462,7 @@ export default function BeatPlanScreen() {
                 {/* 5. Beat Plans Route Schedule Section */}
                 <FadeInDown delay={110} style={styles.planSection}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>
-                            {DAYS[selectedDay]} Routes
-                        </Text>
+                        <Text style={styles.sectionTitle}>{DAYS[selectedDay]} Routes</Text>
                         <TouchableOpacity
                             style={styles.createPlanLink}
                             onPress={() => setShowPlanModal(true)}
@@ -433,103 +478,153 @@ export default function BeatPlanScreen() {
                             <ActivityIndicator size="large" color="#F06A8C" />
                             <Text style={styles.loadingText}>Loading route schedules...</Text>
                         </View>
-                    ) : (() => {
-                        const currentDayPlans = plans.filter((p: any) => {
-                            const entries = (p.entries || []).filter((e: any) => e.dayOfWeek === DAYS[selectedDay]);
-                            return entries.length > 0;
-                        });
+                    ) : (
+                        (() => {
+                            const currentDayPlans = plans.filter((p: any) => {
+                                const entries = (p.entries || []).filter(
+                                    (e: any) => e.dayOfWeek === DAYS[selectedDay],
+                                );
+                                return entries.length > 0;
+                            });
 
-                        if (currentDayPlans.length === 0) {
+                            if (currentDayPlans.length === 0) {
+                                return (
+                                    <View style={styles.emptyContainer}>
+                                        <CalendarDays size={40} color="#D0D0D0" />
+                                        <Text style={styles.emptyTitle}>
+                                            No Routes on {DAYS[selectedDay]}
+                                        </Text>
+                                        <Text style={styles.emptySubtitle}>
+                                            No store visit routes scheduled for {SHORT_DAYS[selectedDay]}. Tap
+                                            '+ Create Beat Plan' to schedule stops.
+                                        </Text>
+                                    </View>
+                                );
+                            }
+
                             return (
-                                <View style={styles.emptyContainer}>
-                                    <CalendarDays size={40} color="#D0D0D0" />
-                                    <Text style={styles.emptyTitle}>No Routes on {DAYS[selectedDay]}</Text>
-                                    <Text style={styles.emptySubtitle}>
-                                        No store visit routes scheduled for {SHORT_DAYS[selectedDay]}. Tap '+ Create Beat Plan' to schedule stops.
-                                    </Text>
-                                </View>
-                            );
-                        }
+                                <StaggerContainer stagger={30} delay={130}>
+                                    <View style={styles.planListWrapper}>
+                                        {currentDayPlans.map((plan: any) => {
+                                            const dayEntries = (plan.entries || []).filter(
+                                                (e: any) => e.dayOfWeek === DAYS[selectedDay],
+                                            );
+                                            const sortedEntries = [...dayEntries].sort(
+                                                (a: any, b: any) => (a.visitOrder || 0) - (b.visitOrder || 0),
+                                            );
 
-                        return (
-                            <StaggerContainer stagger={30} delay={130}>
-                                <View style={styles.planListWrapper}>
-                                    {currentDayPlans.map((plan: any) => {
-                                        const dayEntries = (plan.entries || []).filter((e: any) => e.dayOfWeek === DAYS[selectedDay]);
-                                        const sortedEntries = [...dayEntries].sort((a: any, b: any) => (a.visitOrder || 0) - (b.visitOrder || 0));
-
-                                        return (
-                                            <View key={plan.id} style={styles.planCard}>
-                                                {/* Plan Header */}
-                                                <View style={styles.planCardHeader}>
-                                                    <View style={styles.planAvatar}>
-                                                        <Navigation size={20} color="#1A1A1A" />
-                                                    </View>
-
-                                                    <View style={{ flex: 1 }}>
-                                                        <View style={styles.planNameRow}>
-                                                            <Text style={styles.planName} numberOfLines={1}>{plan.name}</Text>
-                                                            <View style={[
-                                                                styles.planStatusBadge,
-                                                                { backgroundColor: plan.isActive !== false ? '#E8F5E9' : '#ECEFF1' }
-                                                            ]}>
-                                                                <Text style={[
-                                                                    styles.planStatusText,
-                                                                    { color: plan.isActive !== false ? '#2E7D32' : '#78909C' }
-                                                                ]}>
-                                                                    {plan.isActive !== false ? 'Active' : 'Inactive'}
-                                                                </Text>
-                                                            </View>
+                                            return (
+                                                <View key={plan.id} style={styles.planCard}>
+                                                    {/* Plan Header */}
+                                                    <View style={styles.planCardHeader}>
+                                                        <View style={styles.planAvatar}>
+                                                            <Navigation size={20} color="#1A1A1A" />
                                                         </View>
 
-                                                        <View style={styles.salespersonRow}>
-                                                            <User size={12} color="#8A8A8A" />
-                                                            <Text style={styles.salespersonText}>
-                                                                {plan.salespersonName || 'Assigned Sales Executive'}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
-                                                </View>
-
-                                                {/* Stops Timeline for Selected Day */}
-                                                <View style={styles.stopsTimelineBox}>
-                                                    <Text style={styles.stopsHeading}>
-                                                        {SHORT_DAYS[selectedDay]} STOPS ({sortedEntries.length})
-                                                    </Text>
-
-                                                    {sortedEntries.map((entry: any, idx: number) => (
-                                                        <View key={entry.id || idx} style={styles.stopItemRow}>
-                                                            <View style={styles.stopNumberCircle}>
-                                                                <Text style={styles.stopNumberText}>{idx + 1}</Text>
-                                                            </View>
-                                                            <View style={{ flex: 1 }}>
-                                                                <Text style={styles.stopCustomerName} numberOfLines={1}>
-                                                                    {entry.customerName || 'Retail Store'}
+                                                        <View style={{ flex: 1 }}>
+                                                            <View style={styles.planNameRow}>
+                                                                <Text
+                                                                    style={styles.planName}
+                                                                    numberOfLines={1}
+                                                                >
+                                                                    {plan.name}
                                                                 </Text>
-                                                                {entry.address ? (
-                                                                    <Text style={styles.stopAddress} numberOfLines={1}>
-                                                                        {entry.address}
+                                                                <View
+                                                                    style={[
+                                                                        styles.planStatusBadge,
+                                                                        {
+                                                                            backgroundColor:
+                                                                                plan.isActive !== false
+                                                                                    ? '#E8F5E9'
+                                                                                    : '#ECEFF1',
+                                                                        },
+                                                                    ]}
+                                                                >
+                                                                    <Text
+                                                                        style={[
+                                                                            styles.planStatusText,
+                                                                            {
+                                                                                color:
+                                                                                    plan.isActive !== false
+                                                                                        ? '#2E7D32'
+                                                                                        : '#78909C',
+                                                                            },
+                                                                        ]}
+                                                                    >
+                                                                        {plan.isActive !== false
+                                                                            ? 'Active'
+                                                                            : 'Inactive'}
                                                                     </Text>
-                                                                ) : null}
+                                                                </View>
                                                             </View>
-                                                            <View style={styles.stopIndicator}>
-                                                                <CheckCircle2 size={15} color="#4CAF50" />
+
+                                                            <View style={styles.salespersonRow}>
+                                                                <User size={12} color="#8A8A8A" />
+                                                                <Text style={styles.salespersonText}>
+                                                                    {plan.salespersonName ||
+                                                                        'Assigned Sales Executive'}
+                                                                </Text>
                                                             </View>
                                                         </View>
-                                                    ))}
+                                                    </View>
+
+                                                    {/* Stops Timeline for Selected Day */}
+                                                    <View style={styles.stopsTimelineBox}>
+                                                        <Text style={styles.stopsHeading}>
+                                                            {SHORT_DAYS[selectedDay]} STOPS (
+                                                            {sortedEntries.length})
+                                                        </Text>
+
+                                                        {sortedEntries.map((entry: any, idx: number) => (
+                                                            <View
+                                                                key={entry.id || idx}
+                                                                style={styles.stopItemRow}
+                                                            >
+                                                                <View style={styles.stopNumberCircle}>
+                                                                    <Text style={styles.stopNumberText}>
+                                                                        {idx + 1}
+                                                                    </Text>
+                                                                </View>
+                                                                <View style={{ flex: 1 }}>
+                                                                    <Text
+                                                                        style={styles.stopCustomerName}
+                                                                        numberOfLines={1}
+                                                                    >
+                                                                        {entry.customerName || 'Retail Store'}
+                                                                    </Text>
+                                                                    {entry.address ? (
+                                                                        <Text
+                                                                            style={styles.stopAddress}
+                                                                            numberOfLines={1}
+                                                                        >
+                                                                            {entry.address}
+                                                                        </Text>
+                                                                    ) : null}
+                                                                </View>
+                                                                <View style={styles.stopIndicator}>
+                                                                    <CheckCircle2 size={15} color="#4CAF50" />
+                                                                </View>
+                                                            </View>
+                                                        ))}
+                                                    </View>
                                                 </View>
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                            </StaggerContainer>
-                        );
-                    })()}
+                                            );
+                                        })}
+                                    </View>
+                                </StaggerContainer>
+                            );
+                        })()
+                    )}
                 </FadeInDown>
             </ScrollView>
 
             {/* 6. CREATE BEAT PLAN MODAL */}
-            <Modal visible={showPlanModal} animationType="slide" transparent>
+            <Modal
+                visible={showPlanModal}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setShowPlanModal(false)}
+            >
                 <View style={styles.modalBackdrop}>
                     <View style={styles.modalCard}>
                         <View style={styles.modalGrabHandle} />
@@ -537,7 +632,9 @@ export default function BeatPlanScreen() {
                         <View style={styles.modalHeader}>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.modalTitle}>Create Beat Plan</Text>
-                                <Text style={styles.modalSubtitle}>Route configuration & weekly store stops</Text>
+                                <Text style={styles.modalSubtitle}>
+                                    Route configuration & weekly store stops
+                                </Text>
                             </View>
                             <TouchableOpacity
                                 style={styles.modalCloseBtn}
@@ -573,23 +670,45 @@ export default function BeatPlanScreen() {
                                     <Text style={styles.staffEmptyText}>Loading sales executives...</Text>
                                 </View>
                             ) : (
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.staffScroll}>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    style={styles.staffScroll}
+                                >
                                     {salesStaff.map((staff) => {
                                         const isSelected = selectedSalespersonId === staff.id;
                                         return (
                                             <TouchableOpacity
                                                 key={staff.id}
-                                                style={[styles.staffChip, isSelected && styles.staffChipSelected]}
+                                                style={[
+                                                    styles.staffChip,
+                                                    isSelected && styles.staffChipSelected,
+                                                ]}
                                                 onPress={() => setSelectedSalespersonId(staff.id)}
                                                 activeOpacity={0.75}
                                             >
                                                 <User size={13} color={isSelected ? '#FFFFFF' : '#1A1A1A'} />
-                                                <Text style={[styles.staffChipText, isSelected && styles.staffChipTextSelected]}>
+                                                <Text
+                                                    style={[
+                                                        styles.staffChipText,
+                                                        isSelected && styles.staffChipTextSelected,
+                                                    ]}
+                                                >
                                                     {staff.name}
                                                 </Text>
                                                 {staff.role && (
-                                                    <View style={[styles.staffRolePill, isSelected && styles.staffRolePillSelected]}>
-                                                        <Text style={[styles.staffRoleText, isSelected && styles.staffRoleTextSelected]}>
+                                                    <View
+                                                        style={[
+                                                            styles.staffRolePill,
+                                                            isSelected && styles.staffRolePillSelected,
+                                                        ]}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.staffRoleText,
+                                                                isSelected && styles.staffRoleTextSelected,
+                                                            ]}
+                                                        >
                                                             {staff.role}
                                                         </Text>
                                                     </View>
@@ -601,26 +720,46 @@ export default function BeatPlanScreen() {
                             )}
 
                             {/* Day Selection Tabs for assigning shops */}
-                            <Text style={styles.modalInputLabel}>
-                                Configure Day: {DAYS[modalDayIndex]}
-                            </Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modalDayScroll}>
+                            <Text style={styles.modalInputLabel}>Configure Day: {DAYS[modalDayIndex]}</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={styles.modalDayScroll}
+                            >
                                 {SHORT_DAYS.map((sd, idx) => {
                                     const isDayActive = modalDayIndex === idx;
                                     const count = (dayShopMap[DAYS[idx]] || []).length;
                                     return (
                                         <TouchableOpacity
                                             key={sd}
-                                            style={[styles.modalDayChip, isDayActive && styles.modalDayChipActive]}
+                                            style={[
+                                                styles.modalDayChip,
+                                                isDayActive && styles.modalDayChipActive,
+                                            ]}
                                             onPress={() => setModalDayIndex(idx)}
                                             activeOpacity={0.75}
                                         >
-                                            <Text style={[styles.modalDayText, isDayActive && styles.modalDayTextActive]}>
+                                            <Text
+                                                style={[
+                                                    styles.modalDayText,
+                                                    isDayActive && styles.modalDayTextActive,
+                                                ]}
+                                            >
                                                 {sd}
                                             </Text>
                                             {count > 0 && (
-                                                <View style={[styles.modalDayCount, isDayActive && styles.modalDayCountActive]}>
-                                                    <Text style={[styles.modalDayCountText, isDayActive && styles.modalDayCountTextActive]}>
+                                                <View
+                                                    style={[
+                                                        styles.modalDayCount,
+                                                        isDayActive && styles.modalDayCountActive,
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.modalDayCountText,
+                                                            isDayActive && styles.modalDayCountTextActive,
+                                                        ]}
+                                                    >
                                                         {count}
                                                     </Text>
                                                 </View>
@@ -632,7 +771,8 @@ export default function BeatPlanScreen() {
 
                             {/* Customer Shops Picker */}
                             <Text style={styles.modalInputLabel}>
-                                Assign Shops for {SHORT_DAYS[modalDayIndex]} ({(dayShopMap[DAYS[modalDayIndex]] || []).length} Selected)
+                                Assign Shops for {SHORT_DAYS[modalDayIndex]} (
+                                {(dayShopMap[DAYS[modalDayIndex]] || []).length} Selected)
                             </Text>
                             <View style={styles.shopSearchWrap}>
                                 <TextInput
@@ -646,11 +786,14 @@ export default function BeatPlanScreen() {
 
                             <View style={styles.customerListWrap}>
                                 {customers
-                                    .filter(c => {
+                                    .filter((c) => {
                                         const cName = c.customerName || c.name || '';
-                                        return !customerSearch.trim() || cName.toLowerCase().includes(customerSearch.toLowerCase().trim());
+                                        return (
+                                            !customerSearch.trim() ||
+                                            cName.toLowerCase().includes(customerSearch.toLowerCase().trim())
+                                        );
                                     })
-                                    .map(c => {
+                                    .map((c) => {
                                         const currentDayStops = dayShopMap[DAYS[modalDayIndex]] || [];
                                         const stopIndex = currentDayStops.indexOf(c.id);
                                         const isSelected = stopIndex !== -1;
@@ -661,20 +804,38 @@ export default function BeatPlanScreen() {
                                         return (
                                             <TouchableOpacity
                                                 key={c.id}
-                                                style={[styles.customerPickCard, isSelected && styles.customerPickCardSelected]}
+                                                style={[
+                                                    styles.customerPickCard,
+                                                    isSelected && styles.customerPickCardSelected,
+                                                ]}
                                                 onPress={() => handleToggleCustomerStop(c.id)}
                                                 activeOpacity={0.75}
                                             >
                                                 <View style={styles.customerPickLeft}>
-                                                    <Store size={16} color={isSelected ? '#F06A8C' : '#8A8A8A'} />
+                                                    <Store
+                                                        size={16}
+                                                        color={isSelected ? '#F06A8C' : '#8A8A8A'}
+                                                    />
                                                     <View style={{ flex: 1 }}>
-                                                        <Text style={styles.customerPickName} numberOfLines={1}>{cName}</Text>
-                                                        <Text style={styles.customerPickMeta} numberOfLines={1}>{cAddr} · {cPhone}</Text>
+                                                        <Text
+                                                            style={styles.customerPickName}
+                                                            numberOfLines={1}
+                                                        >
+                                                            {cName}
+                                                        </Text>
+                                                        <Text
+                                                            style={styles.customerPickMeta}
+                                                            numberOfLines={1}
+                                                        >
+                                                            {cAddr} · {cPhone}
+                                                        </Text>
                                                     </View>
                                                 </View>
                                                 {isSelected ? (
                                                     <View style={styles.stopBadge}>
-                                                        <Text style={styles.stopBadgeText}>Stop #{stopIndex + 1}</Text>
+                                                        <Text style={styles.stopBadgeText}>
+                                                            Stop #{stopIndex + 1}
+                                                        </Text>
                                                     </View>
                                                 ) : (
                                                     <View style={styles.unselectedCheckbox} />
@@ -698,7 +859,9 @@ export default function BeatPlanScreen() {
                                 ) : (
                                     <>
                                         <CheckCircle2 size={18} color="#FFFFFF" strokeWidth={2.2} />
-                                        <Text style={styles.savePlanBtnText}>Create & Activate Beat Plan</Text>
+                                        <Text style={styles.savePlanBtnText}>
+                                            Create & Activate Beat Plan
+                                        </Text>
                                     </>
                                 )}
                             </TouchableOpacity>

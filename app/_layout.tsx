@@ -1,3 +1,4 @@
+import '../src/utils/alertPolyfill';
 import { Stack, usePathname } from 'expo-router';
 import {
     useFonts,
@@ -5,14 +6,15 @@ import {
     Urbanist_500Medium,
     Urbanist_600SemiBold,
     Urbanist_700Bold,
-    Urbanist_800ExtraBold
+    Urbanist_800ExtraBold,
 } from '@expo-google-fonts/urbanist';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform, View, StyleSheet, useWindowDimensions } from 'react-native';
+import { Platform, View, StyleSheet, useWindowDimensions, StyleProp, ViewStyle } from 'react-native';
 import { Colors } from '../src/theme/colors';
 import { RoleProvider } from '../src/contexts/RoleContext';
 import { DesktopSidebar } from '../src/components/DesktopSidebar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -20,45 +22,37 @@ function AppLayoutContent() {
     const { width } = useWindowDimensions();
     const pathname = usePathname();
     const isDesktop = Platform.OS === 'web' && width >= 1024;
-    const isAuth = pathname ? (
-        pathname.includes('welcome') ||
-        pathname.includes('login') ||
-        pathname.includes('invite')
-    ) : false;
+    const isAuth = pathname
+        ? pathname.includes('welcome') ||
+          pathname.includes('login') ||
+          pathname.includes('signup') ||
+          pathname.includes('invite')
+        : false;
 
-    if (isDesktop && !isAuth) {
-        return (
-            <View style={styles.desktopShell}>
-                <DesktopSidebar />
-                <View style={styles.desktopContent}>
-                    <Stack screenOptions={{
-                        headerShown: false,
-                        contentStyle: { backgroundColor: '#FAF7F2' }
-                    }} />
-                </View>
-            </View>
-        );
-    }
+    let shellStyle: StyleProp<ViewStyle> = styles.mobileShell;
+    let contentStyle: StyleProp<ViewStyle> = styles.mobileShell;
 
-    if (isDesktop && isAuth) {
-        return (
-            <View style={styles.authDesktopShell}>
-                <View style={styles.authContainer}>
-                    <Stack screenOptions={{
-                        headerShown: false,
-                        contentStyle: { backgroundColor: Colors.background }
-                    }} />
-                </View>
-            </View>
-        );
+    if (isDesktop) {
+        if (isAuth) {
+            shellStyle = styles.authDesktopShell;
+            contentStyle = styles.authContainer;
+        } else {
+            shellStyle = styles.desktopShell;
+            contentStyle = styles.desktopContent;
+        }
     }
 
     return (
-        <View style={styles.mobileShell}>
-            <Stack screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: Colors.background }
-            }} />
+        <View style={shellStyle}>
+            {isDesktop && !isAuth && <DesktopSidebar key="desktop-sidebar" />}
+            <View key="app-stack-container" style={contentStyle}>
+                <Stack
+                    screenOptions={{
+                        headerShown: false,
+                        contentStyle: { backgroundColor: Colors.background },
+                    }}
+                />
+            </View>
         </View>
     );
 }
@@ -118,9 +112,11 @@ export default function RootLayout() {
     }
 
     return (
-        <RoleProvider>
-            <AppLayoutContent />
-        </RoleProvider>
+        <SafeAreaProvider>
+            <RoleProvider>
+                <AppLayoutContent />
+            </RoleProvider>
+        </SafeAreaProvider>
     );
 }
 
@@ -156,11 +152,13 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background,
         borderRadius: 24,
         overflow: 'hidden',
-        ...(Platform.OS === 'web' ? {
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05)',
-            borderWidth: 1,
-            borderColor: '#E2E8F0',
-        } as any : {}),
+        ...(Platform.OS === 'web'
+            ? ({
+                  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05)',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+              } as any)
+            : {}),
     },
     mobileShell: {
         flex: 1,
@@ -169,4 +167,3 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background,
     },
 });
-

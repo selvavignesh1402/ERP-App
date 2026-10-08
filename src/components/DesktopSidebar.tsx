@@ -45,11 +45,13 @@ export function DesktopSidebar() {
     const [hoveredRoute, setHoveredRoute] = useState<string | null>(null);
 
     useEffect(() => {
-        me().then(res => {
-            if (res.data?.name) {
-                setUserName(res.data.name);
-            }
-        }).catch(() => {});
+        me()
+            .then((res) => {
+                if (res.data?.name) {
+                    setUserName(res.data.name);
+                }
+            })
+            .catch(() => {});
     }, []);
 
     const handleLogout = async () => {
@@ -70,16 +72,23 @@ export function DesktopSidebar() {
                 { id: 'sales', label: 'Sales & POS', route: '/sales', icon: ShoppingCart },
                 { id: 'purchases', label: 'Purchases & Inward', route: '/purchases', icon: Truck },
                 { id: 'invoices', label: 'Invoices & Bills', route: '/invoices', icon: Receipt },
-            ]
+            ],
         },
         {
             title: 'OPERATIONS',
             items: [
                 { id: 'customers', label: 'Customers', route: '/customers', icon: Users },
                 { id: 'suppliers', label: 'Suppliers', route: '/suppliers', icon: Store },
-                { id: 'field', label: 'Field Sales', route: '/field-sales', icon: MapPin, badge: 'Live', badgeColor: '#10B981' },
+                {
+                    id: 'field',
+                    label: 'Field Sales',
+                    route: '/field-sales',
+                    icon: MapPin,
+                    badge: 'Live',
+                    badgeColor: '#10B981',
+                },
                 { id: 'delivery', label: 'Delivery Tracking', route: '/delivery', icon: Truck },
-            ]
+            ],
         },
         {
             title: 'MANAGEMENT',
@@ -88,13 +97,15 @@ export function DesktopSidebar() {
                 { id: 'reports', label: 'Reports & Analytics', route: '/reports', icon: BarChart2 },
                 { id: 'team', label: 'Team & Access', route: '/team-management', icon: UserCheck },
                 { id: 'settings', label: 'Store Settings', route: '/settings', icon: Settings },
-            ]
-        }
+            ],
+        },
     ];
 
     const isRouteActive = (route: string) => {
         if (route === '/') {
-            return pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/index' || pathname === '';
+            return (
+                pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/index' || pathname === ''
+            );
         }
         if (route === '/stock') {
             return pathname === '/stock' || pathname === '/(tabs)/stock';
@@ -119,12 +130,14 @@ export function DesktopSidebar() {
     };
 
     const getInitials = (name: string) => {
-        return name
-            .split(' ')
-            .map(n => n[0])
-            .slice(0, 2)
-            .join('')
-            .toUpperCase() || 'AD';
+        return (
+            name
+                .split(' ')
+                .map((n) => n[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase() || 'AD'
+        );
     };
 
     return (
@@ -142,7 +155,10 @@ export function DesktopSidebar() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.collapseBtnCollapsed, Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}]}
+                        style={[
+                            styles.collapseBtnCollapsed,
+                            Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {},
+                        ]}
                         onPress={() => setCollapsed(false)}
                         activeOpacity={0.7}
                         accessibilityLabel="Expand Sidebar"
@@ -158,7 +174,9 @@ export function DesktopSidebar() {
                         </View>
                         <View style={styles.storeTextCol}>
                             <View style={styles.storeNameRow}>
-                                <Text style={styles.storeTitle} numberOfLines={1}>Sri Dhanalakshmi</Text>
+                                <Text style={styles.storeTitle} numberOfLines={1}>
+                                    Sri Dhanalakshmi
+                                </Text>
                             </View>
                             <View style={styles.storeSubRow}>
                                 <View style={styles.pulseDot} />
@@ -168,7 +186,10 @@ export function DesktopSidebar() {
                     </View>
 
                     <TouchableOpacity
-                        style={[styles.collapseBtn, Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}]}
+                        style={[
+                            styles.collapseBtn,
+                            Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {},
+                        ]}
                         onPress={() => setCollapsed(true)}
                         activeOpacity={0.7}
                         accessibilityLabel="Collapse Sidebar"
@@ -182,7 +203,10 @@ export function DesktopSidebar() {
             {!collapsed && (
                 <View style={styles.ctaWrapper}>
                     <TouchableOpacity
-                        style={[styles.quickSaleBtn, Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}]}
+                        style={[
+                            styles.quickSaleBtn,
+                            Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {},
+                        ]}
                         onPress={() => navigateTo('/sales')}
                         activeOpacity={0.85}
                     >
@@ -198,12 +222,14 @@ export function DesktopSidebar() {
             )}
 
             {/* 3. Navigation Groups */}
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.navScrollView} contentContainerStyle={styles.navScrollContent}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={styles.navScrollView}
+                contentContainerStyle={styles.navScrollContent}
+            >
                 {navSections.map((sec, secIdx) => (
                     <View key={secIdx} style={styles.sectionGroup}>
-                        {!collapsed && (
-                            <Text style={styles.sectionHeaderTitle}>{sec.title}</Text>
-                        )}
+                        {!collapsed && <Text style={styles.sectionHeaderTitle}>{sec.title}</Text>}
                         {sec.items.map((item) => {
                             const active = isRouteActive(item.route);
                             const IconComponent = item.icon;
@@ -217,7 +243,7 @@ export function DesktopSidebar() {
                                         collapsed && styles.navItemButtonCollapsed,
                                         active && styles.navItemActive,
                                         !active && isHovered && styles.navItemHovered,
-                                        Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}
+                                        Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {},
                                     ]}
                                     onPress={() => navigateTo(item.route)}
                                     // @ts-ignore - web hover events
@@ -225,7 +251,9 @@ export function DesktopSidebar() {
                                     onMouseLeave={() => setHoveredRoute(null)}
                                     activeOpacity={0.8}
                                 >
-                                    <View style={[styles.iconContainer, active && styles.iconContainerActive]}>
+                                    <View
+                                        style={[styles.iconContainer, active && styles.iconContainerActive]}
+                                    >
                                         <IconComponent
                                             size={18}
                                             color={active ? '#FFFFFF' : isHovered ? '#0F172A' : '#64748B'}
@@ -235,25 +263,40 @@ export function DesktopSidebar() {
 
                                     {!collapsed && (
                                         <>
-                                            <Text style={[
-                                                styles.navItemLabel,
-                                                active && styles.navItemLabelActive,
-                                                !active && isHovered && styles.navItemLabelHovered
-                                            ]} numberOfLines={1}>
+                                            <Text
+                                                style={[
+                                                    styles.navItemLabel,
+                                                    active && styles.navItemLabelActive,
+                                                    !active && isHovered && styles.navItemLabelHovered,
+                                                ]}
+                                                numberOfLines={1}
+                                            >
                                                 {item.label}
                                             </Text>
 
                                             {item.badge && (
-                                                <View style={[styles.badgePill, { backgroundColor: item.badgeColor ? `${item.badgeColor}18` : '#E2E8F0' }]}>
-                                                    <Text style={[styles.badgeText, { color: item.badgeColor || '#64748B' }]}>
+                                                <View
+                                                    style={[
+                                                        styles.badgePill,
+                                                        {
+                                                            backgroundColor: item.badgeColor
+                                                                ? `${item.badgeColor}18`
+                                                                : '#E2E8F0',
+                                                        },
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.badgeText,
+                                                            { color: item.badgeColor || '#64748B' },
+                                                        ]}
+                                                    >
                                                         {item.badge}
                                                     </Text>
                                                 </View>
                                             )}
 
-                                            {active && !item.badge && (
-                                                <View style={styles.activeGlowDot} />
-                                            )}
+                                            {active && !item.badge && <View style={styles.activeGlowDot} />}
                                         </>
                                     )}
                                 </TouchableOpacity>
@@ -272,11 +315,18 @@ export function DesktopSidebar() {
                             <View style={styles.onlineStatusDot} />
                         </View>
                         <View style={styles.userInfo}>
-                            <Text style={styles.userName} numberOfLines={1}>{userName}</Text>
-                            <Text style={styles.userRole} numberOfLines={1}>{role || 'STAFF'} • ONLINE</Text>
+                            <Text style={styles.userName} numberOfLines={1}>
+                                {userName}
+                            </Text>
+                            <Text style={styles.userRole} numberOfLines={1}>
+                                {role || 'STAFF'} • ONLINE
+                            </Text>
                         </View>
                         <TouchableOpacity
-                            style={[styles.logoutIconBtn, Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}]}
+                            style={[
+                                styles.logoutIconBtn,
+                                Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {},
+                            ]}
                             onPress={handleLogout}
                             activeOpacity={0.7}
                             accessibilityLabel="Log Out"
@@ -286,7 +336,10 @@ export function DesktopSidebar() {
                     </View>
                 ) : (
                     <TouchableOpacity
-                        style={[styles.logoutBtnCollapsed, Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}]}
+                        style={[
+                            styles.logoutBtnCollapsed,
+                            Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {},
+                        ]}
                         onPress={handleLogout}
                         activeOpacity={0.7}
                     >
@@ -307,10 +360,12 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         display: 'flex',
         zIndex: 50,
-        ...(Platform.OS === 'web' ? {
-            transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: '1px 0 10px rgba(0, 0, 0, 0.02)',
-        } as any : {}),
+        ...(Platform.OS === 'web'
+            ? ({
+                  transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '1px 0 10px rgba(0, 0, 0, 0.02)',
+              } as any)
+            : {}),
     },
     containerExpanded: {
         width: 260,
@@ -490,9 +545,11 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         gap: 10,
         marginBottom: 2,
-        ...(Platform.OS === 'web' ? {
-            transition: 'all 0.15s ease',
-        } as any : {}),
+        ...(Platform.OS === 'web'
+            ? ({
+                  transition: 'all 0.15s ease',
+              } as any)
+            : {}),
     },
     navItemButtonCollapsed: {
         justifyContent: 'center',

@@ -19,53 +19,51 @@ export const Button: React.FC<ButtonProps> = ({
     variant = 'primary',
     loading = false,
     style,
-    textStyle
+    textStyle,
 }) => {
     const getBackgroundColor = () => {
         switch (variant) {
-            case 'primary': return Colors.primary;
-            case 'secondary': return Colors.secondary;
-            case 'outline': return 'transparent';
-            default: return Colors.primary;
+            case 'primary':
+                return Colors.primary;
+            case 'secondary':
+                return Colors.secondary;
+            case 'outline':
+                return 'transparent';
+            default:
+                return Colors.primary;
         }
     };
 
     const getTextColor = () => {
         switch (variant) {
-            case 'primary': return '#FFFFFF';
-            case 'secondary': return Colors.text;
-            case 'outline': return Colors.primary;
-            default: return '#FFFFFF';
+            case 'primary':
+                return '#FFFFFF';
+            case 'secondary':
+                return Colors.text;
+            case 'outline':
+                return Colors.primary;
+            default:
+                return '#FFFFFF';
         }
     };
 
     const { pressHandlers, animatedStyle } = useAnimePress(0.96);
 
     return (
-        <Pressable
-            onPress={onPress}
-            disabled={loading}
-            {...pressHandlers}
-        >
+        <Pressable onPress={onPress} disabled={loading} {...pressHandlers}>
             <Animated.View
                 style={[
                     styles.button,
                     { backgroundColor: getBackgroundColor() },
                     variant === 'outline' && styles.outline,
                     style,
-                    animatedStyle
+                    animatedStyle,
                 ]}
             >
                 {loading ? (
                     <ActivityIndicator color={getTextColor()} />
                 ) : (
-                    <Text style={[
-                        styles.text,
-                        { color: getTextColor() },
-                        textStyle
-                    ]}>
-                        {title}
-                    </Text>
+                    <Text style={[styles.text, { color: getTextColor() }, textStyle]}>{title}</Text>
                 )}
             </Animated.View>
         </Pressable>

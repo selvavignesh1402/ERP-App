@@ -16,20 +16,40 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import {
-    ShieldAlert, Store, Users, Server, RefreshCw, LogOut,
-    ArrowLeft, CheckCircle2, AlertTriangle, ShieldCheck,
-    Building2, Activity, ChevronRight, Layers, Cpu, Sparkles,
-    Check, Plus, Search, X, Globe, Radio, ExternalLink
+    ShieldAlert,
+    Store,
+    Users,
+    Server,
+    RefreshCw,
+    LogOut,
+    ArrowLeft,
+    CheckCircle2,
+    AlertTriangle,
+    ShieldCheck,
+    Building2,
+    Activity,
+    ChevronRight,
+    Layers,
+    Cpu,
+    Sparkles,
+    Check,
+    Plus,
+    Search,
+    X,
+    Globe,
+    Radio,
+    ExternalLink,
 } from 'lucide-react-native';
 import { FadeInDown, AnimatedPressable } from '../src/components/Anime';
 import api, { clearToken } from '../src/services/api';
+import { RoleGate } from '../src/components/RoleGate';
 
 interface SummaryData {
     totalOrganizations: number;
     totalUsers: number;
-    activeOrganizations: number;
+    activeOrganizations: number | null;
     platformHealth: string;
-    systemVersion: string;
+    systemVersion: string | null;
 }
 
 interface OrganizationItem {
@@ -52,6 +72,14 @@ interface UserItem {
 type TabKey = 'summary' | 'shops' | 'users';
 
 export default function MasterAdminScreen() {
+    return (
+        <RoleGate role="MASTER_ADMIN">
+            <MasterAdminContent />
+        </RoleGate>
+    );
+}
+
+function MasterAdminContent() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -76,6 +104,7 @@ export default function MasterAdminScreen() {
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
+            setSummary(null);
             const [sumRes, orgsRes, usersRes] = await Promise.all([
                 api.get('/api/master-admin/summary'),
                 api.get('/api/master-admin/organizations'),
@@ -87,7 +116,9 @@ export default function MasterAdminScreen() {
             setUsers(usersRes.data || []);
         } catch (error: any) {
             console.error('Error fetching master admin data:', error);
-            const msg = error.response?.data?.message || 'Failed to load platform analytics. Please check credentials.';
+            const msg =
+                error.response?.data?.message ||
+                'Failed to load platform analytics. Please check credentials.';
             Alert.alert('Access Denied', msg);
         } finally {
             setLoading(false);
@@ -113,8 +144,8 @@ export default function MasterAdminScreen() {
                 onPress: async () => {
                     await clearToken();
                     router.replace('/(auth)/login');
-                }
-            }
+                },
+            },
         ]);
     };
 
@@ -141,7 +172,7 @@ export default function MasterAdminScreen() {
 
             Alert.alert(
                 'Shop & Admin Created!',
-                `"${fullName}" has been onboarded with Admin "${res.data.adminName || adminName}" (Phone: ${adminPhone}).`
+                `"${fullName}" has been onboarded with Admin "${res.data.adminName || adminName}" (Phone: ${adminPhone}).`,
             );
             setNewShopName('');
             setAdminName('');
@@ -150,7 +181,8 @@ export default function MasterAdminScreen() {
             setShowAddModal(false);
             fetchData();
         } catch (err: any) {
-            const msg = err.response?.data?.message || 'Failed to create shop. Please check phone number uniqueness.';
+            const msg =
+                err.response?.data?.message || 'Failed to create shop. Please check phone number uniqueness.';
             Alert.alert('Creation Failed', msg);
         } finally {
             setCreatingShop(false);
@@ -160,16 +192,17 @@ export default function MasterAdminScreen() {
     const filteredOrgs = useMemo(() => {
         if (!searchQuery.trim()) return orgs;
         const q = searchQuery.toLowerCase();
-        return orgs.filter(o => o.name.toLowerCase().includes(q) || String(o.id).includes(q));
+        return orgs.filter((o) => o.name.toLowerCase().includes(q) || String(o.id).includes(q));
     }, [orgs, searchQuery]);
 
     const filteredUsers = useMemo(() => {
         if (!searchQuery.trim()) return users;
         const q = searchQuery.toLowerCase();
-        return users.filter(u =>
-            (u.name && u.name.toLowerCase().includes(q)) ||
-            (u.phoneNumber && u.phoneNumber.includes(q)) ||
-            (u.platformRole && u.platformRole.toLowerCase().includes(q))
+        return users.filter(
+            (u) =>
+                (u.name && u.name.toLowerCase().includes(q)) ||
+                (u.phoneNumber && u.phoneNumber.includes(q)) ||
+                (u.platformRole && u.platformRole.toLowerCase().includes(q)),
         );
     }, [users, searchQuery]);
 
@@ -181,7 +214,13 @@ export default function MasterAdminScreen() {
         DEFAULT: { bg: '#FAF7F2', color: '#666666', border: '#ECEAE4' },
     };
 
-    const SHOP_CATEGORIES = ['Wholesale Mart', 'Rice Mill', 'Grocery Retail', 'Grain Trader', 'Distribution Hub'];
+    const SHOP_CATEGORIES = [
+        'Wholesale Mart',
+        'Rice Mill',
+        'Grocery Retail',
+        'Grain Trader',
+        'Distribution Hub',
+    ];
 
     return (
         <SafeAreaView style={styles.container}>
@@ -221,7 +260,7 @@ export default function MasterAdminScreen() {
                     <Circle cx="360" cy="220" r="5.5" fill="#059669" opacity={0.4} />
 
                     {/* Soft Ambience Rings */}
-                    <Circle cx="340" cy="500" r="90" fill="#F3E8FF" opacity={0.30} />
+                    <Circle cx="340" cy="500" r="90" fill="#F3E8FF" opacity={0.3} />
                     <Circle cx="40" cy="720" r="80" fill="#D1FAE5" opacity={0.32} />
                 </Svg>
             </View>
@@ -231,16 +270,10 @@ export default function MasterAdminScreen() {
                 <View style={styles.headerTopRow}>
                     <View style={styles.headerTitleCol}>
                         <Text style={styles.headerTitle}>Platform Console</Text>
-                        <Text style={styles.headerSubtitle}>
-                            Multi-Tenant Cloud Governance & Stores
-                        </Text>
+                        <Text style={styles.headerSubtitle}>Multi-Tenant Cloud Governance & Stores</Text>
                     </View>
 
-                    <TouchableOpacity
-                        style={styles.logoutBtn}
-                        onPress={handleLogout}
-                        activeOpacity={0.75}
-                    >
+                    <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.75}>
                         <LogOut size={16} color="#C62828" />
                     </TouchableOpacity>
                 </View>
@@ -268,8 +301,12 @@ export default function MasterAdminScreen() {
                                     {label}
                                 </Text>
                                 {count !== null && (
-                                    <View style={[styles.tabCountBadge, active && styles.tabCountBadgeActive]}>
-                                        <Text style={[styles.tabCountText, active && styles.tabCountTextActive]}>
+                                    <View
+                                        style={[styles.tabCountBadge, active && styles.tabCountBadgeActive]}
+                                    >
+                                        <Text
+                                            style={[styles.tabCountText, active && styles.tabCountTextActive]}
+                                        >
                                             {count}
                                         </Text>
                                     </View>
@@ -287,13 +324,20 @@ export default function MasterAdminScreen() {
                         <Search size={16} color="#888888" />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder={activeTab === 'shops' ? 'Search registered shops by name or ID...' : 'Search platform users by name, phone, or role...'}
+                            placeholder={
+                                activeTab === 'shops'
+                                    ? 'Search registered shops by name or ID...'
+                                    : 'Search platform users by name, phone, or role...'
+                            }
                             placeholderTextColor="#888888"
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
                         {searchQuery ? (
-                            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.searchClearBtn}>
+                            <TouchableOpacity
+                                onPress={() => setSearchQuery('')}
+                                style={styles.searchClearBtn}
+                            >
                                 <X size={14} color="#666666" />
                             </TouchableOpacity>
                         ) : null}
@@ -326,17 +370,18 @@ export default function MasterAdminScreen() {
                                 <View style={styles.heroHealthCard}>
                                     <View style={styles.heroHealthTop}>
                                         <View style={styles.heroHealthIconBox}>
-                                            <ShieldCheck size={26} color="#2E7D32" />
+                                            <Activity size={26} color="#64748B" />
                                         </View>
                                         <View style={{ flex: 1 }}>
-                                            <Text style={styles.heroHealthTitle}>SaaS Cluster Operational</Text>
+                                            <Text style={styles.heroHealthTitle}>Platform overview</Text>
                                             <Text style={styles.heroHealthSub}>
-                                                Cluster Engine • {summary?.systemVersion || 'v2.0-SaaS'}
+                                                Health monitoring is not configured.
                                             </Text>
                                         </View>
-                                        <View style={styles.liveHealthPill}>
-                                            <View style={styles.liveHealthDot} />
-                                            <Text style={styles.liveHealthText}>Healthy</Text>
+                                        <View style={[styles.liveHealthPill, { backgroundColor: '#F1F5F9' }]}>
+                                            <Text style={[styles.liveHealthText, { color: '#64748B' }]}>
+                                                Not monitored
+                                            </Text>
                                         </View>
                                     </View>
 
@@ -345,17 +390,23 @@ export default function MasterAdminScreen() {
                                     <View style={styles.heroHealthBottomRow}>
                                         <View style={styles.heroHealthStat}>
                                             <Text style={styles.heroStatLabel}>ORGANIZATIONS</Text>
-                                            <Text style={styles.heroStatValue}>{summary?.totalOrganizations || orgs.length}</Text>
+                                            <Text style={styles.heroStatValue}>
+                                                {summary?.totalOrganizations ?? '—'}
+                                            </Text>
                                         </View>
                                         <View style={styles.heroStatDivider} />
                                         <View style={styles.heroHealthStat}>
-                                            <Text style={styles.heroStatLabel}>ACTIVE TENANTS</Text>
-                                            <Text style={[styles.heroStatValue, { color: '#2E7D32' }]}>{summary?.activeOrganizations || orgs.filter(o => o.status === 'ACTIVE').length}</Text>
+                                            <Text style={styles.heroStatLabel}>WORKSPACE ACTIVITY</Text>
+                                            <Text style={[styles.heroStatValue, { color: '#2E7D32' }]}>
+                                                {summary?.activeOrganizations ?? 'Not tracked'}
+                                            </Text>
                                         </View>
                                         <View style={styles.heroStatDivider} />
                                         <View style={styles.heroHealthStat}>
                                             <Text style={styles.heroStatLabel}>USERS</Text>
-                                            <Text style={[styles.heroStatValue, { color: '#4F46E5' }]}>{summary?.totalUsers || users.length}</Text>
+                                            <Text style={[styles.heroStatValue, { color: '#4F46E5' }]}>
+                                                {summary?.totalUsers ?? '—'}
+                                            </Text>
                                         </View>
                                     </View>
 
@@ -384,7 +435,9 @@ export default function MasterAdminScreen() {
                                                 <Text style={styles.kpiTagText}>Tenants</Text>
                                             </View>
                                         </View>
-                                        <Text style={styles.kpiValueText}>{summary?.totalOrganizations || orgs.length}</Text>
+                                        <Text style={styles.kpiValueText}>
+                                            {summary?.totalOrganizations ?? '—'}
+                                        </Text>
                                         <Text style={styles.kpiLabelText}>Registered Rice Shops</Text>
                                     </View>
 
@@ -395,10 +448,12 @@ export default function MasterAdminScreen() {
                                                 <Users size={18} color="#4F46E5" />
                                             </View>
                                             <View style={[styles.kpiTagPill, { backgroundColor: '#EEF2FF' }]}>
-                                                <Text style={[styles.kpiTagText, { color: '#4F46E5' }]}>Roster</Text>
+                                                <Text style={[styles.kpiTagText, { color: '#4F46E5' }]}>
+                                                    Roster
+                                                </Text>
                                             </View>
                                         </View>
-                                        <Text style={styles.kpiValueText}>{summary?.totalUsers || users.length}</Text>
+                                        <Text style={styles.kpiValueText}>{summary?.totalUsers ?? '—'}</Text>
                                         <Text style={styles.kpiLabelText}>Staff & Field Reps</Text>
                                     </View>
 
@@ -409,11 +464,15 @@ export default function MasterAdminScreen() {
                                                 <Building2 size={18} color="#7C3AED" />
                                             </View>
                                             <View style={[styles.kpiTagPill, { backgroundColor: '#F3E5F5' }]}>
-                                                <Text style={[styles.kpiTagText, { color: '#7C3AED' }]}>Live</Text>
+                                                <Text style={[styles.kpiTagText, { color: '#7C3AED' }]}>
+                                                    Not tracked
+                                                </Text>
                                             </View>
                                         </View>
-                                        <Text style={styles.kpiValueText}>{summary?.activeOrganizations || orgs.length}</Text>
-                                        <Text style={styles.kpiLabelText}>Active Workspaces</Text>
+                                        <Text style={styles.kpiValueText}>
+                                            {summary?.activeOrganizations ?? 'Not tracked'}
+                                        </Text>
+                                        <Text style={styles.kpiLabelText}>Workspace activity</Text>
                                     </View>
 
                                     {/* System Engine Health */}
@@ -423,11 +482,15 @@ export default function MasterAdminScreen() {
                                                 <Cpu size={18} color="#E65100" />
                                             </View>
                                             <View style={[styles.kpiTagPill, { backgroundColor: '#FFF3E0' }]}>
-                                                <Text style={[styles.kpiTagText, { color: '#E65100' }]}>Engine</Text>
+                                                <Text style={[styles.kpiTagText, { color: '#E65100' }]}>
+                                                    Engine
+                                                </Text>
                                             </View>
                                         </View>
-                                        <Text style={[styles.kpiValueText, { fontSize: 17 }]}>{summary?.platformHealth || 'OK'}</Text>
-                                        <Text style={styles.kpiLabelText}>Cluster Latency & API</Text>
+                                        <Text style={[styles.kpiValueText, { fontSize: 17 }]}>
+                                            {summary ? 'Not monitored' : 'Unavailable'}
+                                        </Text>
+                                        <Text style={styles.kpiLabelText}>No uptime or latency checks</Text>
                                     </View>
                                 </View>
                             </FadeInDown>
@@ -437,7 +500,9 @@ export default function MasterAdminScreen() {
                                 <View style={styles.sectionHeaderRow}>
                                     <View>
                                         <Text style={styles.sectionTitle}>Registered Businesses</Text>
-                                        <Text style={styles.sectionSubtitle}>Active rice mills & enterprise shops</Text>
+                                        <Text style={styles.sectionSubtitle}>
+                                            Active rice mills & enterprise shops
+                                        </Text>
                                     </View>
                                     <TouchableOpacity
                                         style={styles.viewAllBtn}
@@ -465,8 +530,22 @@ export default function MasterAdminScreen() {
                                                     Org #{item.id} • {item.userCount} Members
                                                 </Text>
                                             </View>
-                                            <View style={[styles.statusBadge, item.status === 'ACTIVE' ? styles.statusBadgeActive : styles.statusBadgeInactive]}>
-                                                <Text style={[styles.statusBadgeText, item.status === 'ACTIVE' ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive]}>
+                                            <View
+                                                style={[
+                                                    styles.statusBadge,
+                                                    item.status === 'ACTIVE'
+                                                        ? styles.statusBadgeActive
+                                                        : styles.statusBadgeInactive,
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.statusBadgeText,
+                                                        item.status === 'ACTIVE'
+                                                            ? styles.statusBadgeTextActive
+                                                            : styles.statusBadgeTextInactive,
+                                                    ]}
+                                                >
                                                     {item.status}
                                                 </Text>
                                             </View>
@@ -482,8 +561,12 @@ export default function MasterAdminScreen() {
                         <View style={styles.tabContent}>
                             <View style={styles.tabHeadingRow}>
                                 <View>
-                                    <Text style={styles.tabHeadingTitle}>Registered Shops ({filteredOrgs.length})</Text>
-                                    <Text style={styles.tabHeadingSub}>All rice wholesalers & tenant accounts</Text>
+                                    <Text style={styles.tabHeadingTitle}>
+                                        Registered Shops ({filteredOrgs.length})
+                                    </Text>
+                                    <Text style={styles.tabHeadingSub}>
+                                        All rice wholesalers & tenant accounts
+                                    </Text>
                                 </View>
                                 <TouchableOpacity
                                     style={styles.addShopTabBtn}
@@ -499,25 +582,40 @@ export default function MasterAdminScreen() {
                                 <View style={styles.emptyCard}>
                                     <Store size={32} color="#888888" />
                                     <Text style={styles.emptyTitle}>No Shops Found</Text>
-                                    <Text style={styles.emptySubtitle}>No shops match your search query "{searchQuery}".</Text>
+                                    <Text style={styles.emptySubtitle}>
+                                        No shops match your search query "{searchQuery}".
+                                    </Text>
                                 </View>
                             ) : (
                                 <View style={styles.listContainer}>
                                     {filteredOrgs.map((item) => (
-                                        <View
-                                            key={item.id}
-                                            style={styles.detailCard}
-                                        >
+                                        <View key={item.id} style={styles.detailCard}>
                                             <View style={styles.detailCardHeader}>
                                                 <View style={styles.detailCardAvatar}>
                                                     <Store size={22} color="#2E7D32" />
                                                 </View>
                                                 <View style={{ flex: 1 }}>
                                                     <Text style={styles.detailCardTitle}>{item.name}</Text>
-                                                    <Text style={styles.detailCardSub}>Organization ID #{item.id}</Text>
+                                                    <Text style={styles.detailCardSub}>
+                                                        Organization ID #{item.id}
+                                                    </Text>
                                                 </View>
-                                                <View style={[styles.statusBadge, item.status === 'ACTIVE' ? styles.statusBadgeActive : styles.statusBadgeInactive]}>
-                                                    <Text style={[styles.statusBadgeText, item.status === 'ACTIVE' ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive]}>
+                                                <View
+                                                    style={[
+                                                        styles.statusBadge,
+                                                        item.status === 'ACTIVE'
+                                                            ? styles.statusBadgeActive
+                                                            : styles.statusBadgeInactive,
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.statusBadgeText,
+                                                            item.status === 'ACTIVE'
+                                                                ? styles.statusBadgeTextActive
+                                                                : styles.statusBadgeTextInactive,
+                                                        ]}
+                                                    >
                                                         {item.status}
                                                     </Text>
                                                 </View>
@@ -526,13 +624,24 @@ export default function MasterAdminScreen() {
                                             <View style={styles.detailMetricsStrip}>
                                                 <View style={styles.detailMetricCol}>
                                                     <Text style={styles.detailMetricLabel}>TEAM MEMBERS</Text>
-                                                    <Text style={styles.detailMetricVal}>{item.userCount} Users</Text>
+                                                    <Text style={styles.detailMetricVal}>
+                                                        {item.userCount} Users
+                                                    </Text>
                                                 </View>
                                                 <View style={styles.detailMetricDivider} />
                                                 <View style={styles.detailMetricCol}>
                                                     <Text style={styles.detailMetricLabel}>ONBOARDED ON</Text>
                                                     <Text style={styles.detailMetricVal}>
-                                                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                                        {item.createdAt
+                                                            ? new Date(item.createdAt).toLocaleDateString(
+                                                                  'en-IN',
+                                                                  {
+                                                                      day: '2-digit',
+                                                                      month: 'short',
+                                                                      year: 'numeric',
+                                                                  },
+                                                              )
+                                                            : '—'}
                                                     </Text>
                                                 </View>
                                             </View>
@@ -548,8 +657,12 @@ export default function MasterAdminScreen() {
                         <View style={styles.tabContent}>
                             <View style={styles.tabHeadingRow}>
                                 <View>
-                                    <Text style={styles.tabHeadingTitle}>Platform User Directory ({filteredUsers.length})</Text>
-                                    <Text style={styles.tabHeadingSub}>System accounts, admins & field executives</Text>
+                                    <Text style={styles.tabHeadingTitle}>
+                                        Platform User Directory ({filteredUsers.length})
+                                    </Text>
+                                    <Text style={styles.tabHeadingSub}>
+                                        System accounts, admins & field executives
+                                    </Text>
                                 </View>
                             </View>
 
@@ -557,7 +670,9 @@ export default function MasterAdminScreen() {
                                 <View style={styles.emptyCard}>
                                     <Users size={32} color="#888888" />
                                     <Text style={styles.emptyTitle}>No Users Found</Text>
-                                    <Text style={styles.emptySubtitle}>No platform users match "{searchQuery}".</Text>
+                                    <Text style={styles.emptySubtitle}>
+                                        No platform users match "{searchQuery}".
+                                    </Text>
                                 </View>
                             ) : (
                                 <View style={styles.listContainer}>
@@ -566,29 +681,53 @@ export default function MasterAdminScreen() {
                                         const initials = (u.name || 'User').slice(0, 2).toUpperCase();
 
                                         return (
-                                            <View
-                                                key={u.id}
-                                                style={styles.detailCard}
-                                            >
+                                            <View key={u.id} style={styles.detailCard}>
                                                 <View style={styles.detailCardHeader}>
-                                                    <View style={[styles.userAvatarBox, { backgroundColor: role.bg }]}>
-                                                        <Text style={[styles.userAvatarText, { color: role.color }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.userAvatarBox,
+                                                            { backgroundColor: role.bg },
+                                                        ]}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.userAvatarText,
+                                                                { color: role.color },
+                                                            ]}
+                                                        >
                                                             {initials}
                                                         </Text>
                                                     </View>
 
                                                     <View style={{ flex: 1 }}>
                                                         <View style={styles.userNameRow}>
-                                                            <Text style={styles.detailCardTitle}>{u.name || 'Unnamed User'}</Text>
+                                                            <Text style={styles.detailCardTitle}>
+                                                                {u.name || 'Unnamed User'}
+                                                            </Text>
                                                             {u.profileCompleted && (
                                                                 <CheckCircle2 size={14} color="#2E7D32" />
                                                             )}
                                                         </View>
-                                                        <Text style={styles.detailCardSub}>Phone: {u.phoneNumber}</Text>
+                                                        <Text style={styles.detailCardSub}>
+                                                            Phone: {u.phoneNumber}
+                                                        </Text>
                                                     </View>
 
-                                                    <View style={[styles.roleBadge, { backgroundColor: role.bg, borderColor: role.border }]}>
-                                                        <Text style={[styles.roleBadgeText, { color: role.color }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.roleBadge,
+                                                            {
+                                                                backgroundColor: role.bg,
+                                                                borderColor: role.border,
+                                                            },
+                                                        ]}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.roleBadgeText,
+                                                                { color: role.color },
+                                                            ]}
+                                                        >
                                                             {u.platformRole || 'USER'}
                                                         </Text>
                                                     </View>
@@ -597,14 +736,30 @@ export default function MasterAdminScreen() {
                                                 <View style={styles.userStatusStrip}>
                                                     <View style={styles.userStatusCol}>
                                                         <Text style={styles.userStatusLabel}>PROFILE</Text>
-                                                        <Text style={[styles.userStatusVal, u.profileCompleted ? { color: '#2E7D32' } : { color: '#E65100' }]}>
-                                                            {u.profileCompleted ? 'Completed ✅' : 'Incomplete ⏳'}
+                                                        <Text
+                                                            style={[
+                                                                styles.userStatusVal,
+                                                                u.profileCompleted
+                                                                    ? { color: '#2E7D32' }
+                                                                    : { color: '#E65100' },
+                                                            ]}
+                                                        >
+                                                            {u.profileCompleted
+                                                                ? 'Completed ✅'
+                                                                : 'Incomplete ⏳'}
                                                         </Text>
                                                     </View>
                                                     <View style={styles.detailMetricDivider} />
                                                     <View style={styles.userStatusCol}>
                                                         <Text style={styles.userStatusLabel}>ACCOUNT</Text>
-                                                        <Text style={[styles.userStatusVal, u.isActive ? { color: '#2E7D32' } : { color: '#C62828' }]}>
+                                                        <Text
+                                                            style={[
+                                                                styles.userStatusVal,
+                                                                u.isActive
+                                                                    ? { color: '#2E7D32' }
+                                                                    : { color: '#C62828' },
+                                                            ]}
+                                                        >
                                                             {u.isActive ? 'Active' : 'Deactivated'}
                                                         </Text>
                                                     </View>
@@ -620,13 +775,20 @@ export default function MasterAdminScreen() {
             )}
 
             {/* 4. ADD SHOP MODAL DRAWER */}
-            <Modal visible={showAddModal} animationType="slide" transparent>
+            <Modal
+                visible={showAddModal}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setShowAddModal(false)}
+            >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalSheet}>
                         <View style={styles.modalHeaderRow}>
                             <View>
                                 <Text style={styles.modalTitle}>Onboard New Shop</Text>
-                                <Text style={styles.modalSub}>Register a new tenant store to the platform</Text>
+                                <Text style={styles.modalSub}>
+                                    Register a new tenant store to the platform
+                                </Text>
                             </View>
                             <TouchableOpacity
                                 style={styles.modalCloseBtn}
@@ -694,9 +856,14 @@ export default function MasterAdminScreen() {
                         </View>
 
                         {/* Create CTA Button */}
-                        <Text style={styles.modalInputLabel}>Existing accounts keep their current password.</Text>
+                        <Text style={styles.modalInputLabel}>
+                            Existing accounts keep their current password.
+                        </Text>
                         <TouchableOpacity
-                            style={[styles.createShopBtn, (!newShopName.trim() || !adminPhone.trim()) && styles.createShopBtnDisabled]}
+                            style={[
+                                styles.createShopBtn,
+                                (!newShopName.trim() || !adminPhone.trim()) && styles.createShopBtnDisabled,
+                            ]}
                             onPress={handleCreateShop}
                             disabled={creatingShop || !newShopName.trim() || !adminPhone.trim()}
                             activeOpacity={0.85}

@@ -2,10 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
-import {
-    MapPin, Box, Users, BookOpen, Truck,
-    UserCheck, BarChart2, ChevronRight
-} from 'lucide-react-native';
+import { MapPin, Box, Users, BookOpen, Truck, UserCheck, BarChart2, ChevronRight } from 'lucide-react-native';
 import { StaggerContainer, FadeInDown } from '../../src/components/Anime';
 import { usePermission } from '../../src/hooks/usePermission';
 
@@ -19,7 +16,7 @@ const MODULES = [
         iconColor: '#36B37E',
         route: '/field-sales',
         permission: 'sales:create',
-        roles: ['ADMIN', 'MANAGER', 'SALES']
+        roles: ['ADMIN', 'MANAGER', 'SALES'],
     },
     {
         id: 'purchase',
@@ -30,7 +27,7 @@ const MODULES = [
         iconColor: '#F5A34C',
         route: '/purchases',
         permission: 'purchase:view',
-        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE']
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE'],
     },
     {
         id: 'customers',
@@ -41,7 +38,7 @@ const MODULES = [
         iconColor: '#5B8DEF',
         route: '/customers',
         permission: 'customer:view',
-        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT']
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT'],
     },
     {
         id: 'accounts',
@@ -52,7 +49,7 @@ const MODULES = [
         iconColor: '#7B6FE0',
         route: '/(tabs)/ledger',
         permission: 'ledger:view',
-        roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+        roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT'],
     },
     {
         id: 'suppliers',
@@ -63,7 +60,7 @@ const MODULES = [
         iconColor: '#F0574E',
         route: '/suppliers',
         permission: 'supplier:view',
-        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE']
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'WAREHOUSE'],
     },
     {
         id: 'employees',
@@ -74,7 +71,7 @@ const MODULES = [
         iconColor: '#9B6FE0',
         route: '/team-management',
         permission: 'member:manage',
-        roles: ['ADMIN']
+        roles: ['ADMIN'],
     },
     {
         id: 'reports',
@@ -85,8 +82,8 @@ const MODULES = [
         iconColor: '#4C8CE0',
         route: '/reports',
         permission: 'report:view',
-        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT']
-    }
+        roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT'],
+    },
 ];
 
 export default function MenuScreen() {
@@ -98,13 +95,14 @@ export default function MenuScreen() {
     };
 
     // Filter modules based on granted permissions or role membership
-    const visibleModules = ready && role
-        ? MODULES.filter(item => {
-            if (role === 'MASTER_ADMIN' || role === 'ADMIN') return true;
-            if (item.permission && can(item.permission)) return true;
-            return item.roles.includes(role);
-        })
-        : [];
+    const visibleModules =
+        ready && role
+            ? MODULES.filter((item) => {
+                  if (role === 'MASTER_ADMIN' || role === 'ADMIN') return true;
+                  if (item.permission && can(item.permission)) return true;
+                  return item.roles.includes(role);
+              })
+            : [];
 
     return (
         <SafeAreaView style={styles.container}>
@@ -126,10 +124,7 @@ export default function MenuScreen() {
                 </Svg>
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* Clean Header */}
                 <FadeInDown delay={30}>
                     <View style={styles.headerTextContainer}>
@@ -153,7 +148,12 @@ export default function MenuScreen() {
                                     >
                                         {/* Top Row: Icon + Chevron */}
                                         <View style={styles.tileHeaderRow}>
-                                            <View style={[styles.moduleIconBox, { backgroundColor: item.bgColor }]}>
+                                            <View
+                                                style={[
+                                                    styles.moduleIconBox,
+                                                    { backgroundColor: item.bgColor },
+                                                ]}
+                                            >
                                                 <IconComponent size={20} color={item.iconColor} />
                                             </View>
                                             <ChevronRight size={18} color="#B0B0B0" />
@@ -161,10 +161,18 @@ export default function MenuScreen() {
 
                                         {/* Bottom Row: Title + Subtitle */}
                                         <View style={styles.tileTextContainer}>
-                                            <Text style={styles.tileTitle} numberOfLines={1} ellipsizeMode="tail">
+                                            <Text
+                                                style={styles.tileTitle}
+                                                numberOfLines={1}
+                                                ellipsizeMode="tail"
+                                            >
                                                 {item.title}
                                             </Text>
-                                            <Text style={styles.tileSubtitle} numberOfLines={2} ellipsizeMode="tail">
+                                            <Text
+                                                style={styles.tileSubtitle}
+                                                numberOfLines={2}
+                                                ellipsizeMode="tail"
+                                            >
                                                 {item.subtitle}
                                             </Text>
                                         </View>

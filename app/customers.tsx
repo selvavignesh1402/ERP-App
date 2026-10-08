@@ -1,29 +1,66 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, TextInput,
-    TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView,
-    Platform, Linking
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    TextInput,
+    TouchableOpacity,
+    Modal,
+    Alert,
+    ActivityIndicator,
+    ScrollView,
+    Platform,
+    Linking,
 } from 'react-native';
 import { Stack, useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    Search, Plus, ArrowLeft, User, Phone, Mail, MapPin,
-    Building2, Pencil, Trash2, CheckCircle2, XCircle, ArrowUpDown,
-    CreditCard, ShieldAlert, Sparkles, X, ChevronRight, PhoneCall,
-    IndianRupee
+    Search,
+    Plus,
+    ArrowLeft,
+    User,
+    Phone,
+    Mail,
+    MapPin,
+    Building2,
+    Pencil,
+    Trash2,
+    CheckCircle2,
+    XCircle,
+    ArrowUpDown,
+    CreditCard,
+    ShieldAlert,
+    Sparkles,
+    X,
+    ChevronRight,
+    PhoneCall,
+    IndianRupee,
+    Navigation,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../src/components/Anime';
 import { RoleGate } from '../src/components/RoleGate';
-import api from '../src/services/api';
+import { OrgScopedScreen } from '../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../src/services/api';
 
 export default function CustomersScreen() {
+    return (
+        <RoleGate permission="customer:view">
+            <OrgScopedScreen emptyMessage="Select a shop to manage customers.">
+                {(api) => <CustomersScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function CustomersScreenContent({ api }: { api: OrganizationApi }) {
     const router = useRouter();
     const params = useLocalSearchParams<{ searchCustomer?: string; search?: string }>();
     const [customers, setCustomers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOption, setSortOption] = useState<'name' | 'creditDesc' | 'status'>('name');
-    
+
     // Modal State
     const [modalVisible, setModalVisible] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
@@ -53,21 +90,23 @@ export default function CustomersScreen() {
         }
     }, []);
 
-    useFocusEffect(useCallback(() => {
-        fetchCustomers();
-        if (params.searchCustomer || params.search) {
-            setSearchQuery(params.searchCustomer || params.search || '');
-        }
-    }, [fetchCustomers, params.searchCustomer, params.search]));
+    useFocusEffect(
+        useCallback(() => {
+            fetchCustomers();
+            if (params.searchCustomer || params.search) {
+                setSearchQuery(params.searchCustomer || params.search || '');
+            }
+        }, [fetchCustomers, params.searchCustomer, params.search]),
+    );
 
     // ─────────────────────────────────────────────
     // COMPUTED METRICS
     // ─────────────────────────────────────────────
     const metrics = useMemo(() => {
         const totalCustomers = customers.length;
-        const activeCustomers = customers.filter(c => c.status === 'Active' || !c.status).length;
+        const activeCustomers = customers.filter((c) => c.status === 'Active' || !c.status).length;
         const totalOutstanding = customers.reduce((acc, c) => acc + (parseFloat(c.creditBalance) || 0), 0);
-        const overLimitCount = customers.filter(c => {
+        const overLimitCount = customers.filter((c) => {
             const lim = parseFloat(c.creditLimit) || 0;
             const bal = parseFloat(c.creditBalance) || 0;
             return lim > 0 && bal >= lim * 0.8;
@@ -89,11 +128,12 @@ export default function CustomersScreen() {
 
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
-            list = list.filter((c: any) =>
-                (c.customerName || '').toLowerCase().includes(q) ||
-                (c.phone || '').includes(q) ||
-                (c.address || '').toLowerCase().includes(q) ||
-                (c.gstNumber || '').toLowerCase().includes(q)
+            list = list.filter(
+                (c: any) =>
+                    (c.customerName || '').toLowerCase().includes(q) ||
+                    (c.phone || '').includes(q) ||
+                    (c.address || '').toLowerCase().includes(q) ||
+                    (c.gstNumber || '').toLowerCase().includes(q),
             );
         }
 
@@ -151,7 +191,7 @@ export default function CustomersScreen() {
                 email: email.trim(),
                 address: address.trim(),
                 gstNumber: gst.trim(),
-                creditLimit: parseFloat(creditLimit) || 0.0
+                creditLimit: parseFloat(creditLimit) || 0.0,
             };
 
             if (editingCustomer) {
@@ -189,8 +229,24 @@ export default function CustomersScreen() {
         });
     };
 
+    const handleOpenMap = (customerName?: string, customerAddress?: string) => {
+        const query = [customerName, customerAddress].filter(Boolean).join(', ');
+        if (!query) {
+            Alert.alert('Location Unavailable', 'No address listed for this store.');
+            return;
+        }
+        const encoded = encodeURIComponent(query);
+        const mapUrl = Platform.select({
+            ios: `maps:0,0?q=${encoded}`,
+            android: `geo:0,0?q=${encoded}`,
+            default: `https://www.google.com/maps/search/?api=1&query=${encoded}`,
+        });
+        Linking.openURL(mapUrl).catch(() => {
+            Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
+        });
+    };
+
     return (
-        <RoleGate permission="customer:view">
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
@@ -198,7 +254,7 @@ export default function CustomersScreen() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    
+
                     {/* Top Right Signature Soft Pink Blob */}
                     <Path
                         d="M100 -50 C200 -50, 385 -40, 395 60 C410 180, 360 250, 220 230 C120 210, 40 140, 100 -50 Z"
@@ -220,16 +276,13 @@ export default function CustomersScreen() {
                 </Svg>
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* 1. Header with Back Button & Title */}
                 <FadeInDown delay={20} style={styles.header}>
                     <View style={styles.headerTopRow}>
                         <TouchableOpacity
                             style={styles.backBtn}
-                            onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)/menu')}
+                            onPress={() => (router.canGoBack() ? router.back() : router.push('/(tabs)/menu'))}
                             activeOpacity={0.7}
                         >
                             <ArrowLeft size={20} color="#1A1A1A" />
@@ -305,7 +358,13 @@ export default function CustomersScreen() {
                             )}
                         </View>
                         <Text style={styles.kpiLabel}>Near Limit (80%+)</Text>
-                        <Text style={[styles.kpiValue, { color: metrics.overLimitCount > 0 ? '#C62828' : '#1A1A1A' }]} numberOfLines={1}>
+                        <Text
+                            style={[
+                                styles.kpiValue,
+                                { color: metrics.overLimitCount > 0 ? '#C62828' : '#1A1A1A' },
+                            ]}
+                            numberOfLines={1}
+                        >
                             {metrics.overLimitCount} Accounts
                         </Text>
                     </View>
@@ -319,7 +378,9 @@ export default function CustomersScreen() {
                         </View>
                         <Text style={styles.kpiLabel}>Healthy Ratio</Text>
                         <Text style={[styles.kpiValue, { color: '#2E7D32' }]} numberOfLines={1}>
-                            {metrics.totalCustomers > 0 ? `${Math.round((metrics.activeCustomers / metrics.totalCustomers) * 100)}%` : '100%'}
+                            {metrics.totalCustomers > 0
+                                ? `${Math.round((metrics.activeCustomers / metrics.totalCustomers) * 100)}%`
+                                : '100%'}
                         </Text>
                     </View>
                 </FadeInDown>
@@ -346,7 +407,11 @@ export default function CustomersScreen() {
                         >
                             <ArrowUpDown size={14} color="#555" />
                             <Text style={styles.sortBtnText}>
-                                {sortOption === 'name' ? 'Name' : sortOption === 'creditDesc' ? 'Credit ↓' : 'Status'}
+                                {sortOption === 'name'
+                                    ? 'Name'
+                                    : sortOption === 'creditDesc'
+                                      ? 'Credit ↓'
+                                      : 'Status'}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -379,7 +444,9 @@ export default function CustomersScreen() {
                             <User size={40} color="#D0D0D0" />
                             <Text style={styles.emptyTitle}>No Customers Found</Text>
                             <Text style={styles.emptySubtitle}>
-                                {searchQuery ? 'No client matches your search filter.' : 'Register your first customer using the button above!'}
+                                {searchQuery
+                                    ? 'No client matches your search filter.'
+                                    : 'Register your first customer using the button above!'}
                             </Text>
                         </View>
                     ) : (
@@ -389,7 +456,8 @@ export default function CustomersScreen() {
                                     const limit = parseFloat(c.creditLimit) || 0;
                                     const balance = parseFloat(c.creditBalance) || 0;
                                     const available = Math.max(0, limit - balance);
-                                    const usagePercent = limit > 0 ? Math.min(100, Math.round((balance / limit) * 100)) : 0;
+                                    const usagePercent =
+                                        limit > 0 ? Math.min(100, Math.round((balance / limit) * 100)) : 0;
                                     const isActive = c.status === 'Active' || !c.status;
 
                                     return (
@@ -402,19 +470,31 @@ export default function CustomersScreen() {
 
                                                 <View style={styles.custMainInfo}>
                                                     <View style={styles.custNameRow}>
-                                                        <Text style={styles.custName} numberOfLines={1}>{c.customerName}</Text>
+                                                        <Text style={styles.custName} numberOfLines={1}>
+                                                            {c.customerName}
+                                                        </Text>
                                                         <TouchableOpacity
                                                             style={[
                                                                 styles.statusBadge,
-                                                                { backgroundColor: isActive ? '#E8F5E9' : '#ECEFF1' }
+                                                                {
+                                                                    backgroundColor: isActive
+                                                                        ? '#E8F5E9'
+                                                                        : '#ECEFF1',
+                                                                },
                                                             ]}
                                                             onPress={() => handleToggleStatus(c.id)}
                                                             activeOpacity={0.7}
                                                         >
-                                                            <Text style={[
-                                                                styles.statusBadgeText,
-                                                                { color: isActive ? '#2E7D32' : '#78909C' }
-                                                            ]}>
+                                                            <Text
+                                                                style={[
+                                                                    styles.statusBadgeText,
+                                                                    {
+                                                                        color: isActive
+                                                                            ? '#2E7D32'
+                                                                            : '#78909C',
+                                                                    },
+                                                                ]}
+                                                            >
                                                                 {isActive ? 'Active' : 'Inactive'}
                                                             </Text>
                                                         </TouchableOpacity>
@@ -428,12 +508,16 @@ export default function CustomersScreen() {
                                                                 activeOpacity={0.7}
                                                             >
                                                                 <PhoneCall size={12} color="#5B8DEF" />
-                                                                <Text style={styles.phoneChipText}>{c.phone}</Text>
+                                                                <Text style={styles.phoneChipText}>
+                                                                    {c.phone}
+                                                                </Text>
                                                             </TouchableOpacity>
                                                         )}
                                                         {c.gstNumber ? (
                                                             <View style={styles.gstBadge}>
-                                                                <Text style={styles.gstBadgeText}>GSTIN: {c.gstNumber}</Text>
+                                                                <Text style={styles.gstBadgeText}>
+                                                                    GSTIN: {c.gstNumber}
+                                                                </Text>
                                                             </View>
                                                         ) : null}
                                                     </View>
@@ -442,10 +526,21 @@ export default function CustomersScreen() {
 
                                             {/* Address / Location Line */}
                                             {c.address ? (
-                                                <View style={styles.addressRow}>
-                                                    <MapPin size={13} color="#8A8A8A" />
-                                                    <Text style={styles.addressText} numberOfLines={1}>{c.address}</Text>
-                                                </View>
+                                                <TouchableOpacity
+                                                    style={styles.addressRow}
+                                                    onPress={() => handleOpenMap(c.customerName, c.address)}
+                                                    activeOpacity={0.7}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Open Google Maps for ${c.customerName}`}
+                                                >
+                                                    <MapPin size={13} color="#1565C0" />
+                                                    <Text
+                                                        style={[styles.addressText, styles.addressLink]}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {c.address}
+                                                    </Text>
+                                                </TouchableOpacity>
                                             ) : null}
 
                                             {/* Credit Progress & Financials Box */}
@@ -453,7 +548,10 @@ export default function CustomersScreen() {
                                                 <View style={styles.creditBoxHeader}>
                                                     <Text style={styles.creditBoxLabel}>CREDIT USAGE</Text>
                                                     <Text style={styles.creditBoxValue}>
-                                                        ₹{balance.toLocaleString('en-IN')} <Text style={{ color: '#888', fontWeight: '500' }}>/ ₹{limit.toLocaleString('en-IN')}</Text>
+                                                        ₹{balance.toLocaleString('en-IN')}{' '}
+                                                        <Text style={{ color: '#888', fontWeight: '500' }}>
+                                                            / ₹{limit.toLocaleString('en-IN')}
+                                                        </Text>
                                                     </Text>
                                                 </View>
 
@@ -464,17 +562,36 @@ export default function CustomersScreen() {
                                                             styles.usageBarFill,
                                                             {
                                                                 width: `${usagePercent}%`,
-                                                                backgroundColor: usagePercent > 80 ? '#E53935' : usagePercent > 50 ? '#F2A93B' : '#4CAF50'
-                                                            }
+                                                                backgroundColor:
+                                                                    usagePercent > 80
+                                                                        ? '#E53935'
+                                                                        : usagePercent > 50
+                                                                          ? '#F2A93B'
+                                                                          : '#4CAF50',
+                                                            },
                                                         ]}
                                                     />
                                                 </View>
 
                                                 <View style={styles.creditFooterRow}>
                                                     <Text style={styles.availCreditText}>
-                                                        Available Limit: <Text style={{ fontWeight: '700', color: available < 5000 ? '#E53935' : '#1A1A1A' }}>₹{available.toLocaleString('en-IN')}</Text>
+                                                        Available Limit:{' '}
+                                                        <Text
+                                                            style={{
+                                                                fontWeight: '700',
+                                                                color:
+                                                                    available < 5000 ? '#E53935' : '#1A1A1A',
+                                                            }}
+                                                        >
+                                                            ₹{available.toLocaleString('en-IN')}
+                                                        </Text>
                                                     </Text>
-                                                    <Text style={[styles.usagePercentText, { color: usagePercent > 80 ? '#E53935' : '#666' }]}>
+                                                    <Text
+                                                        style={[
+                                                            styles.usagePercentText,
+                                                            { color: usagePercent > 80 ? '#E53935' : '#666' },
+                                                        ]}
+                                                    >
                                                         {usagePercent}% Used
                                                     </Text>
                                                 </View>
@@ -488,7 +605,18 @@ export default function CustomersScreen() {
                                                     activeOpacity={0.7}
                                                 >
                                                     <Pencil size={14} color="#1A1A1A" />
-                                                    <Text style={styles.editCardBtnText}>Edit Details</Text>
+                                                    <Text style={styles.editCardBtnText}>Edit</Text>
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={styles.mapCardBtn}
+                                                    onPress={() => handleOpenMap(c.customerName, c.address)}
+                                                    activeOpacity={0.7}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Open Google Maps for ${c.customerName}`}
+                                                >
+                                                    <Navigation size={14} color="#1565C0" />
+                                                    <Text style={styles.mapCardBtnText}>Map</Text>
                                                 </TouchableOpacity>
 
                                                 {c.phone && (
@@ -497,7 +625,7 @@ export default function CustomersScreen() {
                                                         onPress={() => handleCallPhone(c.phone)}
                                                         activeOpacity={0.7}
                                                     >
-                                                        <Phone size={14} color="#F06A8C" />
+                                                        <Phone size={14} color="#2E7D32" />
                                                         <Text style={styles.callCardBtnText}>Call</Text>
                                                     </TouchableOpacity>
                                                 )}
@@ -531,7 +659,9 @@ export default function CustomersScreen() {
                                     {editingCustomer ? 'Edit Customer' : 'Add New Customer'}
                                 </Text>
                                 <Text style={styles.modalSubtitle}>
-                                    {editingCustomer ? 'Update contact & financial terms' : 'Register buyer ledger & credit parameters'}
+                                    {editingCustomer
+                                        ? 'Update contact & financial terms'
+                                        : 'Register buyer ledger & credit parameters'}
                                 </Text>
                             </View>
                             <TouchableOpacity
@@ -678,7 +808,6 @@ export default function CustomersScreen() {
                 </View>
             </Modal>
         </SafeAreaView>
-        </RoleGate>
     );
 }
 
@@ -968,6 +1097,9 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#F5F5F7',
     },
+    addressLink: {
+        color: '#1565C0',
+    },
     addressText: {
         flex: 1,
         fontSize: 11.5,
@@ -1047,20 +1179,39 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1A1A1A',
     },
-    callCardBtn: {
+    mapCardBtn: {
         width: 70,
         height: 36,
         borderRadius: 10,
-        backgroundColor: '#FBE8F0',
+        backgroundColor: '#EAF2FF',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 4,
+        borderWidth: 1,
+        borderColor: '#C5DCFA',
+    },
+    mapCardBtnText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#1565C0',
+    },
+    callCardBtn: {
+        width: 70,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: '#E8F5E9',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        borderWidth: 1,
+        borderColor: '#C8E6C9',
     },
     callCardBtnText: {
         fontSize: 12,
         fontWeight: '700',
-        color: '#F06A8C',
+        color: '#2E7D32',
     },
 
     loadingContainer: {

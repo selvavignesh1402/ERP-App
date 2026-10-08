@@ -27,7 +27,7 @@ export const AccessDeniedScreen: React.FC<AccessDeniedScreenProps> = ({
         DEFAULT: { bg: '#F5F5F5', text: '#616161', border: '#E0E0E0' },
     };
 
-    const activeRoleColor = role ? (roleColors[role] || roleColors.DEFAULT) : roleColors.DEFAULT;
+    const activeRoleColor = role ? roleColors[role] || roleColors.DEFAULT : roleColors.DEFAULT;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -40,7 +40,7 @@ export const AccessDeniedScreen: React.FC<AccessDeniedScreenProps> = ({
                         fill="#E0E7FF"
                         opacity={0.35}
                     />
-                    <Circle cx="330" cy="80" r="80" fill="#C7D2FE" opacity={0.20} />
+                    <Circle cx="330" cy="80" r="80" fill="#C7D2FE" opacity={0.2} />
                     <Circle cx="40" cy="680" r="75" fill="#FEF3C7" opacity={0.35} />
                 </Svg>
             </View>
@@ -49,7 +49,7 @@ export const AccessDeniedScreen: React.FC<AccessDeniedScreenProps> = ({
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backBtn}
-                    onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
+                    onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
                     activeOpacity={0.7}
                 >
                     <ArrowLeft size={20} color="#1A1A1A" />
@@ -66,14 +66,25 @@ export const AccessDeniedScreen: React.FC<AccessDeniedScreenProps> = ({
 
                     <Text style={styles.title}>Feature Restricted</Text>
                     <Text style={styles.description}>
-                        {customMessage || "This workspace module is not assigned to your current role profile. Contact your shop administrator if you require access."}
+                        {customMessage ||
+                            'This workspace module is not assigned to your current role profile. Contact your shop administrator if you require access.'}
                     </Text>
 
                     {role && (
                         <View style={styles.roleContainer}>
                             <Text style={styles.roleLabel}>CURRENT ROLE</Text>
-                            <View style={[styles.roleBadge, { backgroundColor: activeRoleColor.bg, borderColor: activeRoleColor.border }]}>
-                                <Text style={[styles.roleBadgeText, { color: activeRoleColor.text }]}>{role}</Text>
+                            <View
+                                style={[
+                                    styles.roleBadge,
+                                    {
+                                        backgroundColor: activeRoleColor.bg,
+                                        borderColor: activeRoleColor.border,
+                                    },
+                                ]}
+                            >
+                                <Text style={[styles.roleBadgeText, { color: activeRoleColor.text }]}>
+                                    {role}
+                                </Text>
                             </View>
                         </View>
                     )}

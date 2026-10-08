@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, Platform } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ActivityIndicator,
+    Alert,
+    SafeAreaView,
+    Platform,
+} from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Colors } from '../src/theme/colors';
 import { Users, CheckCircle2, X } from 'lucide-react-native';
@@ -10,7 +19,7 @@ import { setToken } from '../src/services/api';
 export default function InviteScreen() {
     const { token } = useLocalSearchParams<{ token: string }>();
     const router = useRouter();
-    
+
     const [loading, setLoading] = useState(true);
     const [accepting, setAccepting] = useState(false);
     const [inviteDetails, setInviteDetails] = useState<any>(null);
@@ -19,7 +28,8 @@ export default function InviteScreen() {
         if (token) {
             checkAuthAndFetchInvite();
         } else {
-            Alert.alert("Error", "Invalid or missing invite token");
+            setLoading(false);
+            Alert.alert('Error', 'Invalid or missing invite token');
             router.replace('/');
         }
     }, [token]);
@@ -34,8 +44,11 @@ export default function InviteScreen() {
                 } else if (typeof window !== 'undefined') {
                     window.localStorage.setItem('pending_invite_token', token);
                 }
-                
-                Alert.alert("Authentication Required", "Please sign in or create an account to accept this invite.");
+
+                Alert.alert(
+                    'Authentication Required',
+                    'Please sign in or create an account to accept this invite.',
+                );
                 router.replace('/(auth)/login');
                 return;
             }
@@ -43,7 +56,7 @@ export default function InviteScreen() {
             // User is logged in, fetch invite details
             const response = await getInviteDetails(token);
             if (response.data.status !== 'PENDING') {
-                Alert.alert("Invite Expired", "This invite has already been accepted or cancelled.");
+                Alert.alert('Invite Expired', 'This invite has already been accepted or cancelled.');
                 router.replace('/(tabs)');
                 return;
             }
@@ -51,7 +64,7 @@ export default function InviteScreen() {
         } catch (error: any) {
             console.error('Fetch invite error:', error);
             const msg = error.response?.data?.message || 'Failed to load invite details';
-            Alert.alert("Error", msg);
+            Alert.alert('Error', msg);
             router.replace('/');
         } finally {
             setLoading(false);
@@ -63,12 +76,12 @@ export default function InviteScreen() {
         try {
             const response = await acceptInvite(token);
             const orgId = response.data.organizationId;
-            
+
             // Switch tenant context to the new organization
             const selectRes = await selectOrganization(orgId);
             if (selectRes.data && selectRes.data.token) {
                 setToken(selectRes.data.token);
-                Alert.alert("Success", `You have successfully joined ${response.data.organizationName}`);
+                Alert.alert('Success', `You have successfully joined ${response.data.organizationName}`);
                 router.replace('/(tabs)');
             } else {
                 router.replace('/');
@@ -76,7 +89,7 @@ export default function InviteScreen() {
         } catch (error: any) {
             console.error('Accept invite error:', error);
             const msg = error.response?.data?.message || 'Failed to accept invite';
-            Alert.alert("Error", msg);
+            Alert.alert('Error', msg);
         } finally {
             setAccepting(false);
         }
@@ -91,12 +104,30 @@ export default function InviteScreen() {
         );
     }
 
-    if (!inviteDetails) return null;
+    if (!inviteDetails) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <Stack.Screen options={{ headerShown: false, presentation: 'modal' }} />
+                <View style={styles.card}>
+                    <View style={styles.iconContainer}>
+                        <Users size={40} color={Colors.textSecondary} />
+                    </View>
+                    <Text style={styles.title}>Invite Unavailable</Text>
+                    <Text style={styles.description}>
+                        This invitation link could not be loaded or is no longer valid.
+                    </Text>
+                    <TouchableOpacity style={styles.acceptBtn} onPress={() => router.replace('/')}>
+                        <Text style={styles.acceptBtnText}>Return to Home</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false, presentation: 'modal' }} />
-            
+
             <View style={styles.card}>
                 <TouchableOpacity style={styles.closeBtn} onPress={() => router.replace('/')}>
                     <X size={24} color={Colors.textSecondary} />
@@ -107,27 +138,26 @@ export default function InviteScreen() {
                 </View>
 
                 <Text style={styles.title}>You've been invited!</Text>
-                
+
                 <Text style={styles.description}>
-                    <Text style={styles.highlight}>{inviteDetails.invitedBy}</Text> has invited you to join their shop:
+                    <Text style={styles.highlight}>{inviteDetails.invitedBy || 'A store administrator'}</Text> has
+                    invited you to join their shop:
                 </Text>
 
                 <View style={styles.orgBox}>
-                    <Text style={styles.orgName}>{inviteDetails.organizationName}</Text>
+                    <Text style={styles.orgName}>{inviteDetails.organizationName || 'Rice ERP Shop'}</Text>
                     <View style={styles.roleBadge}>
-                        <Text style={styles.roleText}>{inviteDetails.role}</Text>
+                        <Text style={styles.roleText}>{inviteDetails.role || 'STAFF'}</Text>
                     </View>
                 </View>
 
                 <Text style={styles.noteText}>
-                    By accepting, you will be granted access to their shop data with {inviteDetails.role.toLowerCase()} permissions.
+                    By accepting, you will be granted access to their shop data with{' '}
+                    {(inviteDetails.role ? inviteDetails.role.toLowerCase() : 'staff')}{' '}
+                    permissions.
                 </Text>
 
-                <TouchableOpacity 
-                    style={styles.acceptBtn} 
-                    onPress={handleAccept}
-                    disabled={accepting}
-                >
+                <TouchableOpacity style={styles.acceptBtn} onPress={handleAccept} disabled={accepting}>
                     {accepting ? (
                         <ActivityIndicator color="#fff" />
                     ) : (
@@ -165,7 +195,7 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         padding: 24,
         alignItems: 'center',
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.1,
         shadowRadius: 20,
@@ -252,5 +282,5 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontFamily: 'Urbanist_700Bold',
-    }
+    },
 });

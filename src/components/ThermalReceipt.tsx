@@ -1,13 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import Svg, { Path, Rect, G } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 export interface ReceiptOptions {
     showLogo: boolean;
     showGst: boolean;
     showCustomer: boolean;
     showPayment: boolean;
-    showQr: boolean;
     showThanks: boolean;
 }
 
@@ -17,7 +16,6 @@ export interface ShopDetails {
     address: string;
     phone: string;
     gstin: string;
-    upiId: string;
 }
 
 export interface ThermalReceiptProps {
@@ -31,12 +29,11 @@ export interface ThermalReceiptProps {
 }
 
 const DEFAULT_SHOP: ShopDetails = {
-    name: 'SRI LAKSHMI RICE TRADERS',
-    subtitle: 'Wholesale & Retail Rice Merchant',
-    address: 'No. 12, Market Main Road, Salem - 636001',
-    phone: '+91 98765 43210',
-    gstin: '33AAAAA0000A1Z5',
-    upiId: 'srilakshmirice@upi',
+    name: 'Shop details unavailable',
+    subtitle: '',
+    address: '',
+    phone: '',
+    gstin: '',
 };
 
 const DEFAULT_OPTIONS: ReceiptOptions = {
@@ -44,54 +41,7 @@ const DEFAULT_OPTIONS: ReceiptOptions = {
     showGst: true,
     showCustomer: true,
     showPayment: true,
-    showQr: true,
     showThanks: true,
-};
-
-// Simplified SVG Vector QR Code representation for thermal print
-const ThermalQRCode = ({ size = 96 }: { size?: number }) => {
-    return (
-        <Svg width={size} height={size} viewBox="0 0 25 25" style={{ alignSelf: 'center', marginVertical: 6 }}>
-            <Rect x="0" y="0" width="25" height="25" fill="#FFFFFF" />
-            {/* Top-Left Finder */}
-            <Rect x="2" y="2" width="7" height="7" fill="#000000" />
-            <Rect x="3" y="3" width="5" height="5" fill="#FFFFFF" />
-            <Rect x="4" y="4" width="3" height="3" fill="#000000" />
-            {/* Top-Right Finder */}
-            <Rect x="16" y="2" width="7" height="7" fill="#000000" />
-            <Rect x="17" y="3" width="5" height="5" fill="#FFFFFF" />
-            <Rect x="18" y="4" width="3" height="3" fill="#000000" />
-            {/* Bottom-Left Finder */}
-            <Rect x="2" y="16" width="7" height="7" fill="#000000" />
-            <Rect x="3" y="17" width="5" height="5" fill="#FFFFFF" />
-            <Rect x="4" y="18" width="3" height="3" fill="#000000" />
-            {/* Data Modules */}
-            <G fill="#000000">
-                <Rect x="10" y="2" width="1" height="2" />
-                <Rect x="12" y="2" width="2" height="1" />
-                <Rect x="10" y="5" width="2" height="2" />
-                <Rect x="13" y="4" width="1" height="3" />
-                <Rect x="2" y="10" width="2" height="1" />
-                <Rect x="5" y="10" width="3" height="1" />
-                <Rect x="10" y="9" width="1" height="4" />
-                <Rect x="12" y="10" width="3" height="2" />
-                <Rect x="16" y="10" width="2" height="1" />
-                <Rect x="20" y="10" width="3" height="2" />
-                <Rect x="10" y="14" width="2" height="2" />
-                <Rect x="14" y="13" width="1" height="3" />
-                <Rect x="17" y="13" width="2" height="2" />
-                <Rect x="21" y="14" width="2" height="1" />
-                <Rect x="10" y="17" width="3" height="1" />
-                <Rect x="14" y="17" width="2" height="3" />
-                <Rect x="18" y="17" width="1" height="2" />
-                <Rect x="20" y="18" width="3" height="1" />
-                <Rect x="10" y="20" width="2" height="3" />
-                <Rect x="13" y="21" width="3" height="2" />
-                <Rect x="18" y="20" width="2" height="3" />
-                <Rect x="21" y="21" width="2" height="2" />
-            </G>
-        </Svg>
-    );
 };
 
 // Serrated Paper Edge (Top and Bottom)
@@ -125,7 +75,11 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     if (!bill) return null;
 
     const opt: ReceiptOptions = { ...DEFAULT_OPTIONS, ...options };
-    const shop: ShopDetails = { ...DEFAULT_SHOP, ...shopDetails };
+    const shop: ShopDetails = {
+        ...DEFAULT_SHOP,
+        ...shopDetails,
+        ...(bill.shopName ? { name: bill.shopName } : {}),
+    };
     const is58mm = paperSize === '58mm';
 
     // Scale font sizes
@@ -148,9 +102,21 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     const discountVal = parseFloat(bill.discount) || 0;
     const cgstVal = parseFloat(bill.cgst) || 0;
     const sgstVal = parseFloat(bill.sgst) || 0;
+    const igstVal = parseFloat(bill.igst) || 0;
     const grandTotal = parseFloat(bill.grandTotal) || 0;
-    const paidAmount = bill.paidAmount !== undefined ? parseFloat(bill.paidAmount) : (bill.paymentMode === 'CREDIT' ? 0 : grandTotal);
-    const balanceDue = bill.balanceDue !== undefined ? parseFloat(bill.balanceDue) : (bill.paymentMode === 'CREDIT' ? grandTotal : Math.max(0, grandTotal - paidAmount));
+    const parsedPaid = bill.paidAmount != null ? parseFloat(bill.paidAmount) : NaN;
+    const paidAmount = !Number.isNaN(parsedPaid)
+        ? parsedPaid
+        : bill.paymentMode === 'CREDIT'
+          ? 0
+          : grandTotal;
+
+    const parsedBalance = bill.balanceDue != null ? parseFloat(bill.balanceDue) : NaN;
+    const balanceDue = !Number.isNaN(parsedBalance)
+        ? parsedBalance
+        : bill.paymentMode === 'CREDIT'
+          ? grandTotal
+          : Math.max(0, grandTotal - paidAmount);
 
     const monoFont = Platform.select({
         ios: 'Courier New',
@@ -158,7 +124,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         default: 'monospace',
     });
 
-    const dividerChar = is58mm ? '--------------------------------' : '------------------------------------------------';
+    const dividerChar = is58mm
+        ? '--------------------------------'
+        : '------------------------------------------------';
 
     return (
         <View style={[styles.outerContainer, is58mm ? styles.width58mm : styles.width80mm]}>
@@ -171,7 +139,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                 {isDuplicate && (
                     <View style={styles.duplicateStampBox}>
                         <Text style={[styles.duplicateStampText, { fontFamily: monoFont }]}>
-                            *** DUPLICATE REPRINT ***
+                            *** DUPLICATE COPY ***
                         </Text>
                     </View>
                 )}
@@ -179,20 +147,51 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                 {/* 2. SHOP HEADER */}
                 {opt.showLogo && (
                     <View style={styles.headerSection}>
-                        <Text style={[styles.shopTitle, { fontFamily: monoFont, fontSize: fs(is58mm ? 14 : 16) }]}>
+                        <Text
+                            style={[
+                                styles.shopTitle,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 14 : 16) },
+                            ]}
+                        >
                             {shop.name}
                         </Text>
-                        <Text style={[styles.shopSubtitle, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
-                            {shop.subtitle}
-                        </Text>
-                        <Text style={[styles.shopMeta, { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) }]}>
-                            {shop.address}
-                        </Text>
-                        <Text style={[styles.shopMeta, { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) }]}>
-                            Phone: {shop.phone}
-                        </Text>
+                        {shop.subtitle ? (
+                            <Text
+                                style={[
+                                    styles.shopSubtitle,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                ]}
+                            >
+                                {shop.subtitle}
+                            </Text>
+                        ) : null}
+                        {shop.address ? (
+                            <Text
+                                style={[
+                                    styles.shopMeta,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) },
+                                ]}
+                            >
+                                {shop.address}
+                            </Text>
+                        ) : null}
+                        {shop.phone ? (
+                            <Text
+                                style={[
+                                    styles.shopMeta,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) },
+                                ]}
+                            >
+                                Phone: {shop.phone}
+                            </Text>
+                        ) : null}
                         {opt.showGst && shop.gstin ? (
-                            <Text style={[styles.shopGst, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
+                            <Text
+                                style={[
+                                    styles.shopGst,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                ]}
+                            >
                                 GSTIN: {shop.gstin}
                             </Text>
                         ) : null}
@@ -203,7 +202,12 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
                 {/* 3. INVOICE TITLE */}
                 <View style={styles.invoiceTitleRow}>
-                    <Text style={[styles.invoiceTitleText, { fontFamily: monoFont, fontSize: fs(is58mm ? 13 : 14) }]}>
+                    <Text
+                        style={[
+                            styles.invoiceTitleText,
+                            { fontFamily: monoFont, fontSize: fs(is58mm ? 13 : 14) },
+                        ]}
+                    >
                         TAX INVOICE
                     </Text>
                 </View>
@@ -213,19 +217,39 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                 {/* 4. INVOICE & CUSTOMER META */}
                 <View style={styles.metaSection}>
                     <View style={styles.metaRow}>
-                        <Text style={[styles.metaLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
+                        <Text
+                            style={[
+                                styles.metaLabel,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                            ]}
+                        >
                             Invoice No :
                         </Text>
-                        <Text style={[styles.metaValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5) }]}>
+                        <Text
+                            style={[
+                                styles.metaValue,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5) },
+                            ]}
+                        >
                             {bill.billNumber || `INV-${bill.id || '1001'}`}
                         </Text>
                     </View>
 
                     <View style={styles.metaRow}>
-                        <Text style={[styles.metaLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
+                        <Text
+                            style={[
+                                styles.metaLabel,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                            ]}
+                        >
                             Date & Time:
                         </Text>
-                        <Text style={[styles.metaValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
+                        <Text
+                            style={[
+                                styles.metaValue,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                            ]}
+                        >
                             {formattedDate} {formattedTime}
                         </Text>
                     </View>
@@ -233,32 +257,68 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     {opt.showCustomer && (
                         <>
                             <View style={styles.metaRow}>
-                                <Text style={[styles.metaLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
-                                    Customer   :
+                                <Text
+                                    style={[
+                                        styles.metaLabel,
+                                        { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                    ]}
+                                >
+                                    Customer :
                                 </Text>
-                                <Text style={[styles.metaValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5), fontWeight: '700' }]} numberOfLines={1}>
+                                <Text
+                                    style={[
+                                        styles.metaValue,
+                                        {
+                                            fontFamily: monoFont,
+                                            fontSize: fs(is58mm ? 10.5 : 11.5),
+                                            fontWeight: '700',
+                                        },
+                                    ]}
+                                    numberOfLines={1}
+                                >
                                     {bill.customerName || bill.customer?.customerName || 'Walk-in Cash Guest'}
                                 </Text>
                             </View>
 
-                            {bill.customer?.phone ? (
+                            {(bill.shopName ? bill.customerPhone : bill.customer?.phone) ? (
                                 <View style={styles.metaRow}>
-                                    <Text style={[styles.metaLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
-                                        Mobile     :
+                                    <Text
+                                        style={[
+                                            styles.metaLabel,
+                                            { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                        ]}
+                                    >
+                                        Mobile :
                                     </Text>
-                                    <Text style={[styles.metaValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
-                                        {bill.customer.phone}
+                                    <Text
+                                        style={[
+                                            styles.metaValue,
+                                            { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                        ]}
+                                    >
+                                        {bill.shopName ? bill.customerPhone : bill.customer?.phone}
                                     </Text>
                                 </View>
                             ) : null}
 
-                            {bill.customer?.address ? (
+                            {(bill.shopName ? bill.customerAddress : bill.customer?.address) ? (
                                 <View style={styles.metaRow}>
-                                    <Text style={[styles.metaLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
-                                        Address    :
+                                    <Text
+                                        style={[
+                                            styles.metaLabel,
+                                            { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                        ]}
+                                    >
+                                        Address :
                                     </Text>
-                                    <Text style={[styles.metaValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) }]} numberOfLines={1}>
-                                        {bill.customer.address}
+                                    <Text
+                                        style={[
+                                            styles.metaValue,
+                                            { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) },
+                                        ]}
+                                        numberOfLines={1}
+                                    >
+                                        {bill.shopName ? bill.customerAddress : bill.customer?.address}
                                     </Text>
                                 </View>
                             ) : null}
@@ -273,23 +333,43 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     // 58mm COMPACT 3-COL TABLE
                     <View style={styles.table58Container}>
                         <View style={styles.table58HeaderRow}>
-                            <Text style={[styles.col58Item, styles.tableHeaderTitle, { fontFamily: monoFont, fontSize: fs(10) }]}>
+                            <Text
+                                style={[
+                                    styles.col58Item,
+                                    styles.tableHeaderTitle,
+                                    { fontFamily: monoFont, fontSize: fs(10) },
+                                ]}
+                            >
                                 ITEM
                             </Text>
-                            <Text style={[styles.col58Qty, styles.tableHeaderTitle, { fontFamily: monoFont, fontSize: fs(10), textAlign: 'center' }]}>
+                            <Text
+                                style={[
+                                    styles.col58Qty,
+                                    styles.tableHeaderTitle,
+                                    { fontFamily: monoFont, fontSize: fs(10), textAlign: 'center' },
+                                ]}
+                            >
                                 QTY
                             </Text>
-                            <Text style={[styles.col58Amt, styles.tableHeaderTitle, { fontFamily: monoFont, fontSize: fs(10), textAlign: 'right' }]}>
+                            <Text
+                                style={[
+                                    styles.col58Amt,
+                                    styles.tableHeaderTitle,
+                                    { fontFamily: monoFont, fontSize: fs(10), textAlign: 'right' },
+                                ]}
+                            >
                                 AMOUNT
                             </Text>
                         </View>
                         <Text style={[styles.divider, { fontFamily: monoFont }]}>{dividerChar}</Text>
 
                         {items.length === 0 ? (
-                            <Text style={[styles.emptyItemText, { fontFamily: monoFont }]}>No line items recorded</Text>
+                            <Text style={[styles.emptyItemText, { fontFamily: monoFont }]}>
+                                No line items recorded
+                            </Text>
                         ) : (
                             items.map((it, idx) => {
-                                const pName = it.product?.productName || it.productName || 'Rice Product';
+                                const pName = it.productName || it.product?.productName || 'Rice Product';
                                 const brand = it.product?.brand || it.brand || '';
                                 const bagKg = it.product?.bagSizeKg || it.bagSizeKg || 25;
                                 const qty = parseFloat(it.quantity) || 1;
@@ -299,18 +379,48 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                                 return (
                                     <View key={it.id || idx} style={styles.itemRow58}>
                                         <View style={styles.col58Item}>
-                                            <Text style={[styles.itemTextBold, { fontFamily: monoFont, fontSize: fs(10.5) }]} numberOfLines={1}>
-                                                {brand ? `${brand} ` : ''}{pName}
+                                            <Text
+                                                style={[
+                                                    styles.itemTextBold,
+                                                    { fontFamily: monoFont, fontSize: fs(10.5) },
+                                                ]}
+                                                numberOfLines={1}
+                                            >
+                                                {brand ? `${brand} ` : ''}
+                                                {pName}
                                             </Text>
-                                            <Text style={[styles.itemTextSub, { fontFamily: monoFont, fontSize: fs(9) }]}>
+                                            <Text
+                                                style={[
+                                                    styles.itemTextSub,
+                                                    { fontFamily: monoFont, fontSize: fs(9) },
+                                                ]}
+                                            >
                                                 {bagKg}kg × ₹{rate}
                                             </Text>
                                         </View>
-                                        <Text style={[styles.col58Qty, { fontFamily: monoFont, fontSize: fs(10.5), textAlign: 'center' }]}>
+                                        <Text
+                                            style={[
+                                                styles.col58Qty,
+                                                {
+                                                    fontFamily: monoFont,
+                                                    fontSize: fs(10.5),
+                                                    textAlign: 'center',
+                                                },
+                                            ]}
+                                        >
                                             {qty} B
                                         </Text>
-                                        <Text style={[styles.col58Amt, { fontFamily: monoFont, fontSize: fs(10.5), textAlign: 'right' }]}>
-                                            {amount.toFixed(0)}
+                                        <Text
+                                            style={[
+                                                styles.col58Amt,
+                                                {
+                                                    fontFamily: monoFont,
+                                                    fontSize: fs(10.5),
+                                                    textAlign: 'right',
+                                                },
+                                            ]}
+                                        >
+                                            {amount.toFixed(2)}
                                         </Text>
                                     </View>
                                 );
@@ -321,26 +431,52 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     // 80mm DETAILED 4-COL TABLE
                     <View style={styles.table80Container}>
                         <View style={styles.table80HeaderRow}>
-                            <Text style={[styles.col80Item, styles.tableHeaderTitle, { fontFamily: monoFont, fontSize: fs(11) }]}>
+                            <Text
+                                style={[
+                                    styles.col80Item,
+                                    styles.tableHeaderTitle,
+                                    { fontFamily: monoFont, fontSize: fs(11) },
+                                ]}
+                            >
                                 ITEM / PACKAGING
                             </Text>
-                            <Text style={[styles.col80Qty, styles.tableHeaderTitle, { fontFamily: monoFont, fontSize: fs(11), textAlign: 'center' }]}>
+                            <Text
+                                style={[
+                                    styles.col80Qty,
+                                    styles.tableHeaderTitle,
+                                    { fontFamily: monoFont, fontSize: fs(11), textAlign: 'center' },
+                                ]}
+                            >
                                 QTY / WT
                             </Text>
-                            <Text style={[styles.col80Rate, styles.tableHeaderTitle, { fontFamily: monoFont, fontSize: fs(11), textAlign: 'right' }]}>
+                            <Text
+                                style={[
+                                    styles.col80Rate,
+                                    styles.tableHeaderTitle,
+                                    { fontFamily: monoFont, fontSize: fs(11), textAlign: 'right' },
+                                ]}
+                            >
                                 RATE
                             </Text>
-                            <Text style={[styles.col80Amt, styles.tableHeaderTitle, { fontFamily: monoFont, fontSize: fs(11), textAlign: 'right' }]}>
+                            <Text
+                                style={[
+                                    styles.col80Amt,
+                                    styles.tableHeaderTitle,
+                                    { fontFamily: monoFont, fontSize: fs(11), textAlign: 'right' },
+                                ]}
+                            >
                                 AMOUNT
                             </Text>
                         </View>
                         <Text style={[styles.divider, { fontFamily: monoFont }]}>{dividerChar}</Text>
 
                         {items.length === 0 ? (
-                            <Text style={[styles.emptyItemText, { fontFamily: monoFont }]}>No line items recorded</Text>
+                            <Text style={[styles.emptyItemText, { fontFamily: monoFont }]}>
+                                No line items recorded
+                            </Text>
                         ) : (
                             items.map((it, idx) => {
-                                const pName = it.product?.productName || it.productName || 'Rice Product';
+                                const pName = it.productName || it.product?.productName || 'Rice Product';
                                 const brand = it.product?.brand || it.brand || '';
                                 const bagKg = it.product?.bagSizeKg || it.bagSizeKg || 25;
                                 const qty = parseFloat(it.quantity) || 1;
@@ -351,25 +487,73 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                                 return (
                                     <View key={it.id || idx} style={styles.itemRow80}>
                                         <View style={styles.col80Item}>
-                                            <Text style={[styles.itemTextBold, { fontFamily: monoFont, fontSize: fs(11.5) }]} numberOfLines={1}>
-                                                {brand ? `${brand} ` : ''}{pName}
+                                            <Text
+                                                style={[
+                                                    styles.itemTextBold,
+                                                    { fontFamily: monoFont, fontSize: fs(11.5) },
+                                                ]}
+                                                numberOfLines={1}
+                                            >
+                                                {brand ? `${brand} ` : ''}
+                                                {pName}
                                             </Text>
-                                            <Text style={[styles.itemTextSub, { fontFamily: monoFont, fontSize: fs(9.5) }]}>
+                                            <Text
+                                                style={[
+                                                    styles.itemTextSub,
+                                                    { fontFamily: monoFont, fontSize: fs(9.5) },
+                                                ]}
+                                            >
                                                 Pack: {bagKg} Kg Bag
                                             </Text>
                                         </View>
                                         <View style={styles.col80Qty}>
-                                            <Text style={[styles.itemTextBold, { fontFamily: monoFont, fontSize: fs(11), textAlign: 'center' }]}>
+                                            <Text
+                                                style={[
+                                                    styles.itemTextBold,
+                                                    {
+                                                        fontFamily: monoFont,
+                                                        fontSize: fs(11),
+                                                        textAlign: 'center',
+                                                    },
+                                                ]}
+                                            >
                                                 {qty} Bags
                                             </Text>
-                                            <Text style={[styles.itemTextSub, { fontFamily: monoFont, fontSize: fs(9), textAlign: 'center' }]}>
+                                            <Text
+                                                style={[
+                                                    styles.itemTextSub,
+                                                    {
+                                                        fontFamily: monoFont,
+                                                        fontSize: fs(9),
+                                                        textAlign: 'center',
+                                                    },
+                                                ]}
+                                            >
                                                 ({totalKg} Kg)
                                             </Text>
                                         </View>
-                                        <Text style={[styles.col80Rate, { fontFamily: monoFont, fontSize: fs(11), textAlign: 'right' }]}>
+                                        <Text
+                                            style={[
+                                                styles.col80Rate,
+                                                {
+                                                    fontFamily: monoFont,
+                                                    fontSize: fs(11),
+                                                    textAlign: 'right',
+                                                },
+                                            ]}
+                                        >
                                             ₹{rate.toFixed(0)}
                                         </Text>
-                                        <Text style={[styles.col80Amt, { fontFamily: monoFont, fontSize: fs(11.5), textAlign: 'right' }]}>
+                                        <Text
+                                            style={[
+                                                styles.col80Amt,
+                                                {
+                                                    fontFamily: monoFont,
+                                                    fontSize: fs(11.5),
+                                                    textAlign: 'right',
+                                                },
+                                            ]}
+                                        >
                                             ₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                         </Text>
                                     </View>
@@ -384,44 +568,92 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                 {/* 6. FINANCIAL SUMMARY */}
                 <View style={styles.summarySection}>
                     <View style={styles.summaryRow}>
-                        <Text style={[styles.summaryLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
+                        <Text
+                            style={[
+                                styles.summaryLabel,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                            ]}
+                        >
                             Subtotal
                         </Text>
-                        <Text style={[styles.summaryValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5) }]}>
+                        <Text
+                            style={[
+                                styles.summaryValue,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5) },
+                            ]}
+                        >
                             ₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </Text>
                     </View>
 
                     {discountVal > 0 && (
                         <View style={styles.summaryRow}>
-                            <Text style={[styles.summaryLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
+                            <Text
+                                style={[
+                                    styles.summaryLabel,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                ]}
+                            >
                                 Discount
                             </Text>
-                            <Text style={[styles.summaryValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5) }]}>
+                            <Text
+                                style={[
+                                    styles.summaryValue,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5) },
+                                ]}
+                            >
                                 - ₹{discountVal.toFixed(2)}
                             </Text>
                         </View>
                     )}
 
-                    {opt.showGst && (cgstVal > 0 || sgstVal > 0) && (
+                    {opt.showGst && (cgstVal > 0 || sgstVal > 0 || igstVal > 0) && (
                         <>
                             {cgstVal > 0 && (
                                 <View style={styles.summaryRow}>
-                                    <Text style={[styles.summaryLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) }]}>
-                                        CGST (2.5%)
+                                    <Text
+                                        style={[
+                                            styles.summaryLabel,
+                                            { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) },
+                                        ]}
+                                    >
+                                        CGST
                                     </Text>
-                                    <Text style={[styles.summaryValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) }]}>
+                                    <Text
+                                        style={[
+                                            styles.summaryValue,
+                                            { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) },
+                                        ]}
+                                    >
                                         + ₹{cgstVal.toFixed(2)}
                                     </Text>
                                 </View>
                             )}
                             {sgstVal > 0 && (
                                 <View style={styles.summaryRow}>
-                                    <Text style={[styles.summaryLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) }]}>
-                                        SGST (2.5%)
+                                    <Text
+                                        style={[
+                                            styles.summaryLabel,
+                                            { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) },
+                                        ]}
+                                    >
+                                        SGST
                                     </Text>
-                                    <Text style={[styles.summaryValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) }]}>
+                                    <Text
+                                        style={[
+                                            styles.summaryValue,
+                                            { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) },
+                                        ]}
+                                    >
                                         + ₹{sgstVal.toFixed(2)}
+                                    </Text>
+                                </View>
+                            )}
+                            {igstVal > 0 && (
+                                <View style={styles.summaryRow}>
+                                    <Text style={[styles.summaryLabel, { fontFamily: monoFont }]}>IGST</Text>
+                                    <Text style={[styles.summaryValue, { fontFamily: monoFont }]}>
+                                        + ₹{igstVal.toFixed(2)}
                                     </Text>
                                 </View>
                             )}
@@ -432,10 +664,20 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
                     {/* GRAND TOTAL */}
                     <View style={styles.grandTotalRow}>
-                        <Text style={[styles.grandTotalLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 13 : 15) }]}>
+                        <Text
+                            style={[
+                                styles.grandTotalLabel,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 13 : 15) },
+                            ]}
+                        >
                             TOTAL
                         </Text>
-                        <Text style={[styles.grandTotalValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 14 : 16) }]}>
+                        <Text
+                            style={[
+                                styles.grandTotalValue,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 14 : 16) },
+                            ]}
+                        >
                             ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </Text>
                     </View>
@@ -447,51 +689,84 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                 {opt.showPayment && (
                     <View style={styles.paymentSection}>
                         <View style={styles.metaRow}>
-                            <Text style={[styles.metaLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
+                            <Text
+                                style={[
+                                    styles.metaLabel,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                ]}
+                            >
                                 Payment Mode :
                             </Text>
-                            <Text style={[styles.metaValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5), fontWeight: '700' }]}>
+                            <Text
+                                style={[
+                                    styles.metaValue,
+                                    {
+                                        fontFamily: monoFont,
+                                        fontSize: fs(is58mm ? 10.5 : 11.5),
+                                        fontWeight: '700',
+                                    },
+                                ]}
+                            >
                                 {bill.paymentMode || 'CASH'}
                             </Text>
                         </View>
 
                         <View style={styles.metaRow}>
-                            <Text style={[styles.metaLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) }]}>
-                                Paid Amount  :
+                            <Text
+                                style={[
+                                    styles.metaLabel,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11) },
+                                ]}
+                            >
+                                Paid Amount :
                             </Text>
-                            <Text style={[styles.metaValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5) }]}>
+                            <Text
+                                style={[
+                                    styles.metaValue,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5) },
+                                ]}
+                            >
                                 ₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </Text>
                         </View>
 
                         <View style={styles.metaRow}>
-                            <Text style={[styles.metaLabel, { fontFamily: monoFont, fontSize: fs(is58mm ? 10 : 11), fontWeight: balanceDue > 0 ? '700' : '400' }]}>
-                                Balance Due  :
+                            <Text
+                                style={[
+                                    styles.metaLabel,
+                                    {
+                                        fontFamily: monoFont,
+                                        fontSize: fs(is58mm ? 10 : 11),
+                                        fontWeight: balanceDue > 0 ? '700' : '400',
+                                    },
+                                ]}
+                            >
+                                Balance Due :
                             </Text>
-                            <Text style={[styles.metaValue, { fontFamily: monoFont, fontSize: fs(is58mm ? 10.5 : 11.5), fontWeight: '700' }]}>
+                            <Text
+                                style={[
+                                    styles.metaValue,
+                                    {
+                                        fontFamily: monoFont,
+                                        fontSize: fs(is58mm ? 10.5 : 11.5),
+                                        fontWeight: '700',
+                                    },
+                                ]}
+                            >
                                 ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </Text>
                         </View>
 
                         {balanceDue > 0 && (
-                            <Text style={[styles.ledgerNote, { fontFamily: monoFont, fontSize: fs(is58mm ? 8.5 : 9.5) }]}>
+                            <Text
+                                style={[
+                                    styles.ledgerNote,
+                                    { fontFamily: monoFont, fontSize: fs(is58mm ? 8.5 : 9.5) },
+                                ]}
+                            >
                                 * Balance ₹{balanceDue.toFixed(2)} added to Customer Credit Ledger.
                             </Text>
                         )}
-                    </View>
-                )}
-
-                {/* 8. DYNAMIC UPI QR CODE */}
-                {opt.showQr && shop.upiId && (!is58mm || grandTotal > 0) && (
-                    <View style={styles.qrSection}>
-                        <Text style={[styles.divider, { fontFamily: monoFont }]}>{dividerChar}</Text>
-                        <Text style={[styles.qrTitle, { fontFamily: monoFont, fontSize: fs(is58mm ? 9.5 : 10.5) }]}>
-                            --- SCAN TO PAY VIA UPI ---
-                        </Text>
-                        <ThermalQRCode size={is58mm ? 80 : 96} />
-                        <Text style={[styles.qrUpiId, { fontFamily: monoFont, fontSize: fs(is58mm ? 9 : 10) }]}>
-                            UPI: {shop.upiId}
-                        </Text>
                     </View>
                 )}
 
@@ -499,10 +774,20 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                 {opt.showThanks && (
                     <View style={styles.footerSection}>
                         <Text style={[styles.divider, { fontFamily: monoFont }]}>{dividerChar}</Text>
-                        <Text style={[styles.footerThanks, { fontFamily: monoFont, fontSize: fs(is58mm ? 11 : 12.5) }]}>
+                        <Text
+                            style={[
+                                styles.footerThanks,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 11 : 12.5) },
+                            ]}
+                        >
                             Thank You! Visit Again 🙏
                         </Text>
-                        <Text style={[styles.footerDisclaimer, { fontFamily: monoFont, fontSize: fs(is58mm ? 8 : 9) }]}>
+                        <Text
+                            style={[
+                                styles.footerDisclaimer,
+                                { fontFamily: monoFont, fontSize: fs(is58mm ? 8 : 9) },
+                            ]}
+                        >
                             Computer Generated Invoice · Goods once sold cannot be returned
                         </Text>
                     </View>
@@ -723,22 +1008,6 @@ const styles = StyleSheet.create({
         color: '#333333',
         marginTop: 3,
         fontStyle: 'italic',
-    },
-
-    // QR Code
-    qrSection: {
-        alignItems: 'center',
-        marginVertical: 2,
-    },
-    qrTitle: {
-        color: '#333333',
-        fontWeight: '700',
-        marginBottom: 2,
-    },
-    qrUpiId: {
-        color: '#000000',
-        fontWeight: '700',
-        marginTop: 2,
     },
 
     // Footer

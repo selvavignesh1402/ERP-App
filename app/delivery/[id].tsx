@@ -1,18 +1,46 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-    ActivityIndicator, Alert, TextInput, Modal, Linking, Platform
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    Alert,
+    TextInput,
+    Modal,
+    Linking,
+    Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    ArrowLeft, Truck, Package, CheckCircle2, Clock,
-    AlertCircle, Phone, MapPin, Check, X, ShieldCheck,
-    Store, IndianRupee, FileText, User, Navigation,
-    Plus, Minus, AlertTriangle, ArrowRight
+    ArrowLeft,
+    Truck,
+    Package,
+    CheckCircle2,
+    Clock,
+    AlertCircle,
+    Phone,
+    MapPin,
+    Check,
+    X,
+    ShieldCheck,
+    Store,
+    IndianRupee,
+    FileText,
+    User,
+    Navigation,
+    Plus,
+    Minus,
+    AlertTriangle,
+    ArrowRight,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer, AnimatedPressable } from '../../src/components/Anime';
-import api from '../../src/services/api';
+import { RoleGate } from '../../src/components/RoleGate';
+import { OrgScopedScreen } from '../../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../../src/services/api';
 
 interface DeliveryItem {
     id: number;
@@ -29,6 +57,16 @@ interface DeliveryItem {
 }
 
 export default function DeliveryDetailScreen() {
+    return (
+        <RoleGate permission="delivery:view">
+            <OrgScopedScreen emptyMessage="Select a shop to view this delivery.">
+                {(api) => <DeliveryDetailContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function DeliveryDetailContent({ api }: { api: OrganizationApi }) {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
 
@@ -71,9 +109,11 @@ export default function DeliveryDetailScreen() {
         }
     }, [id]);
 
-    useFocusEffect(useCallback(() => {
-        fetchDelivery();
-    }, [fetchDelivery]));
+    useFocusEffect(
+        useCallback(() => {
+            fetchDelivery();
+        }, [fetchDelivery]),
+    );
 
     const handleStartTrip = async () => {
         setStartingTrip(true);
@@ -103,15 +143,27 @@ export default function DeliveryDetailScreen() {
                 paymentMode: paymentMode,
                 items: (delivery.items || []).map((it: any) => ({
                     productId: it.product.id,
-                    deliveredQuantity: deliveredQtys[it.product.id] !== undefined ? deliveredQtys[it.product.id] : (it.deliveringQuantity || 0),
-                }))
+                    deliveredQuantity:
+                        deliveredQtys[it.product.id] !== undefined
+                            ? deliveredQtys[it.product.id]
+                            : it.deliveringQuantity || 0,
+                })),
             };
 
-            await api.post(`/api/deliveries/${id}/confirm`, payload);
+            const result = await api.post(`/api/deliveries/${id}/confirm`, payload);
+            setDelivery(result.data);
             Alert.alert(
                 'Delivery Confirmed!',
-                `Goods verified and delivered to ${receiverName}.\nAn actual sales invoice has been automatically generated and billed to customer ledger.`,
-                [{ text: 'View Invoices', onPress: () => router.push('/sales') }, { text: 'OK', onPress: () => fetchDelivery() }]
+                (result.data.generatedInvoiceId
+                    ? `Delivery recorded for ${receiverName}. An invoice was created for the delivered goods.`
+                    : 'Delivery closed with no goods delivered. No invoice was created.') +
+                    (result.data.status === 'PARTIALLY_DELIVERED'
+                        ? '\nDispatch any remaining goods using a new delivery note.'
+                        : ''),
+                [
+                    { text: 'View Invoices', onPress: () => router.push('/sales') },
+                    { text: 'OK', onPress: () => fetchDelivery() },
+                ],
             );
         } catch (error: any) {
             Alert.alert('Confirmation Error', error.response?.data?.message || 'Could not confirm delivery');
@@ -127,7 +179,10 @@ export default function DeliveryDetailScreen() {
                 failureReason: selectedFailReason,
                 deliveryNotes: failNotes.trim(),
             });
-            Alert.alert('Delivery Logged as Failed', 'Status recorded. The order has returned to warehouse queue.');
+            Alert.alert(
+                'Delivery Logged as Failed',
+                'Status recorded. The order has returned to warehouse queue.',
+            );
             setFailModalVisible(false);
             fetchDelivery();
         } catch (error: any) {
@@ -138,7 +193,7 @@ export default function DeliveryDetailScreen() {
     };
 
     const adjustQty = (productId: number, delta: number, maxQty: number) => {
-        setDeliveredQtys(prev => {
+        setDeliveredQtys((prev) => {
             const current = prev[productId] ?? maxQty;
             const updated = Math.max(0, Math.min(maxQty, current + delta));
             return { ...prev, [productId]: updated };
@@ -169,7 +224,11 @@ export default function DeliveryDetailScreen() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    <Path d="M150 -40 C250 -60, 420 -20, 430 110 C440 230, 340 280, 220 250 C120 220, 50 150, 150 -40 Z" fill="#E8F4F8" opacity={0.5} />
+                    <Path
+                        d="M150 -40 C250 -60, 420 -20, 430 110 C440 230, 340 280, 220 250 C120 220, 50 150, 150 -40 Z"
+                        fill="#E8F4F8"
+                        opacity={0.5}
+                    />
                 </Svg>
             </View>
 
@@ -184,13 +243,41 @@ export default function DeliveryDetailScreen() {
                     <Text style={styles.headerSubtitle}>Order {delivery.salesOrder?.orderNumber}</Text>
                 </View>
 
-                <View style={[styles.statusPill, {
-                    backgroundColor: isCompleted ? '#ECFDF5' : isInTransit ? '#F0F9FF' : isFailed ? '#FEF2F2' : '#FFFBEB',
-                    borderColor: isCompleted ? '#A7F3D0' : isInTransit ? '#BAE6FD' : isFailed ? '#FECACA' : '#FDE68A',
-                }]}>
-                    <Text style={[styles.statusPillText, {
-                        color: isCompleted ? '#059669' : isInTransit ? '#0284C7' : isFailed ? '#DC2626' : '#D97706',
-                    }]}>
+                <View
+                    style={[
+                        styles.statusPill,
+                        {
+                            backgroundColor: isCompleted
+                                ? '#ECFDF5'
+                                : isInTransit
+                                  ? '#F0F9FF'
+                                  : isFailed
+                                    ? '#FEF2F2'
+                                    : '#FFFBEB',
+                            borderColor: isCompleted
+                                ? '#A7F3D0'
+                                : isInTransit
+                                  ? '#BAE6FD'
+                                  : isFailed
+                                    ? '#FECACA'
+                                    : '#FDE68A',
+                        },
+                    ]}
+                >
+                    <Text
+                        style={[
+                            styles.statusPillText,
+                            {
+                                color: isCompleted
+                                    ? '#059669'
+                                    : isInTransit
+                                      ? '#0284C7'
+                                      : isFailed
+                                        ? '#DC2626'
+                                        : '#D97706',
+                            },
+                        ]}
+                    >
                         {delivery.status.replace(/_/g, ' ')}
                     </Text>
                 </View>
@@ -205,7 +292,9 @@ export default function DeliveryDetailScreen() {
                                 <Store size={18} color="#1A1A1A" />
                             </View>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.storeName}>{delivery.salesOrder?.customer?.customerName}</Text>
+                                <Text style={styles.storeName}>
+                                    {delivery.salesOrder?.customer?.customerName}
+                                </Text>
                                 <View style={styles.addressRow}>
                                     <MapPin size={11} color="#6B7280" style={{ marginTop: 1 }} />
                                     <Text style={styles.addressText} numberOfLines={2}>
@@ -216,7 +305,9 @@ export default function DeliveryDetailScreen() {
                             {delivery.salesOrder?.customer?.phoneNumber ? (
                                 <TouchableOpacity
                                     style={styles.phoneBtn}
-                                    onPress={() => Linking.openURL(`tel:${delivery.salesOrder?.customer?.phoneNumber}`)}
+                                    onPress={() =>
+                                        Linking.openURL(`tel:${delivery.salesOrder?.customer?.phoneNumber}`)
+                                    }
                                     activeOpacity={0.75}
                                 >
                                     <Phone size={13} color="#059669" />
@@ -233,10 +324,14 @@ export default function DeliveryDetailScreen() {
                                 <Text style={styles.metaChipText}>📦 {totalBags} Total Bags</Text>
                             </View>
                             <View style={styles.metaChip}>
-                                <Text style={styles.metaChipText}>🚐 {delivery.vehicleNumber || 'Van 01'}</Text>
+                                <Text style={styles.metaChipText}>
+                                    🚐 {delivery.vehicleNumber || 'Van 01'}
+                                </Text>
                             </View>
                             <View style={styles.metaChip}>
-                                <Text style={styles.metaChipText}>💰 ₹{delivery.salesOrder?.grandTotal?.toLocaleString('en-IN') || 0}</Text>
+                                <Text style={styles.metaChipText}>
+                                    💰 ₹{delivery.salesOrder?.grandTotal?.toLocaleString('en-IN') || 0}
+                                </Text>
                             </View>
                         </View>
                     </View>
@@ -250,7 +345,9 @@ export default function DeliveryDetailScreen() {
                                 <Clock size={18} color="#D97706" />
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.bannerTitle}>Assigned for Dispatch</Text>
-                                    <Text style={styles.bannerSub}>Start your trip when departing from warehouse.</Text>
+                                    <Text style={styles.bannerSub}>
+                                        Start your trip when departing from warehouse.
+                                    </Text>
                                 </View>
                             </View>
 
@@ -265,7 +362,9 @@ export default function DeliveryDetailScreen() {
                                 ) : (
                                     <>
                                         <Truck size={16} color="#FFF" strokeWidth={2.2} />
-                                        <Text style={styles.primaryActionBtnText}>Start Delivery (Out for Delivery)</Text>
+                                        <Text style={styles.primaryActionBtnText}>
+                                            Start Delivery (Out for Delivery)
+                                        </Text>
                                     </>
                                 )}
                             </TouchableOpacity>
@@ -278,7 +377,9 @@ export default function DeliveryDetailScreen() {
                     <FadeInDown delay={70}>
                         <View style={styles.card}>
                             <Text style={styles.sectionTitle}>Dispatched Items to Deliver</Text>
-                            <Text style={styles.sectionSubtitle}>Confirm customer acceptance and drop-off receipt.</Text>
+                            <Text style={styles.sectionSubtitle}>
+                                Confirm customer acceptance and drop-off receipt.
+                            </Text>
 
                             <View style={styles.checklistWrapper}>
                                 {delivery.items.map((item: any) => {
@@ -287,35 +388,70 @@ export default function DeliveryDetailScreen() {
                                     return (
                                         <View key={item.id} style={styles.checkItemRow}>
                                             <View style={{ flex: 1, paddingRight: 8 }}>
-                                                <Text style={styles.itemNameText} numberOfLines={1}>{item.product?.productName}</Text>
-                                                <Text style={styles.itemRateSub}>₹{item.unitPrice?.toLocaleString('en-IN')} / Bag • Dispatched: {maxQty}</Text>
+                                                <Text style={styles.itemNameText} numberOfLines={1}>
+                                                    {item.product?.productName}
+                                                </Text>
+                                                <Text style={styles.itemRateSub}>
+                                                    ₹{item.unitPrice?.toLocaleString('en-IN')} / Bag •
+                                                    Dispatched: {maxQty}
+                                                </Text>
                                             </View>
 
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                                            <View
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    backgroundColor: '#F3F4F6',
+                                                    paddingHorizontal: 8,
+                                                    paddingVertical: 4,
+                                                    borderRadius: 8,
+                                                }}
+                                            >
                                                 <TouchableOpacity
                                                     onPress={() => {
                                                         if (currentQty > 0) {
-                                                            setDeliveredQtys(prev => ({ ...prev, [item.product.id]: currentQty - 1 }));
+                                                            setDeliveredQtys((prev) => ({
+                                                                ...prev,
+                                                                [item.product.id]: currentQty - 1,
+                                                            }));
                                                         }
                                                     }}
                                                     disabled={currentQty <= 0}
                                                     style={{ padding: 4 }}
                                                 >
-                                                    <Minus size={16} color={currentQty <= 0 ? '#9CA3AF' : '#1F2937'} />
+                                                    <Minus
+                                                        size={16}
+                                                        color={currentQty <= 0 ? '#9CA3AF' : '#1F2937'}
+                                                    />
                                                 </TouchableOpacity>
-                                                <Text style={{ fontSize: 14, fontWeight: '800', color: currentQty === maxQty ? '#059669' : '#D97706', minWidth: 24, textAlign: 'center' }}>
+                                                <Text
+                                                    style={{
+                                                        fontSize: 14,
+                                                        fontWeight: '800',
+                                                        color: currentQty === maxQty ? '#059669' : '#D97706',
+                                                        minWidth: 24,
+                                                        textAlign: 'center',
+                                                    }}
+                                                >
                                                     {currentQty}
                                                 </Text>
                                                 <TouchableOpacity
                                                     onPress={() => {
                                                         if (currentQty < maxQty) {
-                                                            setDeliveredQtys(prev => ({ ...prev, [item.product.id]: currentQty + 1 }));
+                                                            setDeliveredQtys((prev) => ({
+                                                                ...prev,
+                                                                [item.product.id]: currentQty + 1,
+                                                            }));
                                                         }
                                                     }}
                                                     disabled={currentQty >= maxQty}
                                                     style={{ padding: 4 }}
                                                 >
-                                                    <Plus size={16} color={currentQty >= maxQty ? '#9CA3AF' : '#1F2937'} />
+                                                    <Plus
+                                                        size={16}
+                                                        color={currentQty >= maxQty ? '#9CA3AF' : '#1F2937'}
+                                                    />
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -352,7 +488,7 @@ export default function DeliveryDetailScreen() {
                                     { key: 'CREDIT', label: '📒 Store Credit' },
                                     { key: 'CASH', label: '💵 Cash' },
                                     { key: 'UPI', label: '📱 UPI' },
-                                ].map(m => {
+                                ].map((m) => {
                                     const isSel = paymentMode === m.key;
                                     return (
                                         <TouchableOpacity
@@ -361,7 +497,12 @@ export default function DeliveryDetailScreen() {
                                             onPress={() => setPaymentMode(m.key as any)}
                                             activeOpacity={0.8}
                                         >
-                                            <Text style={[styles.payModeChipText, isSel && styles.payModeChipTextActive]}>
+                                            <Text
+                                                style={[
+                                                    styles.payModeChipText,
+                                                    isSel && styles.payModeChipTextActive,
+                                                ]}
+                                            >
                                                 {m.label}
                                             </Text>
                                         </TouchableOpacity>
@@ -370,7 +511,10 @@ export default function DeliveryDetailScreen() {
                             </View>
 
                             <TouchableOpacity
-                                style={[styles.primaryActionBtn, { backgroundColor: '#059669', marginTop: 14 }]}
+                                style={[
+                                    styles.primaryActionBtn,
+                                    { backgroundColor: '#059669', marginTop: 14 },
+                                ]}
                                 onPress={handleConfirmDelivery}
                                 disabled={submittingConfirm}
                                 activeOpacity={0.85}
@@ -380,7 +524,9 @@ export default function DeliveryDetailScreen() {
                                 ) : (
                                     <>
                                         <Check size={16} color="#FFF" strokeWidth={2.4} />
-                                        <Text style={styles.primaryActionBtnText}>Confirm Delivery & Generate Invoice</Text>
+                                        <Text style={styles.primaryActionBtnText}>
+                                            Confirm Delivery & Generate Invoice
+                                        </Text>
                                     </>
                                 )}
                             </TouchableOpacity>
@@ -391,7 +537,9 @@ export default function DeliveryDetailScreen() {
                                 activeOpacity={0.8}
                             >
                                 <AlertTriangle size={12} color="#DC2626" />
-                                <Text style={styles.failLinkBtnText}>Report Delivery Issue / Shop Closed</Text>
+                                <Text style={styles.failLinkBtnText}>
+                                    Report Delivery Issue / Shop Closed
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </FadeInDown>
@@ -406,7 +554,10 @@ export default function DeliveryDetailScreen() {
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.completedTitle}>Delivery Successfully Finalized</Text>
                                     <Text style={styles.completedSub}>
-                                        Received by {delivery.receiverName || 'Store Staff'} on {new Date(delivery.deliveredAt || delivery.assignedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                        Received by {delivery.receiverName || 'Store Staff'} on{' '}
+                                        {new Date(
+                                            delivery.deliveredAt || delivery.assignedAt,
+                                        ).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                                     </Text>
                                 </View>
                             </View>
@@ -418,13 +569,18 @@ export default function DeliveryDetailScreen() {
                                 {delivery.items.map((item: any) => (
                                     <View key={item.id} style={styles.completedItemRow}>
                                         <Text style={styles.itemNameText}>{item.product.productName}</Text>
-                                        <Text style={styles.completedItemQty}>📦 {item.deliveredQuantity} / {item.deliveringQuantity} Bags</Text>
+                                        <Text style={styles.completedItemQty}>
+                                            📦 {item.deliveredQuantity} / {item.deliveringQuantity} Bags
+                                        </Text>
                                     </View>
                                 ))}
                             </View>
 
                             <TouchableOpacity
-                                style={[styles.primaryActionBtn, { backgroundColor: '#2563EB', marginTop: 14 }]}
+                                style={[
+                                    styles.primaryActionBtn,
+                                    { backgroundColor: '#2563EB', marginTop: 14 },
+                                ]}
                                 onPress={() => router.push('/sales')}
                                 activeOpacity={0.85}
                             >
@@ -437,14 +593,22 @@ export default function DeliveryDetailScreen() {
             </ScrollView>
 
             {/* Delivery Failure Modal */}
-            <Modal visible={failModalVisible} animationType="slide" transparent>
+            <Modal
+                visible={failModalVisible}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setFailModalVisible(false)}
+            >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalSheet}>
                         <View style={styles.modalHandle} />
 
                         <View style={styles.modalHeaderRow}>
                             <Text style={styles.modalTitle}>Report Delivery Issue</Text>
-                            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setFailModalVisible(false)}>
+                            <TouchableOpacity
+                                style={styles.modalCloseBtn}
+                                onPress={() => setFailModalVisible(false)}
+                            >
                                 <X size={15} color="#4B5563" />
                             </TouchableOpacity>
                         </View>
@@ -457,7 +621,7 @@ export default function DeliveryDetailScreen() {
                                 { key: 'GOODS_REJECTED', label: '❌ Goods Rejected' },
                                 { key: 'ADDRESS_ISSUE', label: '📍 Address Issue' },
                                 { key: 'OTHER', label: '⚠️ Other' },
-                            ].map(r => {
+                            ].map((r) => {
                                 const isSel = selectedFailReason === r.key;
                                 return (
                                     <TouchableOpacity
@@ -466,7 +630,12 @@ export default function DeliveryDetailScreen() {
                                         onPress={() => setSelectedFailReason(r.key)}
                                         activeOpacity={0.8}
                                     >
-                                        <Text style={[styles.reasonChipText, isSel && styles.reasonChipTextActive]}>
+                                        <Text
+                                            style={[
+                                                styles.reasonChipText,
+                                                isSel && styles.reasonChipTextActive,
+                                            ]}
+                                        >
                                             {r.label}
                                         </Text>
                                     </TouchableOpacity>
@@ -493,7 +662,9 @@ export default function DeliveryDetailScreen() {
                             {submittingFail ? (
                                 <ActivityIndicator color="#FFF" />
                             ) : (
-                                <Text style={styles.primaryActionBtnText}>Submit Issue & Return to Queue</Text>
+                                <Text style={styles.primaryActionBtnText}>
+                                    Submit Issue & Return to Queue
+                                </Text>
                             )}
                         </TouchableOpacity>
                     </View>

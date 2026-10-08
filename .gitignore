@@ -18,7 +18,6 @@ web/build/
 # Firebase & Mobile Cloud Credentials / Secrets
 google-services.json
 GoogleService-Info.plist
-src/services/firebase.ts
 *service-account*.json
 *firebase-adminsdk*.json
 serviceAccountKey.json
@@ -47,4 +46,15 @@ Thumbs.db
 test_screenshots/
 playwright-report/
 test-results/
+# Local verification output
+*-latest.log
+*.log
 
+# Ad-hoc scratch / debug scripts. These were committed with hardcoded test
+# credentials and absolute paths from other machines; keep them local.
+scratch_*.js
+scratch_*.ts
+test_master_admin*.js
+copy_*.js
+force_copy.js
+restore_header.js

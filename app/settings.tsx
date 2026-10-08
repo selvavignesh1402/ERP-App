@@ -1,18 +1,43 @@
 import React, { useState, useCallback } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView,
-    TextInput, Switch, Alert, ActivityIndicator, Platform
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    TouchableOpacity,
+    ScrollView,
+    TextInput,
+    Switch,
+    Alert,
+    ActivityIndicator,
+    Platform,
 } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-    Camera, BadgeCheck, Bell, Shield, User, Building2,
-    ChevronRight, Briefcase, ArrowLeft, Mail, Phone,
-    MapPin, Sparkles, IndianRupee, Save, Lock
+    Camera,
+    BadgeCheck,
+    Bell,
+    Shield,
+    User,
+    Building2,
+    ChevronRight,
+    Briefcase,
+    ArrowLeft,
+    Mail,
+    Phone,
+    MapPin,
+    Sparkles,
+    IndianRupee,
+    Save,
+    Lock,
 } from 'lucide-react-native';
 import { FadeInDown } from '../src/components/Anime';
-import api, { me } from '../src/services/api';
+import { me } from '../src/services/api';
+import { RoleGate } from '../src/components/RoleGate';
+import { OrgScopedScreen } from '../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../src/services/api';
 import { useRoleContext } from '../src/contexts/RoleContext';
 
 type TabType = 'profile' | 'business' | 'notifications';
@@ -26,16 +51,32 @@ const NOTIF_KEYS = {
 
 const roleLabel = (role: string | undefined) => {
     switch (role) {
-        case 'ADMIN': return 'Administrator';
-        case 'MANAGER': return 'Operations Manager';
-        case 'ACCOUNTANT': return 'Head Accountant';
-        case 'SALES': return 'Sales Executive';
-        case 'WAREHOUSE': return 'Warehouse Manager';
-        default: return role ?? 'ERP User';
+        case 'ADMIN':
+            return 'Administrator';
+        case 'MANAGER':
+            return 'Operations Manager';
+        case 'ACCOUNTANT':
+            return 'Head Accountant';
+        case 'SALES':
+            return 'Sales Executive';
+        case 'WAREHOUSE':
+            return 'Warehouse Manager';
+        default:
+            return role ?? 'ERP User';
     }
 };
 
 export default function SettingsScreen() {
+    return (
+        <RoleGate permission="member:view">
+            <OrgScopedScreen emptyMessage="Select a shop to manage settings.">
+                {(api) => <SettingsScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function SettingsScreenContent({ api }: { api: OrganizationApi }) {
     const router = useRouter();
     const { refresh } = useRoleContext();
     const [activeTab, setActiveTab] = useState<TabType>('profile');
@@ -94,8 +135,9 @@ export default function SettingsScreen() {
             const entries = await AsyncStorage.multiGet(Object.values(NOTIF_KEYS));
             const next = { ...toggles };
             entries.forEach(([key, value]) => {
-                const toggleKey = (Object.keys(NOTIF_KEYS) as Array<keyof typeof NOTIF_KEYS>)
-                    .find(k => NOTIF_KEYS[k] === key);
+                const toggleKey = (Object.keys(NOTIF_KEYS) as Array<keyof typeof NOTIF_KEYS>).find(
+                    (k) => NOTIF_KEYS[k] === key,
+                );
                 if (toggleKey && value !== null) {
                     next[toggleKey] = value === 'true';
                 }
@@ -110,14 +152,14 @@ export default function SettingsScreen() {
         useCallback(() => {
             loadProfile();
             loadToggles();
-        }, [loadProfile, loadToggles])
+        }, [loadProfile, loadToggles]),
     );
 
     const toggleSwitch = (key: keyof typeof toggles) => {
-        setToggles(prev => {
+        setToggles((prev) => {
             const next = { ...prev, [key]: !prev[key] };
-            AsyncStorage.setItem(NOTIF_KEYS[key], String(next[key])).catch(err =>
-                console.error('Error saving notification pref:', err)
+            AsyncStorage.setItem(NOTIF_KEYS[key], String(next[key])).catch((err) =>
+                console.error('Error saving notification pref:', err),
             );
             return next;
         });
@@ -134,9 +176,11 @@ export default function SettingsScreen() {
                 gstNo,
             });
             refresh();
-            Alert.alert('Settings Updated', 'Your ERP preferences and details have been successfully saved.', [
-                { text: 'OK', onPress: () => router.replace('/(tabs)') }
-            ]);
+            Alert.alert(
+                'Settings Updated',
+                'Your ERP preferences and details have been successfully saved.',
+                [{ text: 'OK', onPress: () => router.replace('/(tabs)') }],
+            );
         } catch (error) {
             console.error('Error saving profile:', error);
             Alert.alert('Save failed', 'Could not update settings. Please try again.');
@@ -153,7 +197,7 @@ export default function SettingsScreen() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    
+
                     {/* Top Right Signature Soft Pink Blob */}
                     <Path
                         d="M100 -50 C200 -50, 385 -40, 395 60 C410 180, 360 250, 220 230 C120 210, 40 140, 100 -50 Z"
@@ -175,16 +219,15 @@ export default function SettingsScreen() {
                 </Svg>
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* 1. Header with Back Button */}
                 <FadeInDown delay={20} style={styles.header}>
                     <View style={styles.headerTopRow}>
                         <TouchableOpacity
                             style={styles.backBtn}
-                            onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)/profile')}
+                            onPress={() =>
+                                router.canGoBack() ? router.back() : router.push('/(tabs)/profile')
+                            }
                             activeOpacity={0.7}
                         >
                             <ArrowLeft size={20} color="#1A1A1A" />
@@ -192,7 +235,9 @@ export default function SettingsScreen() {
 
                         <View style={styles.headerTitleCol}>
                             <Text style={styles.headerTitle}>Settings</Text>
-                            <Text style={styles.headerSubtitle}>App Preferences, Business Details & Alerts</Text>
+                            <Text style={styles.headerSubtitle}>
+                                App Preferences, Business Details & Alerts
+                            </Text>
                         </View>
                     </View>
                 </FadeInDown>
@@ -201,7 +246,12 @@ export default function SettingsScreen() {
                 <View style={styles.tabContainer}>
                     {(['profile', 'business', 'notifications'] as TabType[]).map((t) => {
                         const active = activeTab === t;
-                        const label = t === 'profile' ? 'Profile' : t === 'business' ? 'Business & Tax' : 'Alerts & Notifs';
+                        const label =
+                            t === 'profile'
+                                ? 'Profile'
+                                : t === 'business'
+                                  ? 'Business & Tax'
+                                  : 'Alerts & Notifs';
                         return (
                             <TouchableOpacity
                                 key={t}
@@ -345,7 +395,9 @@ export default function SettingsScreen() {
                                     </View>
 
                                     <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>Mill Registration / FSSAI License</Text>
+                                        <Text style={styles.inputLabel}>
+                                            Mill Registration / FSSAI License
+                                        </Text>
                                         <View style={styles.inputField}>
                                             <Shield size={16} color="#8A8A8A" />
                                             <TextInput
@@ -384,7 +436,10 @@ export default function SettingsScreen() {
                                     <View style={styles.notifRow}>
                                         <View style={{ flex: 1, paddingRight: 10 }}>
                                             <Text style={styles.notifTitle}>Low Inventory Alerts</Text>
-                                            <Text style={styles.notifSub}>Get notified when rice bag stock falls below minimum safety levels (&lt; 20 bags)</Text>
+                                            <Text style={styles.notifSub}>
+                                                Get notified when rice bag stock falls below minimum safety
+                                                levels (&lt; 20 bags)
+                                            </Text>
                                         </View>
                                         <Switch
                                             value={toggles.lowStock}
@@ -398,7 +453,10 @@ export default function SettingsScreen() {
                                     <View style={styles.notifRow}>
                                         <View style={{ flex: 1, paddingRight: 10 }}>
                                             <Text style={styles.notifTitle}>Daily Sales Summary</Text>
-                                            <Text style={styles.notifSub}>Receive a daily evening digest of total revenue, bags sold, and active invoices</Text>
+                                            <Text style={styles.notifSub}>
+                                                Receive a daily evening digest of total revenue, bags sold,
+                                                and active invoices
+                                            </Text>
                                         </View>
                                         <Switch
                                             value={toggles.dailySales}
@@ -411,8 +469,13 @@ export default function SettingsScreen() {
                                     {/* Security Alerts */}
                                     <View style={styles.notifRow}>
                                         <View style={{ flex: 1, paddingRight: 10 }}>
-                                            <Text style={styles.notifTitle}>Security & Access Monitoring</Text>
-                                            <Text style={styles.notifSub}>Instant alerts for new login sessions and password modifications</Text>
+                                            <Text style={styles.notifTitle}>
+                                                Security & Access Monitoring
+                                            </Text>
+                                            <Text style={styles.notifSub}>
+                                                Instant alerts for new login sessions and password
+                                                modifications
+                                            </Text>
                                         </View>
                                         <Switch
                                             value={toggles.security}
@@ -425,8 +488,13 @@ export default function SettingsScreen() {
                                     {/* Customer Credit Overdue */}
                                     <View style={[styles.notifRow, { borderBottomWidth: 0 }]}>
                                         <View style={{ flex: 1, paddingRight: 10 }}>
-                                            <Text style={styles.notifTitle}>Customer Credit Overdue Alerts</Text>
-                                            <Text style={styles.notifSub}>Alerts when client accounts exceed 80% credit limit or 30-day payment cycle</Text>
+                                            <Text style={styles.notifTitle}>
+                                                Customer Credit Overdue Alerts
+                                            </Text>
+                                            <Text style={styles.notifSub}>
+                                                Alerts when client accounts exceed 80% credit limit or 30-day
+                                                payment cycle
+                                            </Text>
                                         </View>
                                         <Switch
                                             value={toggles.ledger}

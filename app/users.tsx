@@ -1,27 +1,82 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Alert,
-    ActivityIndicator, TextInput, Switch, ScrollView, Modal, Platform, Linking
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    TouchableOpacity,
+    Alert,
+    ActivityIndicator,
+    TextInput,
+    Switch,
+    ScrollView,
+    Modal,
+    Platform,
+    Linking,
 } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-    Shield, ChevronDown, Search, ArrowLeft, User, Phone,
-    UserCheck, UserX, Sparkles, X, CheckCircle2, Lock,
-    KeyRound, Users, ShieldAlert, PhoneCall
+    Shield,
+    ChevronDown,
+    Search,
+    ArrowLeft,
+    User,
+    Phone,
+    UserCheck,
+    UserX,
+    Sparkles,
+    X,
+    CheckCircle2,
+    Lock,
+    KeyRound,
+    Users,
+    ShieldAlert,
+    PhoneCall,
 } from 'lucide-react-native';
 import { FadeInDown, StaggerContainer } from '../src/components/Anime';
 import { listUsers, updateUser, me, inviteStaff } from '../src/services/api';
 import { useCurrentRole, hasRole } from '../src/hooks/useCurrentRole';
 import { AccessDeniedScreen } from '../src/components/AccessDeniedScreen';
+import { RoleGate } from '../src/components/RoleGate';
 import { useRoleContext } from '../src/contexts/RoleContext';
 
 const ROLES = [
-    { id: 'ADMIN', label: 'Administrator', desc: 'Full System, Financial & Admin Access', color: '#1A1A1A', bg: '#F5F5F7' },
-    { id: 'MANAGER', label: 'Operations Manager', desc: 'Manage Inventory, Sales & Beat Routes', color: '#1A1A1A', bg: '#F5F5F7' },
-    { id: 'SALES', label: 'Sales Executive', desc: 'Field Store Check-ins, POS & Billing', color: '#1A1A1A', bg: '#F5F5F7' },
-    { id: 'WAREHOUSE', label: 'Warehouse Staff', desc: 'Bag Stock Counts & Inward Adjustments', color: '#1A1A1A', bg: '#F5F5F7' },
-    { id: 'ACCOUNTANT', label: 'Accountant', desc: 'Ledger Audit, Tax & Invoicing', color: '#1A1A1A', bg: '#F5F5F7' },
+    {
+        id: 'ADMIN',
+        label: 'Administrator',
+        desc: 'Full System, Financial & Admin Access',
+        color: '#1A1A1A',
+        bg: '#F5F5F7',
+    },
+    {
+        id: 'MANAGER',
+        label: 'Operations Manager',
+        desc: 'Manage Inventory, Sales & Beat Routes',
+        color: '#1A1A1A',
+        bg: '#F5F5F7',
+    },
+    {
+        id: 'SALES',
+        label: 'Sales Executive',
+        desc: 'Field Store Check-ins, POS & Billing',
+        color: '#1A1A1A',
+        bg: '#F5F5F7',
+    },
+    {
+        id: 'WAREHOUSE',
+        label: 'Warehouse Staff',
+        desc: 'Bag Stock Counts & Inward Adjustments',
+        color: '#1A1A1A',
+        bg: '#F5F5F7',
+    },
+    {
+        id: 'ACCOUNTANT',
+        label: 'Accountant',
+        desc: 'Ledger Audit, Tax & Invoicing',
+        color: '#1A1A1A',
+        bg: '#F5F5F7',
+    },
 ];
 
 const ROLE_FILTERS = ['All', 'ADMIN', 'MANAGER', 'SALES', 'WAREHOUSE', 'ACCOUNTANT'];
@@ -36,6 +91,14 @@ interface UserRow {
 }
 
 export default function UsersScreen() {
+    return (
+        <RoleGate role="MASTER_ADMIN">
+            <UsersScreenContent />
+        </RoleGate>
+    );
+}
+
+function UsersScreenContent() {
     const router = useRouter();
     const currentRole = useCurrentRole();
     const { platformRole, ready } = useRoleContext();
@@ -92,7 +155,7 @@ export default function UsersScreen() {
             if (isAdmin) {
                 fetchUsers();
             }
-        }, [fetchUsers, isAdmin])
+        }, [fetchUsers, isAdmin]),
     );
 
     // ─────────────────────────────────────────────
@@ -100,9 +163,9 @@ export default function UsersScreen() {
     // ─────────────────────────────────────────────
     const metrics = useMemo(() => {
         const total = users.length;
-        const active = users.filter(u => u.active !== false).length;
-        const managers = users.filter(u => u.role === 'ADMIN' || u.role === 'MANAGER').length;
-        const sales = users.filter(u => u.role === 'SALES' || u.role === 'WAREHOUSE').length;
+        const active = users.filter((u) => u.active !== false).length;
+        const managers = users.filter((u) => u.role === 'ADMIN' || u.role === 'MANAGER').length;
+        const sales = users.filter((u) => u.role === 'SALES' || u.role === 'WAREHOUSE').length;
 
         return {
             total,
@@ -119,15 +182,16 @@ export default function UsersScreen() {
         let list = users;
 
         if (selectedRoleFilter !== 'All') {
-            list = list.filter(u => (u.role || '').toUpperCase() === selectedRoleFilter);
+            list = list.filter((u) => (u.role || '').toUpperCase() === selectedRoleFilter);
         }
 
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
-            list = list.filter(u =>
-                (u.name || '').toLowerCase().includes(q) ||
-                (u.phoneNumber || '').includes(q) ||
-                (u.role || '').toLowerCase().includes(q)
+            list = list.filter(
+                (u) =>
+                    (u.name || '').toLowerCase().includes(q) ||
+                    (u.phoneNumber || '').includes(q) ||
+                    (u.role || '').toLowerCase().includes(q),
             );
         }
 
@@ -197,11 +261,16 @@ export default function UsersScreen() {
                 'Staff invited successfully! Would you like to share the invite link via WhatsApp?',
                 [
                     { text: 'Later', style: 'cancel' },
-                    { text: 'Share to WhatsApp', onPress: () => {
-                        const link = res.data.inviteLink;
-                        Linking.openURL(`whatsapp://send?text=You have been invited to join our shop on Rice ERP! Click here to accept: ${link}`);
-                    }}
-                ]
+                    {
+                        text: 'Share to WhatsApp',
+                        onPress: () => {
+                            const link = res.data.inviteLink;
+                            Linking.openURL(
+                                `whatsapp://send?text=You have been invited to join our shop on Rice ERP! Click here to accept: ${link}`,
+                            );
+                        },
+                    },
+                ],
             );
         } catch (error: any) {
             console.error('Invite failed', error);
@@ -220,7 +289,7 @@ export default function UsersScreen() {
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Svg width="100%" height="100%" viewBox="0 0 375 812" preserveAspectRatio="none">
                     <Path d="M0 0h375v812H0z" fill="#FAF7F2" />
-                    
+
                     {/* Top Right Signature Soft Pink Blob */}
                     <Path
                         d="M100 -50 C200 -50, 385 -40, 395 60 C410 180, 360 250, 220 230 C120 210, 40 140, 100 -50 Z"
@@ -249,236 +318,254 @@ export default function UsersScreen() {
                     customMessage="Only administrators can manage staff accounts and role permissions."
                 />
             ) : (
-                <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
-                {/* 1. Header with Back Button */}
-                <FadeInDown delay={20} style={styles.header}>
-                    <View style={styles.headerTopRow}>
-                        <TouchableOpacity
-                            style={styles.backBtn}
-                            onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)/profile')}
-                            activeOpacity={0.7}
-                        >
-                            <ArrowLeft size={20} color="#1A1A1A" />
-                        </TouchableOpacity>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                    {/* 1. Header with Back Button */}
+                    <FadeInDown delay={20} style={styles.header}>
+                        <View style={styles.headerTopRow}>
+                            <TouchableOpacity
+                                style={styles.backBtn}
+                                onPress={() =>
+                                    router.canGoBack() ? router.back() : router.push('/(tabs)/profile')
+                                }
+                                activeOpacity={0.7}
+                            >
+                                <ArrowLeft size={20} color="#1A1A1A" />
+                            </TouchableOpacity>
 
-                        <View style={styles.headerTitleCol}>
-                            <Text style={styles.headerTitle}>Staff & User Access</Text>
-                            <Text style={styles.headerSubtitle}>
-                                {users.length} Team Members · Role Permissions & Security
+                            <View style={styles.headerTitleCol}>
+                                <Text style={styles.headerTitle}>Staff & User Access</Text>
+                                <Text style={styles.headerSubtitle}>
+                                    {users.length} Team Members · Role Permissions & Security
+                                </Text>
+                            </View>
+
+                            {isAdmin && (
+                                <TouchableOpacity
+                                    style={styles.inviteBtn}
+                                    onPress={() => setInviteModalVisible(true)}
+                                    activeOpacity={0.8}
+                                >
+                                    <Sparkles size={16} color="#FFFFFF" />
+                                    <Text style={styles.inviteBtnText}>Invite</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </FadeInDown>
+
+                    {/* 2. KPI Metrics Grid */}
+                    <FadeInDown delay={50} style={styles.kpiGrid}>
+                        {/* Total Users */}
+                        <View style={styles.kpiCard}>
+                            <View style={styles.kpiHeaderRow}>
+                                <View style={[styles.kpiIconCircle, { backgroundColor: '#FBE8F0' }]}>
+                                    <Users size={18} color="#F06A8C" />
+                                </View>
+                                <View style={styles.trendBadge}>
+                                    <Text style={styles.trendBadgeText}>{metrics.active} Active</Text>
+                                </View>
+                            </View>
+                            <Text style={styles.kpiLabel}>Total Accounts</Text>
+                            <Text style={styles.kpiValue} numberOfLines={1}>
+                                {metrics.total} Members
                             </Text>
                         </View>
-                        
-                        {isAdmin && (
-                            <TouchableOpacity
-                                style={styles.inviteBtn}
-                                onPress={() => setInviteModalVisible(true)}
-                                activeOpacity={0.8}
-                            >
-                                <Sparkles size={16} color="#FFFFFF" />
-                                <Text style={styles.inviteBtnText}>Invite</Text>
+
+                        {/* Administrators & Managers */}
+                        <View style={styles.kpiCard}>
+                            <View style={styles.kpiHeaderRow}>
+                                <View style={[styles.kpiIconCircle, { backgroundColor: '#F5F5F7' }]}>
+                                    <Shield size={18} color="#1A1A1A" />
+                                </View>
+                            </View>
+                            <Text style={styles.kpiLabel}>Leadership / Admin</Text>
+                            <Text style={[styles.kpiValue, { color: '#1A1A1A' }]} numberOfLines={1}>
+                                {metrics.managers} Admins
+                            </Text>
+                        </View>
+
+                        {/* Field Sales & Warehouse */}
+                        <View style={styles.kpiCard}>
+                            <View style={styles.kpiHeaderRow}>
+                                <View style={[styles.kpiIconCircle, { backgroundColor: '#F5F5F7' }]}>
+                                    <UserCheck size={18} color="#1A1A1A" />
+                                </View>
+                            </View>
+                            <Text style={styles.kpiLabel}>Field & Operations</Text>
+                            <Text style={[styles.kpiValue, { color: '#1A1A1A' }]} numberOfLines={1}>
+                                {metrics.sales} Staff
+                            </Text>
+                        </View>
+
+                        {/* Security Status */}
+                        <View style={styles.kpiCard}>
+                            <View style={styles.kpiHeaderRow}>
+                                <View style={[styles.kpiIconCircle, { backgroundColor: '#F5F5F7' }]}>
+                                    <Lock size={18} color="#1A1A1A" />
+                                </View>
+                            </View>
+                            <Text style={styles.kpiLabel}>Access Security</Text>
+                            <Text style={[styles.kpiValue, { color: '#1A1A1A' }]} numberOfLines={1}>
+                                Protected
+                            </Text>
+                        </View>
+                    </FadeInDown>
+
+                    {/* 3. Role Filter Chips */}
+                    <View style={styles.filterScrollWrapper}>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.filterScroll}
+                        >
+                            {ROLE_FILTERS.map((r) => {
+                                const active = selectedRoleFilter === r;
+                                return (
+                                    <TouchableOpacity
+                                        key={r}
+                                        style={[styles.filterChip, active && styles.filterChipActive]}
+                                        onPress={() => setSelectedRoleFilter(r)}
+                                        activeOpacity={0.75}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.filterChipText,
+                                                active && styles.filterChipTextActive,
+                                            ]}
+                                        >
+                                            {r}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+
+                    {/* 4. Search Bar */}
+                    <View style={styles.searchBar}>
+                        <Search size={17} color="#8A8A8A" />
+                        <TextInput
+                            placeholder="Search team member by name, phone or role..."
+                            placeholderTextColor="#A0A0A0"
+                            style={styles.searchInput}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                <X size={16} color="#8A8A8A" />
                             </TouchableOpacity>
                         )}
                     </View>
-                </FadeInDown>
 
-                {/* 2. KPI Metrics Grid */}
-                <FadeInDown delay={50} style={styles.kpiGrid}>
-                    {/* Total Users */}
-                    <View style={styles.kpiCard}>
-                        <View style={styles.kpiHeaderRow}>
-                            <View style={[styles.kpiIconCircle, { backgroundColor: '#FBE8F0' }]}>
-                                <Users size={18} color="#F06A8C" />
-                            </View>
-                            <View style={styles.trendBadge}>
-                                <Text style={styles.trendBadgeText}>{metrics.active} Active</Text>
+                    {/* 5. Users List */}
+                    <FadeInDown delay={80} style={styles.usersListSection}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Team Accounts</Text>
+                            <View style={styles.countBadge}>
+                                <Text style={styles.countBadgeText}>{filteredUsers.length}</Text>
                             </View>
                         </View>
-                        <Text style={styles.kpiLabel}>Total Accounts</Text>
-                        <Text style={styles.kpiValue} numberOfLines={1}>{metrics.total} Members</Text>
-                    </View>
 
-                    {/* Administrators & Managers */}
-                    <View style={styles.kpiCard}>
-                        <View style={styles.kpiHeaderRow}>
-                            <View style={[styles.kpiIconCircle, { backgroundColor: '#F5F5F7' }]}>
-                                <Shield size={18} color="#1A1A1A" />
+                        {loading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color="#F06A8C" />
+                                <Text style={styles.loadingText}>Loading staff directory...</Text>
                             </View>
-                        </View>
-                        <Text style={styles.kpiLabel}>Leadership / Admin</Text>
-                        <Text style={[styles.kpiValue, { color: '#1A1A1A' }]} numberOfLines={1}>
-                            {metrics.managers} Admins
-                        </Text>
-                    </View>
-
-                    {/* Field Sales & Warehouse */}
-                    <View style={styles.kpiCard}>
-                        <View style={styles.kpiHeaderRow}>
-                            <View style={[styles.kpiIconCircle, { backgroundColor: '#F5F5F7' }]}>
-                                <UserCheck size={18} color="#1A1A1A" />
+                        ) : filteredUsers.length === 0 ? (
+                            <View style={styles.emptyContainer}>
+                                <Users size={40} color="#D0D0D0" />
+                                <Text style={styles.emptyTitle}>No Members Found</Text>
+                                <Text style={styles.emptySubtitle}>
+                                    {searchQuery
+                                        ? 'No user matches your search query.'
+                                        : 'No users currently assigned to this role filter.'}
+                                </Text>
                             </View>
-                        </View>
-                        <Text style={styles.kpiLabel}>Field & Operations</Text>
-                        <Text style={[styles.kpiValue, { color: '#1A1A1A' }]} numberOfLines={1}>
-                            {metrics.sales} Staff
-                        </Text>
-                    </View>
+                        ) : (
+                            <StaggerContainer stagger={25} delay={100}>
+                                <View style={styles.userListWrapper}>
+                                    {filteredUsers.map((u) => {
+                                        const roleMeta = ROLES.find((r) => r.id === u.role) || {
+                                            id: u.role,
+                                            label: u.role || 'ERP User',
+                                            color: '#1A1A1A',
+                                            bg: '#F5F5F7',
+                                        };
+                                        const isSelf = u.id === currentUserId;
+                                        const isActive = u.active !== false;
 
-                    {/* Security Status */}
-                    <View style={styles.kpiCard}>
-                        <View style={styles.kpiHeaderRow}>
-                            <View style={[styles.kpiIconCircle, { backgroundColor: '#F5F5F7' }]}>
-                                <Lock size={18} color="#1A1A1A" />
-                            </View>
-                        </View>
-                        <Text style={styles.kpiLabel}>Access Security</Text>
-                        <Text style={[styles.kpiValue, { color: '#1A1A1A' }]} numberOfLines={1}>Protected</Text>
-                    </View>
-                </FadeInDown>
-
-                {/* 3. Role Filter Chips */}
-                <View style={styles.filterScrollWrapper}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.filterScroll}
-                    >
-                        {ROLE_FILTERS.map((r) => {
-                            const active = selectedRoleFilter === r;
-                            return (
-                                <TouchableOpacity
-                                    key={r}
-                                    style={[styles.filterChip, active && styles.filterChipActive]}
-                                    onPress={() => setSelectedRoleFilter(r)}
-                                    activeOpacity={0.75}
-                                >
-                                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                                        {r}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </ScrollView>
-                </View>
-
-                {/* 4. Search Bar */}
-                <View style={styles.searchBar}>
-                    <Search size={17} color="#8A8A8A" />
-                    <TextInput
-                        placeholder="Search team member by name, phone or role..."
-                        placeholderTextColor="#A0A0A0"
-                        style={styles.searchInput}
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                    />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity onPress={() => setSearchQuery('')}>
-                            <X size={16} color="#8A8A8A" />
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* 5. Users List */}
-                <FadeInDown delay={80} style={styles.usersListSection}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Team Accounts</Text>
-                        <View style={styles.countBadge}>
-                            <Text style={styles.countBadgeText}>{filteredUsers.length}</Text>
-                        </View>
-                    </View>
-
-                    {loading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#F06A8C" />
-                            <Text style={styles.loadingText}>Loading staff directory...</Text>
-                        </View>
-                    ) : filteredUsers.length === 0 ? (
-                        <View style={styles.emptyContainer}>
-                            <Users size={40} color="#D0D0D0" />
-                            <Text style={styles.emptyTitle}>No Members Found</Text>
-                            <Text style={styles.emptySubtitle}>
-                                {searchQuery ? 'No user matches your search query.' : 'No users currently assigned to this role filter.'}
-                            </Text>
-                        </View>
-                    ) : (
-                        <StaggerContainer stagger={25} delay={100}>
-                            <View style={styles.userListWrapper}>
-                                {filteredUsers.map((u) => {
-                                    const roleMeta = ROLES.find(r => r.id === u.role) || {
-                                        id: u.role,
-                                        label: u.role || 'ERP User',
-                                        color: '#1A1A1A',
-                                        bg: '#F5F5F7'
-                                    };
-                                    const isSelf = u.id === currentUserId;
-                                    const isActive = u.active !== false;
-
-                                    return (
-                                        <View key={u.id} style={styles.userCard}>
-                                            <View style={styles.userCardTop}>
-                                                <View style={styles.avatarBox}>
-                                                    <Text style={styles.avatarText}>
-                                                        {(u.name || 'U').trim().charAt(0).toUpperCase()}
-                                                    </Text>
-                                                </View>
-
-                                                <View style={styles.userMainInfo}>
-                                                    <View style={styles.userNameRow}>
-                                                        <Text style={styles.userName} numberOfLines={1}>{u.name}</Text>
-                                                        {isSelf && (
-                                                            <View style={styles.youBadge}>
-                                                                <Text style={styles.youBadgeText}>YOU</Text>
-                                                            </View>
-                                                        )}
+                                        return (
+                                            <View key={u.id} style={styles.userCard}>
+                                                <View style={styles.userCardTop}>
+                                                    <View style={styles.avatarBox}>
+                                                        <Text style={styles.avatarText}>
+                                                            {(u.name || 'U').trim().charAt(0).toUpperCase()}
+                                                        </Text>
                                                     </View>
 
-                                                    {u.phoneNumber ? (
-                                                        <TouchableOpacity
-                                                            style={styles.phoneChip}
-                                                            onPress={() => handleCallUser(u.phoneNumber)}
-                                                            activeOpacity={0.7}
-                                                        >
-                                                            <PhoneCall size={11} color="#555555" />
-                                                            <Text style={styles.phoneChipText}>{u.phoneNumber}</Text>
-                                                        </TouchableOpacity>
-                                                    ) : null}
+                                                    <View style={styles.userMainInfo}>
+                                                        <View style={styles.userNameRow}>
+                                                            <Text style={styles.userName} numberOfLines={1}>
+                                                                {u.name}
+                                                            </Text>
+                                                            {isSelf && (
+                                                                <View style={styles.youBadge}>
+                                                                    <Text style={styles.youBadgeText}>
+                                                                        YOU
+                                                                    </Text>
+                                                                </View>
+                                                            )}
+                                                        </View>
+
+                                                        {u.phoneNumber ? (
+                                                            <TouchableOpacity
+                                                                style={styles.phoneChip}
+                                                                onPress={() => handleCallUser(u.phoneNumber)}
+                                                                activeOpacity={0.7}
+                                                            >
+                                                                <PhoneCall size={11} color="#555555" />
+                                                                <Text style={styles.phoneChipText}>
+                                                                    {u.phoneNumber}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ) : null}
+                                                    </View>
+
+                                                    {/* Active Status Switch */}
+                                                    <View style={styles.switchWrapper}>
+                                                        <Switch
+                                                            value={isActive}
+                                                            onValueChange={() => handleToggleActive(u)}
+                                                            disabled={isSelf || updatingUserId === u.id}
+                                                            trackColor={{ false: '#E0E0E0', true: '#F5C6D8' }}
+                                                            thumbColor={isActive ? '#F06A8C' : '#FFFFFF'}
+                                                        />
+                                                    </View>
                                                 </View>
 
-                                                {/* Active Status Switch */}
-                                                <View style={styles.switchWrapper}>
-                                                    <Switch
-                                                        value={isActive}
-                                                        onValueChange={() => handleToggleActive(u)}
-                                                        disabled={isSelf || updatingUserId === u.id}
-                                                        trackColor={{ false: '#E0E0E0', true: '#F5C6D8' }}
-                                                        thumbColor={isActive ? '#F06A8C' : '#FFFFFF'}
-                                                    />
-                                                </View>
+                                                {/* Unified Role Dropdown Bar (Consistent across all cards) */}
+                                                <TouchableOpacity
+                                                    style={styles.roleBar}
+                                                    onPress={() => openRoleModal(u)}
+                                                    activeOpacity={0.75}
+                                                >
+                                                    <View style={styles.roleBarLeft}>
+                                                        <Shield size={13} color="#1A1A1A" />
+                                                        <Text style={styles.roleBarLabel}>Role:</Text>
+                                                        <Text style={styles.roleBarValue} numberOfLines={1}>
+                                                            {roleMeta.label}
+                                                        </Text>
+                                                    </View>
+                                                    <ChevronDown size={14} color="#8A8A8A" />
+                                                </TouchableOpacity>
                                             </View>
-
-                                            {/* Unified Role Dropdown Bar (Consistent across all cards) */}
-                                            <TouchableOpacity
-                                                style={styles.roleBar}
-                                                onPress={() => openRoleModal(u)}
-                                                activeOpacity={0.75}
-                                            >
-                                                <View style={styles.roleBarLeft}>
-                                                    <Shield size={13} color="#1A1A1A" />
-                                                    <Text style={styles.roleBarLabel}>Role:</Text>
-                                                    <Text style={styles.roleBarValue} numberOfLines={1}>{roleMeta.label}</Text>
-                                                </View>
-                                                <ChevronDown size={14} color="#8A8A8A" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    );
-                                })}
-                            </View>
-                        </StaggerContainer>
-                    )}
-                </FadeInDown>
-            </ScrollView>
+                                        );
+                                    })}
+                                </View>
+                            </StaggerContainer>
+                        )}
+                    </FadeInDown>
+                </ScrollView>
             )}
 
             {/* 6. ROLE PICKER MODAL */}
@@ -519,7 +606,7 @@ export default function UsersScreen() {
                                         key={r.id}
                                         style={[
                                             styles.roleOptionCard,
-                                            isCurrent && styles.roleOptionCardSelected
+                                            isCurrent && styles.roleOptionCardSelected,
                                         ]}
                                         onPress={() => handleApplyRole(r.id)}
                                         activeOpacity={0.8}
@@ -529,7 +616,9 @@ export default function UsersScreen() {
                                         </View>
 
                                         <View style={{ flex: 1 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <View
+                                                style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                                            >
                                                 <Text style={styles.roleOptionTitle}>{r.label}</Text>
                                                 {isCurrent && (
                                                     <View style={styles.currentBadge}>
@@ -540,9 +629,7 @@ export default function UsersScreen() {
                                             <Text style={styles.roleOptionDesc}>{r.desc}</Text>
                                         </View>
 
-                                        {isCurrent && (
-                                            <CheckCircle2 size={20} color="#1A1A1A" />
-                                        )}
+                                        {isCurrent && <CheckCircle2 size={20} color="#1A1A1A" />}
                                     </TouchableOpacity>
                                 );
                             })}
@@ -560,13 +647,11 @@ export default function UsersScreen() {
                 <View style={styles.modalBackdrop}>
                     <View style={styles.modalCard}>
                         <View style={styles.modalGrabHandle} />
-                        
+
                         <View style={styles.modalHeader}>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.modalTitle}>Invite Team Member</Text>
-                                <Text style={styles.modalSubtitle}>
-                                    Send an invitation link via WhatsApp
-                                </Text>
+                                <Text style={styles.modalSubtitle}>Send an invitation link via WhatsApp</Text>
                             </View>
                             <TouchableOpacity
                                 style={styles.modalCloseBtn}
@@ -586,35 +671,39 @@ export default function UsersScreen() {
                                 onChangeText={setInvitePhone}
                                 keyboardType="phone-pad"
                             />
-                            
+
                             <Text style={styles.inputLabel}>SELECT ROLE</Text>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
                                 contentContainerStyle={{ gap: 10, marginBottom: 24, paddingBottom: 10 }}
                             >
-                                {ROLES.filter(r => r.id !== 'ADMIN').map((r) => {
+                                {ROLES.filter((r) => r.id !== 'ADMIN').map((r) => {
                                     const isSelected = inviteRole === r.id;
                                     return (
                                         <TouchableOpacity
                                             key={r.id}
                                             style={[
                                                 styles.inviteRoleChip,
-                                                isSelected && styles.inviteRoleChipSelected
+                                                isSelected && styles.inviteRoleChipSelected,
                                             ]}
                                             onPress={() => setInviteRole(r.id)}
                                         >
                                             <Shield size={14} color={isSelected ? '#fff' : r.color} />
-                                            <Text style={[
-                                                styles.inviteRoleChipText,
-                                                isSelected && styles.inviteRoleChipTextSelected
-                                            ]}>{r.label}</Text>
+                                            <Text
+                                                style={[
+                                                    styles.inviteRoleChipText,
+                                                    isSelected && styles.inviteRoleChipTextSelected,
+                                                ]}
+                                            >
+                                                {r.label}
+                                            </Text>
                                         </TouchableOpacity>
                                     );
                                 })}
                             </ScrollView>
 
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.inviteSubmitBtn}
                                 onPress={handleSendInvite}
                                 disabled={inviting}
@@ -1146,5 +1235,5 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 15,
         fontWeight: '700',
-    }
+    },
 });

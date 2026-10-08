@@ -32,16 +32,13 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({
     hsnCode,
     image,
     onPress,
-    onAdjustPress
+    onAdjustPress,
 }) => {
     const isLowStock = stock <= minimumStock;
     const itemCode = hsnCode ? `HSN-${hsnCode}` : `RS-${id.padStart ? id.padStart(4, '0') : id}`;
 
     return (
-        <AnimatedPressable
-            style={styles.card}
-            onPress={onPress}
-        >
+        <AnimatedPressable style={styles.card} onPress={onPress}>
             <View style={styles.cardInner}>
                 {/* 1. Leading Product Thumbnail */}
                 <View style={styles.imageBox}>
@@ -91,8 +88,15 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({
 
                 {/* 3. Trailing Column: Status Badge & Adjust Button (Identical Size & Alignment) */}
                 <View style={styles.trailingCol}>
-                    <View style={[styles.actionPill, isLowStock ? styles.badgeLowStock : styles.badgeInStock]}>
-                        <Text style={[styles.actionPillText, isLowStock ? styles.textLowStock : styles.textInStock]}>
+                    <View
+                        style={[styles.actionPill, isLowStock ? styles.badgeLowStock : styles.badgeInStock]}
+                    >
+                        <Text
+                            style={[
+                                styles.actionPillText,
+                                isLowStock ? styles.textLowStock : styles.textInStock,
+                            ]}
+                        >
                             {isLowStock ? 'Low Stock' : 'In Stock'}
                         </Text>
                     </View>

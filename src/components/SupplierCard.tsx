@@ -18,7 +18,7 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
     category,
     totalOrders,
     status,
-    onEditPress
+    onEditPress,
 }) => {
     return (
         <View style={styles.card}>
@@ -28,7 +28,9 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
                 </View>
                 <View style={styles.details}>
                     <Text style={styles.name}>{name}</Text>
-                    <Text style={styles.subtext}>★ {rating} · {category}</Text>
+                    <Text style={styles.subtext}>
+                        ★ {rating} · {category}
+                    </Text>
                 </View>
                 {/* Placeholder for truck illustration */}
                 {onEditPress ? (
@@ -47,7 +49,12 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
                 </View>
                 <View style={styles.stat}>
                     <Text style={styles.label}>STATUS</Text>
-                    <Text style={[styles.value, { color: status === 'Active' ? Colors.primary : Colors.textSecondary }]}>
+                    <Text
+                        style={[
+                            styles.value,
+                            { color: status === 'Active' ? Colors.primary : Colors.textSecondary },
+                        ]}
+                    >
                         {status}
                     </Text>
                 </View>
@@ -66,7 +73,7 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         padding: 20,
         marginBottom: 16,
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -146,5 +153,5 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Urbanist_600SemiBold',
         color: Colors.textSecondary,
-    }
+    },
 });

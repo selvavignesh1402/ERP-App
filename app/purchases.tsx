@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, FlatList, TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    TextInput,
+    FlatList,
+    TouchableOpacity,
+    Modal,
+    Alert,
+    ActivityIndicator,
+    ScrollView,
+} from 'react-native';
 import { Stack } from 'expo-router';
 import { Colors } from '../src/theme/colors';
 import { Typography } from '../src/theme/typography';
@@ -7,7 +19,9 @@ import { Card } from '../src/components/Card';
 import { Button } from '../src/components/Button';
 import { Plus, Search, Calendar, ShoppingBag, X, ArrowRight, CheckCircle2, Truck } from 'lucide-react-native';
 import { RoleGate } from '../src/components/RoleGate';
-import api from '../src/services/api';
+import { OrgScopedScreen } from '../src/components/OrgScopedScreen';
+import { OrganizationApi } from '../src/services/api';
+import { purchaseReceiptRows } from '../src/services/purchaseQuantities';
 
 const STATUS_COLORS: Record<string, string> = {
     DRAFT: '#FFB74D',
@@ -32,6 +46,16 @@ const STATUS_ACTIONS: Record<string, { label: string; target: string } | null> =
 };
 
 export default function PurchasesScreen() {
+    return (
+        <RoleGate permission="purchase:view">
+            <OrgScopedScreen emptyMessage="Select a shop to manage purchases.">
+                {(api) => <PurchasesScreenContent api={api} />}
+            </OrgScopedScreen>
+        </RoleGate>
+    );
+}
+
+function PurchasesScreenContent({ api }: { api: OrganizationApi }) {
     const [purchases, setPurchases] = useState<any[]>([]);
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [products, setProducts] = useState<any[]>([]);
@@ -79,7 +103,7 @@ export default function PurchasesScreen() {
         try {
             const [suppliersRes, productsRes] = await Promise.all([
                 api.get('/suppliers'),
-                api.get('/products')
+                api.get('/products'),
             ]);
             setSuppliers(suppliersRes.data || []);
             setProducts(productsRes.data || []);
@@ -112,7 +136,7 @@ export default function PurchasesScreen() {
             return;
         }
 
-        const existingItemIndex = cartItems.findIndex(i => i.productId === selectedProductId);
+        const existingItemIndex = cartItems.findIndex((i) => i.productId === selectedProductId);
         if (existingItemIndex > -1) {
             const updated = [...cartItems];
             updated[existingItemIndex].quantity += qtyVal;
@@ -125,8 +149,8 @@ export default function PurchasesScreen() {
                     productId: selectedProductId,
                     productName: selectedProductName,
                     quantity: qtyVal,
-                    price: priceVal
-                }
+                    price: priceVal,
+                },
             ]);
         }
 
@@ -163,11 +187,11 @@ export default function PurchasesScreen() {
                 supplierId: selectedSupplierId,
                 invoiceNumber: invoiceNumber,
                 status: 'DRAFT',
-                items: cartItems.map(item => ({
+                items: cartItems.map((item) => ({
                     productId: item.productId,
                     quantity: item.quantity,
-                    price: item.price
-                }))
+                    price: item.price,
+                })),
             };
             await api.post('/purchases', payload);
             Alert.alert('Success', 'Purchase logged successfully');
@@ -187,14 +211,15 @@ export default function PurchasesScreen() {
     };
 
     const getCartTotal = () => {
-        return cartItems.reduce((acc, curr) => acc + (curr.quantity * curr.price), 0);
+        return cartItems.reduce((acc, curr) => acc + curr.quantity * curr.price, 0);
     };
 
     const getFilteredPurchases = () => {
         if (!searchQuery) return purchases;
-        return purchases.filter((item: any) =>
-            item.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.supplier?.supplierName?.toLowerCase().includes(searchQuery.toLowerCase())
+        return purchases.filter(
+            (item: any) =>
+                item.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                item.supplier?.supplierName?.toLowerCase().includes(searchQuery.toLowerCase()),
         );
     };
 
@@ -248,23 +273,14 @@ export default function PurchasesScreen() {
             const receipts = receivedRes.data || [];
             let receivedMap: Record<number, number> = {};
             for (const receipt of receipts) {
-                const itemsOfReceipt = await api.get(`/purchases/${purchase.id}/receipts/${receipt.id}/items`);
+                const itemsOfReceipt = await api.get(
+                    `/purchases/${purchase.id}/receipts/${receipt.id}/items`,
+                );
                 for (const it of itemsOfReceipt.data || []) {
                     receivedMap[it.product.id] = (receivedMap[it.product.id] || 0) + it.receivedQty;
                 }
             }
-            setReceiptItems(ordered.map((pi: any) => {
-                const remaining = Math.max(0, pi.quantity - (receivedMap[pi.product?.id] || 0));
-                return {
-                    productId: pi.product?.id,
-                    productName: pi.product?.productName,
-                    orderedQty: pi.quantity,
-                    alreadyReceived: receivedMap[pi.product?.id] || 0,
-                    remaining: remaining,
-                    receivedQty: remaining > 0 ? String(remaining) : '0',
-                    unitPrice: pi.price,
-                };
-            }));
+            setReceiptItems(purchaseReceiptRows(ordered, receivedMap));
         } catch (error) {
             console.error('Error loading purchase items:', error);
             Alert.alert('Error', 'Failed to load purchase items');
@@ -272,23 +288,25 @@ export default function PurchasesScreen() {
     };
 
     const updateReceiptQty = (productId: number, value: string) => {
-        setReceiptItems(prev => prev.map(i => {
-            if (i.productId === productId) {
-                let qty = parseFloat(value) || 0;
-                if (qty > i.remaining) {
-                    Alert.alert('Over-receiving', `Only ${i.remaining} remaining to receive.`);
-                    qty = i.remaining;
+        setReceiptItems((prev) =>
+            prev.map((i) => {
+                if (i.productId === productId) {
+                    let qty = parseFloat(value) || 0;
+                    if (qty > i.remaining) {
+                        Alert.alert('Over-receiving', `Only ${i.remaining} remaining to receive.`);
+                        qty = i.remaining;
+                    }
+                    return { ...i, receivedQty: qty > 0 ? String(qty) : '0' };
                 }
-                return { ...i, receivedQty: qty > 0 ? String(qty) : '0' };
-            }
-            return i;
-        }));
+                return i;
+            }),
+        );
     };
 
     const handleSaveReceipt = async () => {
         const payloadItems = receiptItems
-            .filter(i => parseFloat(i.receivedQty) > 0)
-            .map(i => ({
+            .filter((i) => parseFloat(i.receivedQty) > 0)
+            .map((i) => ({
                 productId: i.productId,
                 receivedQty: parseFloat(i.receivedQty),
                 unitPrice: i.unitPrice,
@@ -316,7 +334,6 @@ export default function PurchasesScreen() {
     };
 
     return (
-        <RoleGate permission="purchase:view">
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
@@ -366,11 +383,26 @@ export default function PurchasesScreen() {
                                     <View style={styles.dateLabel}>
                                         <Calendar size={14} color={Colors.textSecondary} />
                                         <Text style={styles.dateText}>
-                                            {item.purchaseDate ? new Date(item.purchaseDate).toLocaleDateString() : 'N/A'}
+                                            {item.purchaseDate
+                                                ? new Date(item.purchaseDate).toLocaleDateString()
+                                                : 'N/A'}
                                         </Text>
                                     </View>
-                                    <View style={[styles.statusTag, { backgroundColor: (STATUS_COLORS[item.status] || '#E0E0E0') + '22' }]}>
-                                        <Text style={[styles.statusText, { color: STATUS_COLORS[item.status] || Colors.textSecondary }]}>
+                                    <View
+                                        style={[
+                                            styles.statusTag,
+                                            {
+                                                backgroundColor:
+                                                    (STATUS_COLORS[item.status] || '#E0E0E0') + '22',
+                                            },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.statusText,
+                                                { color: STATUS_COLORS[item.status] || Colors.textSecondary },
+                                            ]}
+                                        >
                                             {item.status?.replace(/_/g, ' ')}
                                         </Text>
                                     </View>
@@ -379,16 +411,22 @@ export default function PurchasesScreen() {
                                     <View style={styles.cardActions}>
                                         <TouchableOpacity
                                             style={styles.actionBtn}
-                                            onPress={() => handleStatusAction(item, STATUS_ACTIONS[item.status]!.target)}
+                                            onPress={() =>
+                                                handleStatusAction(item, STATUS_ACTIONS[item.status]!.target)
+                                            }
                                         >
                                             {STATUS_ACTIONS[item.status]!.target === 'receive' ? (
                                                 <Truck size={14} color="#fff" />
                                             ) : (
                                                 <ArrowRight size={14} color="#fff" />
                                             )}
-                                            <Text style={styles.actionBtnText}>{STATUS_ACTIONS[item.status]!.label}</Text>
+                                            <Text style={styles.actionBtnText}>
+                                                {STATUS_ACTIONS[item.status]!.label}
+                                            </Text>
                                         </TouchableOpacity>
-                                        {item.status !== 'CANCELLED' && item.status !== 'COMPLETED' && (
+                                        {['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ORDERED'].includes(
+                                            item.status,
+                                        ) && (
                                             <TouchableOpacity
                                                 style={styles.cancelActionBtn}
                                                 onPress={() => handleCancelPurchase(item)}
@@ -407,12 +445,20 @@ export default function PurchasesScreen() {
             </View>
 
             {modalVisible && (
-                <Modal animationType="slide" transparent={true} visible={modalVisible}>
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={modalVisible}
+                    onRequestClose={() => setModalVisible(false)}
+                >
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
                                 <Text style={styles.modalTitle}>New Purchase Invoice</Text>
-                                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                                <TouchableOpacity
+                                    onPress={() => setModalVisible(false)}
+                                    style={styles.closeBtn}
+                                >
                                     <Text style={styles.closeText}>×</Text>
                                 </TouchableOpacity>
                             </View>
@@ -435,13 +481,19 @@ export default function PurchasesScreen() {
                                         style={[styles.input, styles.dropdownTrigger]}
                                         onPress={() => setSupplierDropdownVisible(!supplierDropdownVisible)}
                                     >
-                                        <Text style={{ color: selectedSupplierId ? Colors.text : Colors.textSecondary }}>
+                                        <Text
+                                            style={{
+                                                color: selectedSupplierId
+                                                    ? Colors.text
+                                                    : Colors.textSecondary,
+                                            }}
+                                        >
                                             {selectedSupplierName || 'Select a supplier'}
                                         </Text>
                                     </TouchableOpacity>
                                     {supplierDropdownVisible && (
                                         <View style={styles.dropdownMenu}>
-                                            {suppliers.map(s => (
+                                            {suppliers.map((s) => (
                                                 <TouchableOpacity
                                                     key={s.id}
                                                     style={styles.dropdownOption}
@@ -455,7 +507,9 @@ export default function PurchasesScreen() {
                                                 </TouchableOpacity>
                                             ))}
                                             {suppliers.length === 0 && (
-                                                <Text style={styles.noOptionText}>No suppliers found. Please add suppliers first.</Text>
+                                                <Text style={styles.noOptionText}>
+                                                    No suppliers found. Please add suppliers first.
+                                                </Text>
                                             )}
                                         </View>
                                     )}
@@ -474,28 +528,38 @@ export default function PurchasesScreen() {
                                         style={[styles.input, styles.dropdownTrigger, { marginBottom: 8 }]}
                                         onPress={() => setProductDropdownVisible(!productDropdownVisible)}
                                     >
-                                        <Text style={{ color: selectedProductId ? Colors.text : Colors.textSecondary }}>
+                                        <Text
+                                            style={{
+                                                color: selectedProductId ? Colors.text : Colors.textSecondary,
+                                            }}
+                                        >
                                             {selectedProductName || 'Select product'}
                                         </Text>
                                     </TouchableOpacity>
 
                                     {productDropdownVisible && (
                                         <View style={styles.dropdownMenu}>
-                                            {products.map(p => (
+                                            {products.map((p) => (
                                                 <TouchableOpacity
                                                     key={p.id}
                                                     style={styles.dropdownOption}
                                                     onPress={() => {
                                                         setSelectedProductId(p.id);
-                                                        setSelectedProductName(`${p.brand ? p.brand + ' ' : ''}${p.productName}`);
+                                                        setSelectedProductName(
+                                                            `${p.brand ? p.brand + ' ' : ''}${p.productName}`,
+                                                        );
                                                         setProductDropdownVisible(false);
                                                     }}
                                                 >
-                                                    <Text style={styles.optionText}>{p.productName} ({p.brand})</Text>
+                                                    <Text style={styles.optionText}>
+                                                        {p.productName} ({p.brand})
+                                                    </Text>
                                                 </TouchableOpacity>
                                             ))}
                                             {products.length === 0 && (
-                                                <Text style={styles.noOptionText}>No products found. Please add inventory/stock first.</Text>
+                                                <Text style={styles.noOptionText}>
+                                                    No products found. Please add inventory/stock first.
+                                                </Text>
                                             )}
                                         </View>
                                     )}
@@ -515,7 +579,10 @@ export default function PurchasesScreen() {
                                             value={itemPrice}
                                             onChangeText={setItemPrice}
                                         />
-                                        <TouchableOpacity style={styles.innerAddBtn} onPress={handleAddToCart}>
+                                        <TouchableOpacity
+                                            style={styles.innerAddBtn}
+                                            onPress={handleAddToCart}
+                                        >
                                             <Text style={styles.innerAddBtnText}>Add</Text>
                                         </TouchableOpacity>
                                     </View>
@@ -526,10 +593,15 @@ export default function PurchasesScreen() {
                                     <View key={idx} style={styles.cartItemRow}>
                                         <View style={{ flex: 1 }}>
                                             <Text style={styles.cartProdName}>{item.productName}</Text>
-                                            <Text style={styles.cartProdMeta}>{item.quantity} bags • ₹{item.price}/bag</Text>
+                                            <Text style={styles.cartProdMeta}>
+                                                {item.quantity} bags • ₹{item.price}/bag
+                                            </Text>
                                         </View>
                                         <Text style={styles.cartSubtotal}>₹{item.quantity * item.price}</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveFromCart(idx)} style={styles.cartDelete}>
+                                        <TouchableOpacity
+                                            onPress={() => handleRemoveFromCart(idx)}
+                                            style={styles.cartDelete}
+                                        >
                                             <X size={16} color={Colors.error} />
                                         </TouchableOpacity>
                                     </View>
@@ -544,7 +616,10 @@ export default function PurchasesScreen() {
                             </ScrollView>
 
                             <View style={styles.modalActions}>
-                                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelBtn}>
+                                <TouchableOpacity
+                                    onPress={() => setModalVisible(false)}
+                                    style={styles.cancelBtn}
+                                >
                                     <Text style={styles.cancelText}>Cancel</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={handleSavePurchase} style={styles.saveBtn}>
@@ -557,17 +632,26 @@ export default function PurchasesScreen() {
             )}
 
             {receivingVisible && (
-                <Modal animationType="slide" transparent={true} visible={receivingVisible}>
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={receivingVisible}
+                    onRequestClose={() => setReceivingVisible(false)}
+                >
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
                                 <Text style={styles.modalTitle}>Receive Goods</Text>
-                                <TouchableOpacity onPress={() => setReceivingVisible(false)} style={styles.closeBtn}>
+                                <TouchableOpacity
+                                    onPress={() => setReceivingVisible(false)}
+                                    style={styles.closeBtn}
+                                >
                                     <Text style={styles.closeText}>×</Text>
                                 </TouchableOpacity>
                             </View>
                             <Text style={styles.receiptMeta}>
-                                {receivingPurchase?.invoiceNumber} • {receivingPurchase?.supplier?.supplierName}
+                                {receivingPurchase?.invoiceNumber} •{' '}
+                                {receivingPurchase?.supplier?.supplierName}
                             </Text>
 
                             <ScrollView style={{ maxHeight: 380, marginVertical: 12 }}>
@@ -586,7 +670,8 @@ export default function PurchasesScreen() {
                                         <View style={{ flex: 1 }}>
                                             <Text style={styles.cartProdName}>{item.productName}</Text>
                                             <Text style={styles.cartProdMeta}>
-                                                Ordered {item.orderedQty} • Already received {item.alreadyReceived}
+                                                Ordered {item.orderedQty} • Already received{' '}
+                                                {item.alreadyReceived}
                                             </Text>
                                         </View>
                                         <TextInput
@@ -601,7 +686,10 @@ export default function PurchasesScreen() {
                             </ScrollView>
 
                             <View style={styles.modalActions}>
-                                <TouchableOpacity onPress={() => setReceivingVisible(false)} style={styles.cancelBtn}>
+                                <TouchableOpacity
+                                    onPress={() => setReceivingVisible(false)}
+                                    style={styles.cancelBtn}
+                                >
                                     <Text style={styles.cancelText}>Cancel</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
@@ -621,7 +709,6 @@ export default function PurchasesScreen() {
                 </Modal>
             )}
         </SafeAreaView>
-        </RoleGate>
     );
 }
 
@@ -822,7 +909,7 @@ const styles = StyleSheet.create({
         maxWidth: 540,
         padding: 24,
         borderRadius: 24,
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.25,
         shadowRadius: 10,

@@ -28,7 +28,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     iconBgColor = Colors.accent,
     onPress,
     animateEntrance = false,
-    delay = 0
+    delay = 0,
 }) => {
     const { pressHandlers, animatedStyle } = useAnimePress(0.97);
 
@@ -39,8 +39,18 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                     <Icon size={20} color={iconColor} />
                 </View>
                 {trend && (
-                    <View style={[styles.trendBadge, { backgroundColor: trend.positive ? Colors.accent : '#FCE8E8' }]}>
-                        <Text style={[styles.trendText, { color: trend.positive ? Colors.success : Colors.danger }]}>
+                    <View
+                        style={[
+                            styles.trendBadge,
+                            { backgroundColor: trend.positive ? Colors.accent : '#FCE8E8' },
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.trendText,
+                                { color: trend.positive ? Colors.success : Colors.danger },
+                            ]}
+                        >
                             {trend.value}
                         </Text>
                     </View>
@@ -55,9 +65,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
     const content = onPress ? (
         <Pressable onPress={onPress} {...pressHandlers}>
-            <Animated.View style={animatedStyle}>
-                {renderCardBody()}
-            </Animated.View>
+            <Animated.View style={animatedStyle}>{renderCardBody()}</Animated.View>
         </Pressable>
     ) : (
         renderCardBody()
@@ -71,11 +79,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         );
     }
 
-    return (
-        <View style={styles.wrapper}>
-            {content}
-        </View>
-    );
+    return <View style={styles.wrapper}>{content}</View>;
 };
 
 const styles = StyleSheet.create({
@@ -88,7 +92,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 16,
         // Shadow for iOS
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: {
             width: 0,
             height: 2,
