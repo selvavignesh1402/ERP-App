@@ -9,7 +9,7 @@ permissions:
   security-events: write
 jobs:
   scan:
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.6.0
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.7.0
     with:
       # Keep results in the workflow artifacts without requiring a paid code-scanning feature.
       upload-sarif: false
